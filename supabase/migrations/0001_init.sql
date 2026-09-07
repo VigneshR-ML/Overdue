@@ -206,8 +206,9 @@ create policy "messages_select_own" on public.messages
 create policy "messages_all_own" on public.messages
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-create policy "webhooks_select_own" on public.webhook_events
-  for select using (auth.uid() = user_id);
+-- No policies on webhook_events: it is an internal idempotency ledger. With
+-- RLS enabled and no policies, only service_role (which bypasses RLS) can read
+-- or write it — exactly what we want. The table has no user_id column.
 
 -- ---------------------------------------------------------------------------
 -- Triggers

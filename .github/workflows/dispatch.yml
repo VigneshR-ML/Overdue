@@ -1,0 +1,19 @@
+name: Dispatch overdue runs
+
+on:
+  schedule:
+    # Hourly dispatch on top of the daily Vercel cron safety net.
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Overdue dispatch endpoint
+        run: |
+          curl -fsS -o /dev/null -w "dispatch HTTP %{http_code}\n" \
+            -X POST "${{ secrets.DISPATCH_URL }}/api/cron/dispatch" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --max-time 120

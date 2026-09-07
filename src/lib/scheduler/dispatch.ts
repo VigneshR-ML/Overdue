@@ -38,14 +38,28 @@ export async function runDispatcher() {
   // Atomically claim due runs: flip queued -> processing (excluded from the
   // claim query) so an overlapping cron can't double-send, without permanently
   // burning them as 'sent' before the send actually succeeds.
+  //
+  // PostgREST on Supabase can't ORDER an UPDATE, so we two-step it: pick the
+  // due ids with a SELECT, then claim only the ones still 'queued'.
   const now = new Date().toISOString()
-  const { data: claimed, error: claimErr } = await supabase
+  const { data: dueIds, error: selErr } = await supabase
     .from("runs")
-    .update({ status: "processing", updated_at: now })
+    .select("id")
     .eq("status", "queued")
     .lte("next_run_at", before)
     .order("next_run_at", { ascending: true })
     .limit(batchSize)
+
+  if (selErr) return { ok: false, error: selErr.message, dispatched: 0 }
+
+  const ids = (dueIds ?? []).map((r) => r.id as string)
+  if (ids.length === 0) return { ok: true, dispatched: 0 }
+
+  const { data: claimed, error: claimErr } = await supabase
+    .from("runs")
+    .update({ status: "processing", updated_at: now })
+    .in("id", ids)
+    .eq("status", "queued")
     .select("id")
 
   if (claimErr) return { ok: false, error: claimErr.message, dispatched: 0 }
