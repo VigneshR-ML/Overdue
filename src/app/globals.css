@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #f6f4ee;
+  --surface: #ffffff;
+  --ink: #1d1b17;
+  --ink-soft: #47423a;
+  --muted: #6e685d;
+  --faint: #a7a091;
+  --hairline: #e7e3d8;
+  --moss: #2f5d50;
+  --moss-bright: #3c7a68;
+  --moss-soft: #e4eee8;
+  --brass: #c29a43;
+  --ember: #d9792b;
+  --rust: #c14e2b;
+  --crimson: #9e2a23;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-paper text-ink font-sans antialiased;
+  font-feature-settings: "ss01" on, "ss02" on;
+}
+
+::selection {
+  background: var(--moss);
+  color: var(--surface);
+}
+
+/* Paper grain — very subtle receipt texture */
+.paper-grain {
+  position: relative;
+}
+.paper-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
+
+/* Ledger money numbers */
+.money {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* Hairlines */
+.rule {
+  @apply border-t border-hairline;
+}
+
+/* Focus ring, bank-ink */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skeleton shimmer, warm */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 0%,
+    #efece3 50%,
+    var(--surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Escalation temperature background tiles */
+.temp-gentle {
+  background-color: #fbf6ea;
+}
+.temp-nudge {
+  background-color: #fdf1e4;
+}
+.temp-firm {
+  background-color: #fbebe4;
+}
+.temp-final {
+  background-color: #f7e5e3;
+}
+
+@keyframes paid-flash {
+  0% {
+    background-color: var(--moss-soft);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.paid-flash {
+  animation: paid-flash 1.8s ease-out;
+}
+
+@keyframes count-up {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.count-up {
+  animation: count-up 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

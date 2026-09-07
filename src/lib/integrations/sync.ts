@@ -1,0 +1,149 @@
+import { createAdminClient } from "@/lib/supabase/admin"
+import { getCredentials, setCredentials, getOAuthConfig } from "./credentials"
+import { syncStripeInvoices } from "./stripe"
+import { syncPaypalInvoices } from "./paypal"
+import { syncXeroInvoices } from "./xero"
+import type { InboundInvoice, SyncResult } from "./provider"
+
+async function refreshXeroIfNeeded(userId: string) {
+  const creds = await getCredentials(userId, "xero")
+  if (!creds?.refresh_token) return
+  const expiresAt = Number(creds.expires_at ?? 0)
+  if (expiresAt > Date.now() + 5 * 60 * 1000) return
+
+  const cfg = getOAuthConfig("xero")
+  try {
+    const res = await fetch("https://identity.xero.com/connect/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        refresh_token: creds.refresh_token,
+      }),
+    })
+    const token = await res.json()
+    if (res.ok && token.access_token) {
+      await setCredentials(userId, "xero", {
+        ...creds,
+        access_token: token.access_token,
+        refresh_token: token.refresh_token ?? creds.refresh_token,
+        expires_at: String(Date.now() + (token.expires_in ?? 1800) * 1000),
+        tenant_id: creds.tenant_id ?? "",
+      })
+    }
+  } catch {
+    // leave as-is; the sync will surface an error
+  }
+}
+
+export async function syncUserProvider(userId: string, provider: "stripe" | "paypal" | "xero") {
+  const admin = createAdminClient()
+  if (!admin) return { ok: false, error: "supabase not configured" }
+
+  if (provider === "xero") await refreshXeroIfNeeded(userId)
+
+  const creds = await getCredentials(userId, provider)
+  if (!creds) return { ok: false, error: "provider not connected" }
+
+  let fetched: { invoices: InboundInvoice[]; errors: string[] }
+
+  if (provider === "stripe") {
+    fetched = await syncStripeInvoices(creds.access_token)
+  } else if (provider === "paypal") {
+    fetched = await syncPaypalInvoices(creds.client_id, creds.client_secret, creds.mode ?? "sandbox")
+  } else {
+    fetched = await syncXeroInvoices(creds.access_token, creds.tenant_id)
+  }
+
+  const result: SyncResult = { added: 0, updated: 0, errors: [...fetched.errors] }
+
+  // Upsert clients first so invoices can link.
+  const clientIds = new Map<string, string>()
+  for (const inv of fetched.invoices) {
+    if (!inv.client_name && !inv.client_email) continue
+    const key = (inv.client_email ?? inv.client_name ?? inv.provider_id).toLowerCase()
+    const clientKey = inv.client_email ? `email:${inv.client_email.toLowerCase()}` : `name:${inv.client_name!.toLowerCase()}`
+    if (clientIds.has(clientKey)) continue
+
+    const { data: existing } = await admin
+      .from("clients")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("billing_email", inv.client_email ?? "")
+      .maybeSingle()
+
+    let clientId = existing?.id as string | undefined
+    if (!clientId) {
+      const { data: created, error } = await admin
+        .from("clients")
+        .insert({
+          user_id: userId,
+          name: inv.client_name ?? inv.client_email ?? "Unknown client",
+          email: inv.client_email ?? null,
+          billing_email: inv.client_email ?? null,
+        })
+        .select("id")
+        .single()
+      if (!error && created) clientId = created.id as string
+    }
+    if (clientId) clientIds.set(clientKey, clientId)
+  }
+
+  // Upsert invoices with client linkage.
+  let added = 0
+  let updated = 0
+  for (const inv of fetched.invoices) {
+    const clientKey = inv.client_email ? `email:${inv.client_email.toLowerCase()}` : inv.client_name ? `name:${inv.client_name.toLowerCase()}` : null
+    const clientId = clientKey ? clientIds.get(clientKey) ?? null : null
+
+    // Check for an existing invoice to distinguish added vs updated.
+    const { data: exists } = await admin
+      .from("invoices")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", provider)
+      .eq("provider_id", inv.provider_id)
+      .maybeSingle()
+
+    const { error } = await admin.from("invoices").upsert(
+      {
+        user_id: userId,
+        client_id: clientId,
+        provider: inv.provider,
+        provider_id: inv.provider_id,
+        number: inv.number,
+        status: inv.status,
+        amount_cents: inv.amount_cents,
+        paid_cents: inv.paid_cents,
+        currency: inv.currency,
+        issue_date: inv.issue_date,
+        due_date: inv.due_date,
+        paid_at: inv.paid_at,
+        line_item_summary: inv.line_item_summary,
+      },
+      { onConflict: "user_id,provider,provider_id" },
+    )
+    if (!error) {
+      if (exists) updated++
+      else added++
+    } else {
+      result.errors.push(error.message)
+    }
+  }
+
+  // Update integration metadata.
+  await admin
+    .from("integrations")
+    .update({
+      status: result.errors.length ? "error" : "connected",
+      last_synced_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("provider", provider)
+
+  result.added = added
+  result.updated = updated
+  return { ok: true, result }
+}

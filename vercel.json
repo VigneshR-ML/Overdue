@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/dispatch",
+      "schedule": "0 * * * *",
+      "Authorization": "Bearer @CRON_SECRET"
+    }
+  ]
+}
