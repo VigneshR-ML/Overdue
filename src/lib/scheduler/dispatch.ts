@@ -6,10 +6,15 @@ import type { Sequence, SequenceStep, Invoice, Client, Run } from "@/types"
 const CUMULATIVE_DAYS = (steps: SequenceStep[], throughIndex: number) =>
   steps.reduce((sum, s, i) => (i <= throughIndex ? sum + s.delay_days : sum), 0) ?? 0
 
-function computeStartStep(steps: SequenceStep[], daysLate: number): number {
+export function computeStartStep(steps: SequenceStep[], daysLate: number): number {
   let step = 0
   while (step < steps.length && CUMULATIVE_DAYS(steps, step) < daysLate) step++
+  if (steps.length === 0) return 0
   return Math.min(step, steps.length - 1)
+}
+
+export function cumulativeDays(steps: SequenceStep[], throughIndex: number): number {
+  return CUMULATIVE_DAYS(steps, throughIndex)
 }
 
 type ParsedSequence = { id: string; name: string; is_active: boolean; steps: SequenceStep[] }

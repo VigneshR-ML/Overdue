@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { isDemoMode } from "@/lib/demo/fixtures"
 
 export type Plan = "free" | "pro"
 
@@ -7,11 +6,9 @@ export const FREE_CLIENT_LIMIT = 1
 export const FREE_SEQUENCE_LIMIT = 1
 
 /**
- * Resolves the user's effective plan. Demo mode is always Pro so every UI path
- * is explorable without a real subscription.
+ * Resolves the user's effective plan from their subscription row.
  */
 export async function getPlan(userId: string): Promise<Plan> {
-  if (isDemoMode()) return "pro"
   const supabase = createClient()
   const { data } = await supabase
     .from("subscriptions")

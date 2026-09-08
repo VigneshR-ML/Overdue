@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { isDemoMode } from "@/lib/demo/fixtures"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
 import { Wordmark } from "@/components/marketing/site"
@@ -18,10 +17,6 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (isDemoMode()) {
-      router.replace("/dashboard")
-      return
-    }
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) router.replace("/?signin=1")

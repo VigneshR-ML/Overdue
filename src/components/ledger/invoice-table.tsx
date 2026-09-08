@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { formatMoney, formatDate, cn } from "@/lib/utils/format"
-import { isDemoMode } from "@/lib/demo/fixtures"
 import type { Invoice, Client } from "@/types"
 import { PaidBadge, OverdueBadge, SentBadge } from "@/components/ui/badge"
 import { SegmentedControl } from "@/components/ui/select"
@@ -57,7 +56,6 @@ export function InvoiceTable({
   async function markPaid(e: React.MouseEvent, id: string) {
     e.preventDefault()
     e.stopPropagation()
-    if (isDemoMode()) return
     const supabase = createClient()
     await supabase.from("invoices").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", id)
     if (onRefresh) onRefresh()

@@ -1,22 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
 import type { AgingTotals, Invoice, Client, Sequence, Run, Subscription, SequenceStep } from "@/types"
-import {
-  isDemoMode,
-  DEMO_USER,
-  DEMO_INVOICES,
-  DEMO_CLIENTS,
-  DEMO_CLIENT_SCORES,
-  demoSequences,
-  demoTemplates,
-  demoProfile,
-  demoSubscription,
-} from "@/lib/demo/fixtures"
 
 function cents(v: unknown): number {
   return Math.round(Number(v ?? 0))
 }
 
-type AgingRow = {
+export type AgingRow = {
   amount_cents: unknown
   paid_cents: unknown
   due_date: string | null
@@ -24,7 +13,7 @@ type AgingRow = {
   status: string
 }
 
-function aggregateAging(invoices: AgingRow[]): AgingTotals {
+export function aggregateAging(invoices: AgingRow[]): AgingTotals {
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
@@ -69,11 +58,7 @@ function aggregateAging(invoices: AgingRow[]): AgingTotals {
   }
 }
 
-const demoClientIndex = (id: string) =>
-  (DEMO_CLIENTS as unknown as Client[]).find((c) => c.id === id) ?? (DEMO_CLIENTS as unknown as Client[])[0] ?? null
-
 export async function getAgingTotals(userId: string): Promise<AgingTotals> {
-  if (isDemoMode()) return aggregateAging(DEMO_INVOICES as unknown as AgingRow[])
   const supabase = createClient()
   const { data } = await supabase
     .from("invoices")
@@ -84,17 +69,6 @@ export async function getAgingTotals(userId: string): Promise<AgingTotals> {
 }
 
 export async function getUrgencyQueue(userId: string, limit = 25) {
-  if (isDemoMode()) {
-    return (DEMO_INVOICES as unknown as Invoice[])
-      .filter((inv) => inv.status !== "paid")
-      .slice(0, limit)
-      .map((invoice) => {
-        const due = invoice.due_date ? new Date(invoice.due_date + "T12:00:00").getTime() : 0
-        const overdueDays = invoice.due_date ? Math.max(0, Math.ceil((Date.now() - due) / 86400000)) : 0
-        return { invoice: { ...invoice, client: demoClientIndex(invoice.client_id ?? "") }, overdueDays }
-      })
-  }
-
   const supabase = createClient()
   const { data } = await supabase
     .from("invoices")
@@ -137,9 +111,6 @@ export async function getClientScore(clientId: string) {
 }
 
 export async function getSequencesWithRuns(userId: string) {
-  if (isDemoMode()) {
-    return demoSequences() as unknown as (Sequence & { runs: Run[] })[]
-  }
   const supabase = createClient()
   const { data } = await supabase
     .from("sequences")
@@ -153,7 +124,6 @@ export async function getSequencesWithRuns(userId: string) {
 }
 
 export async function getTemplates(): Promise<TemplateRow[]> {
-  if (isDemoMode()) return demoTemplates() as unknown as TemplateRow[]
   const supabase = createClient()
   const { data } = await supabase.from("sequences").select("*").eq("is_template", true).order("created_at")
   return (data as unknown as TemplateRow[]) ?? []
@@ -169,11 +139,6 @@ export type TemplateRow = {
 }
 
 export async function getInvoicesWithMeta(userId: string, includePaid = true) {
-  if (isDemoMode()) {
-    return (DEMO_INVOICES as unknown as Invoice[])
-      .filter((inv) => includePaid || inv.status !== "paid")
-      .map((inv) => ({ ...inv, client: demoClientIndex(inv.client_id ?? "") }))
-  }
   const supabase = createClient()
   let q = supabase
     .from("invoices")
@@ -185,9 +150,6 @@ export async function getInvoicesWithMeta(userId: string, includePaid = true) {
 }
 
 export async function computeClientPaymentScores(userId: string) {
-  if (isDemoMode()) {
-    return DEMO_CLIENT_SCORES as unknown as (Client & { score: number; avgDays: number | null })[]
-  }
   const supabase = createClient()
   const { data: clients } = await supabase.from("clients").select("*").eq("user_id", userId)
   const { data: invoices } = await supabase
@@ -219,7 +181,6 @@ export async function computeClientPaymentScores(userId: string) {
 }
 
 export async function getSubscriptionsForUser(userId: string) {
-  if (isDemoMode()) return demoSubscription() as unknown as Subscription
   const supabase = createClient()
   const { data } = await supabase
     .from("subscriptions")
@@ -230,7 +191,6 @@ export async function getSubscriptionsForUser(userId: string) {
 }
 
 export async function getProfile(userId: string) {
-  if (isDemoMode()) return demoProfile()
   const supabase = createClient()
   const { data } = await supabase.from("profiles").select("*").eq("id", userId).single()
   return (data ?? null) as { full_name: string | null; email: string | null; onboarding_completed: boolean | null } | null

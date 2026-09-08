@@ -2,8 +2,6 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Wordmark } from "@/components/marketing/site"
 import { AuthForm } from "@/components/auth/auth-form"
-import { isDemoMode } from "@/lib/demo/fixtures"
-import { DemoGate } from "@/components/auth/demo-gate"
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -24,7 +22,7 @@ export default function LoginPage() {
         </h1>
         <p className="mt-2 text-sm text-muted">Sign in to pick up where your invoices left off.</p>
         <div className="mt-8">
-          {isDemoMode() ? <DemoGate /> : <AuthForm mode="login" />}
+          <AuthForm mode="login" />
         </div>
         <div className="mt-6 text-center text-sm text-muted">
           New here?{" "}

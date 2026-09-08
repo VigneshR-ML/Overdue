@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
-import { isDemoMode, demoSequenceById } from "@/lib/demo/fixtures"
 import { SequenceEditor } from "@/components/ledger/sequence-editor"
 import { ArrowLeft } from "lucide-react"
 
@@ -13,7 +12,13 @@ export default async function SequenceDetailPage({ params }: { params: { id: str
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
 
-  let seq: {
+  const supabase = (await import("@/lib/supabase/server")).createClient()
+  const { data } = await supabase
+    .from("sequences")
+    .select("*")
+    .eq("id", params.id)
+    .single()
+  const seq = data as {
     id: string
     name: string
     description: string | null
@@ -22,20 +27,6 @@ export default async function SequenceDetailPage({ params }: { params: { id: str
     user_id: string
     steps: unknown
   } | null
-
-  if (isDemoMode()) {
-    const demo = demoSequenceById(params.id)
-    if (!demo) notFound()
-    seq = demo as typeof seq
-  } else {
-    const supabase = (await import("@/lib/supabase/server")).createClient()
-    const { data } = await supabase
-      .from("sequences")
-      .select("*")
-      .eq("id", params.id)
-      .single()
-    seq = data as typeof seq
-  }
 
   if (!seq || (seq.user_id !== session.id && !seq.is_template)) notFound()
 

@@ -66,7 +66,7 @@ export function MarketingFooter() {
             <ul className="mt-3 space-y-2 text-sm text-muted">
               <li><Link href="/#how" className="hover:text-ink">How it works</Link></li>
               <li><Link href="/#ladder" className="hover:text-ink">The ladder</Link></li>
-              <li><Link href="/#pricing" className="hover:text-ink">Pricing</Link></li>
+              <li><Link href="/pricing" className="hover:text-ink">Pricing</Link></li>
               <li><Link href="/login" className="hover:text-ink">Sign in</Link></li>
             </ul>
           </div>
@@ -84,7 +84,8 @@ export function MarketingFooter() {
             <ul className="mt-3 space-y-2 text-sm text-muted">
               <li><Link href="/privacy" className="hover:text-ink">Privacy</Link></li>
               <li><Link href="/terms" className="hover:text-ink">Terms</Link></li>
-              <li><a className="hover:text-ink" href="mailto:hello@overdue.app">hello@overdue.app</a></li>
+              <li><Link href="/refund" className="hover:text-ink">Refund policy</Link></li>
+              <li><a className="hover:text-ink" href="mailto:hello@getoverdue.online">hello@getoverdue.online</a></li>
             </ul>
           </div>
         </div>

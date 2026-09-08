@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { computeClientPaymentScores } from "@/lib/db/queries"
-import { Button } from "@/components/ui/button"
+import { AddClientButton } from "@/components/ledger/add-client"
 import { EmptyState } from "@/components/ui/empty-state"
 
 export const metadata = { title: "Clients" }
@@ -31,9 +31,7 @@ export default async function ClientsPage() {
           <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Who owes what</div>
           <h1 className="mt-1 font-display text-3xl tracking-tight text-ink">Clients</h1>
         </div>
-        <Button variant="outline" size="sm" disabled>
-          Add client
-        </Button>
+        <AddClientButton />
       </header>
 
       {clients.length ? (

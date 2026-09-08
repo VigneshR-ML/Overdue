@@ -34,7 +34,7 @@ const SECTIONS = [
   },
   {
     h: "Your rights",
-    b: "If you're in the EEA, UK or elsewhere with data-protection law, you may access, correct, export, restrict or delete your data, and object to processing, at any time from your dashboard or by emailing hello@overdue.app. We respond within 30 days. Reminder emails are processed on the basis of the contract you agree to when you send them.",
+    b: "If you're in the EEA, UK or elsewhere with data-protection law, you may access, correct, export, restrict or delete your data, and object to processing, at any time from your dashboard or by emailing hello@getoverdue.online. We respond within 30 days. Reminder emails are processed on the basis of the contract you agree to when you send them.",
   },
   {
     h: "Retention & deletion",

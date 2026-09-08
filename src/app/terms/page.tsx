@@ -38,7 +38,7 @@ const SECTIONS = [
   },
   {
     h: "8. Contact",
-    b: "Questions about these terms: hello@overdue.app. This service is operated from India with customers worldwide; e-commerce is facilitated by Paddle as merchant of record.",
+    b: "Questions about these terms: hello@getoverdue.online. This service is operated from India with customers worldwide; e-commerce is facilitated by Paddle as merchant of record.",
   },
 ]
 

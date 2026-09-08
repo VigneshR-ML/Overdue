@@ -23,15 +23,11 @@ const NAV = [
   { href: "/insights", label: "Insights", icon: ChartNoAxesCombined },
 ]
 
-export function AppSidebar({ email, plan, demo = false }: { email: string; plan: string; demo?: boolean }) {
+export function AppSidebar({ email, plan }: { email: string; plan: string }) {
   const pathname = usePathname()
   const router = useRouter()
 
   async function signOut() {
-    if (demo) {
-      router.push("/")
-      return
-    }
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push("/")
@@ -90,7 +86,7 @@ export function AppSidebar({ email, plan, demo = false }: { email: string; plan:
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[12px] font-medium text-ink">{email}</div>
-            <div className="font-mono text-[10px] uppercase tracking-wider text-faint">{demo ? "demo · pro" : plan}</div>
+            <div className="font-mono text-[10px] uppercase tracking-wider text-faint">{plan}</div>
           </div>
           <button
             onClick={signOut}

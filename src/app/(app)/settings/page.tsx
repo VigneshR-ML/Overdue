@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { getProfile } from "@/lib/db/queries"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
+import { AccountDataControls } from "@/components/settings/account-data-controls"
 
 export const metadata = { title: "Settings" }
 
@@ -59,6 +60,13 @@ export default async function SettingsPage() {
           </Card>
         </Link>
       </div>
+
+      <Card>
+        <CardHeader><span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Your data</span></CardHeader>
+        <CardBody>
+          <AccountDataControls />
+        </CardBody>
+      </Card>
     </div>
   )
 }

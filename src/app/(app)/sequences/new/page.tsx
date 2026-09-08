@@ -2,7 +2,6 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { getTemplates } from "@/lib/db/queries"
-import { isDemoMode } from "@/lib/demo/fixtures"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { TonePill } from "@/components/ledger/escalation-ladder"
@@ -26,10 +25,6 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
     "use server"
     const templateId = formData.get("templateId") as string
     const name = (formData.get("name") as string) || "My ladder"
-
-    if (isDemoMode()) {
-      redirect(`/sequences/seg-demo-std`)
-    }
 
     const session = await getSessionUser()
     if (!session) return

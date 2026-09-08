@@ -33,11 +33,15 @@ export function formatMoneyShort(cents: number, currency = "USD") {
   return formatMoney(cents, currency)
 }
 
+/**
+ * Days an invoice is overdue. Positive = overdue, negative = not yet due.
+ * Returns 0 when there's no due date, -Infinity for a paid invoice.
+ */
 export function daysOverdue(dueDate: string | null, paidAt?: string | null) {
   if (paidAt) return -Infinity
   if (!dueDate) return 0
-  const ms = new Date(dueDate).getTime() - Date.now()
-  return Math.ceil(ms / 86400000)
+  const ms = Date.now() - new Date(dueDate).getTime()
+  return Math.floor(ms / 86400000)
 }
 
 export function formatDate(iso: string | null | undefined) {

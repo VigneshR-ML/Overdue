@@ -3,7 +3,6 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { IntegrationsManager } from "@/components/settings/integrations-manager"
 import { isProviderConfigured } from "@/lib/integrations/credentials"
-import { isDemoMode } from "@/lib/demo/fixtures"
 import type { IntegrationRow } from "@/types"
 import { ArrowLeft } from "lucide-react"
 
@@ -12,22 +11,17 @@ export const metadata = { title: "Invoice sources" }
 export const dynamic = "force-dynamic"
 
 export default async function IntegrationsPage() {
-  const demo = isDemoMode()
-  let rows: IntegrationRow[] = []
+  const supabase = createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect("/?signin=1")
 
-  if (!demo) {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) redirect("/?signin=1")
-
-    const { data } = await supabase
-      .from("integrations")
-      .select("*")
-      .eq("user_id", user.id)
-    rows = (data as IntegrationRow[]) ?? []
-  }
+  const { data } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", user.id)
+  const rows = (data as IntegrationRow[]) ?? []
 
   return (
     <div className="space-y-5">

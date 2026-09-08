@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { verifyPaddleSignature } from "@/lib/paddle/helpers"
+import { applyPaddleEvent } from "@/lib/billing/paddle-events"
 
 export const dynamic = "force-dynamic"
 
@@ -18,7 +19,12 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
 
-  const event = JSON.parse(rawBody)
+  let event: any
+  try {
+    event = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 })
+  }
   const eventType = event.event_type
   const data = event.data ?? {}
 
@@ -41,7 +47,7 @@ export async function POST(request: NextRequest) {
       .select("id")
       .eq("email", data.customer.email)
       .maybeSingle()
-    resolvedUserId = profile?.id ?? null
+    resolvedUserId = (profile as { id?: string } | null)?.id ?? null
   }
   if (!resolvedUserId) {
     // Record event anyway for debugging; nothing to update.
@@ -57,65 +63,4 @@ export async function POST(request: NextRequest) {
   })
 
   return NextResponse.json({ ok: true, handled })
-}
-
-async function applyPaddleEvent(supabase: any, userId: string, eventType: string, data: any) {
-  const priceId = process.env.PADDLE_PRICE_PRO_MONTHLY ?? ""
-  const isPro = data.items?.some?.((i: any) => i.price?.id === priceId)
-  const plan = isPro ? "pro" : "free"
-
-  const mapStatus = (raw: string) => {
-    const s = raw.toLowerCase()
-    if (s.includes("active")) return "active"
-    if (s.includes("trialing") || s.includes("trial")) return "trialing"
-    if (s.includes("paused")) return "past_due"
-    if (s.includes("past_due")) return "past_due"
-    if (s.includes("cancel")) return "cancelled"
-    return "active"
-  }
-
-  switch (eventType) {
-    case "subscription.created":
-    case "subscription.updated":
-    case "subscription.activated":
-    case "subscription.paused":
-    case "subscription.canceled":
-      await supabase.from("subscriptions").upsert(
-        {
-          user_id: userId,
-          paddle_subscription_id: data.id,
-          paddle_customer_id: data.customer_id,
-          plan,
-          status: mapStatus(data.status ?? "active"),
-          current_period_end: data.current_billing_period?.ends_at ?? data.current_billing_period?.end ?? null,
-        },
-        { onConflict: "paddle_subscription_id" },
-      )
-      return eventType
-
-    case "subscription.payment_succeeded":
-    case "transaction.completed":
-      if (data.subscription_id) {
-        await supabase
-          .from("subscriptions")
-          .update({ plan, status: "active", paddle_customer_id: data.customer_id ?? null })
-          .eq("user_id", userId)
-      } else if (data.subscription?.id) {
-        await supabase
-          .from("subscriptions")
-          .update({ plan, status: "active" })
-          .eq("user_id", userId)
-      }
-      return eventType
-
-    case "subscription.cancel":
-      await supabase
-        .from("subscriptions")
-        .update({ status: "cancelled" })
-        .eq("user_id", userId)
-      return eventType
-
-    default:
-      return "unhandled"
-  }
 }

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { renderTemplate } from "@/lib/ai/draft"
 import { formatDate } from "@/lib/utils/format"
-import { isDemoMode } from "@/lib/demo/fixtures"
 import type { SequenceStep, Tone } from "@/types"
 import { TONE_META } from "@/types"
 import { EscalationLadder } from "@/components/ledger/escalation-ladder"
@@ -106,12 +105,6 @@ export function SequenceEditor({
   async function save() {
     setSaving(true)
     setError(null)
-    if (isDemoMode()) {
-      setSaving(false)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-      return
-    }
     const res = await fetch("/api/sequences", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -129,7 +122,6 @@ export function SequenceEditor({
 
   async function toggleActive(v: boolean) {
     setIsActive(v)
-    if (isDemoMode()) return
     const res = await fetch("/api/sequences", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

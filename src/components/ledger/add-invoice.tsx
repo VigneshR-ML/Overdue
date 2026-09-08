@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { isDemoMode } from "@/lib/demo/fixtures"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
 import { Plus } from "lucide-react"
@@ -23,12 +22,6 @@ export function AddInvoiceButton() {
     setSaving(true)
     setError(null)
     const cents = Math.round(parseFloat(amount) * 100)
-    if (isDemoMode()) {
-      setSaving(false)
-      setOpen(false)
-      setClientName(""); setClientEmail(""); setNumber(""); setAmount(""); setDueDate("")
-      return
-    }
     const res = await fetch("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
