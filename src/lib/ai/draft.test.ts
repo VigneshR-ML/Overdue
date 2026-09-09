@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 import { renderTemplate, draftLocally, draftEmail } from "@/lib/ai/draft"
 import type { Invoice, Client } from "@/types"
 

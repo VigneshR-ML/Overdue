@@ -39,7 +39,10 @@ npm run dev
 - [ ] Resend: verify domain, point `RESEND_FROM_EMAIL`, webhook → `/api/webhooks/resend`
       (`RESEND_WEBHOOK_SECRET`)
 - [ ] Inbound reply webhook → `/api/webhooks/email` with `INBOUND_WEBHOOK_SECRET` (Svix-signed or Bearer)
-- [ ] `CRON_SECRET` + `vercel.json` cron (includes the `Authorization` header) → authorized hourly dispatch
+- [ ] `CRON_SECRET` + GitHub Actions hourly dispatch (`.github/workflows/dispatch.yml`
+      needs `DISPATCH_URL` + `CRON_SECRET` repo secrets) → authorized hourly POST to
+      `/api/cron/dispatch`. `vercel.json` crons are intentionally empty (hourly Vercel
+      Cron needs Pro).
 - [ ] Migrate `integration_credentials` plaintext rows to Vault via `0003_vault_credentials.sql`
       (app auto-falls back to Vault when available, plaintext otherwise)
 

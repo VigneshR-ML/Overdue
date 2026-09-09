@@ -10,13 +10,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "supabase db push",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "launch-check": "bash scripts/launch-check.sh"
   },
   "dependencies": {
     "@paddle/paddle-js": "^1.1.0",
     "@paddle/paddle-node-sdk": "^1.5.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
+    "@vercel/speed-insights": "^2.0.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.454.0",
     "next": "^14.2.35",
