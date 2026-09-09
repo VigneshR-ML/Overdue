@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Fraunces, Figtree, IBM_Plex_Mono } from "next/font/google"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
 const fraunces = Fraunces({
@@ -47,7 +48,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${fraunces.variable} ${figtree.variable} ${plexMono.variable}`}>
-      <body>{children}<SpeedInsights /></body>
+      <body>{children}<SpeedInsights /><Analytics /></body>
     </html>
   )
 }
