@@ -46,7 +46,20 @@ export function usePaddleCheckout(props: { email?: string; userId?: string }) {
 
   const openCheckout = useCallback(() => {
     const priceId = process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY
-    if (!paddleRef.current || !priceId) return
+    if (!priceId) {
+      setError("Paddle isn't configured on this deploy yet (no price ID).")
+      return
+    }
+    if (!/^pri_/.test(priceId)) {
+      setError(
+        "Checkout isn't configured correctly — NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY must be a Paddle price ID (pri_…), not a product ID.",
+      )
+      return
+    }
+    if (!paddleRef.current) {
+      setError("Checkout hasn't finished loading — try again.")
+      return
+    }
     paddleRef.current.Checkout.open({
       items: [{ priceId, quantity: 1 }],
       settings: {
