@@ -26,10 +26,11 @@ npm run dev
 ### Supabase
 1. Create a project, copy `Project URL` + `anon public` + `service_role` into `.env.local`.
    **Rotate the keys if `.env.example` ever shipped with values** — it is meant to be blank.
-2. Run the migrations in order: `0001_init.sql` → `0010_promise_to_pay.sql`.
+2. Run the migrations in order: `0001_init.sql` → `0011_ai_usage.sql`.
    (`0005` indexes/constraints, `0006` delivery tracking, `0007` Vault wrappers
    for PostgREST, `0008` provider-account mapping for paid webhooks,
-   `0009` per-invoice payment URL, `0010` promise-to-pay on runs.)
+   `0009` per-invoice payment URL, `0010` promise-to-pay on runs,
+   `0011` monthly AI-draft usage.)
 3. Enable **Email (password)** auth provider → users + `profiles` + `subscriptions` +
    the default ladder are auto-created by the `on_auth_user_created` triggers.
 

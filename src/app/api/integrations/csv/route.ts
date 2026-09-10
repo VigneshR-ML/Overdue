@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const room = Math.max(0, FREE_INVOICE_LIMIT - existingInvoices)
     if (room <= 0) {
       return NextResponse.json(
-        { ok: false, error: "Free plan covers 3 invoices — upgrade to Pro to import more." },
+        { ok: false, error: "Free plan covers 10 invoices — upgrade to Pro to import more." },
         { status: 403 },
       )
     }
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
     // Free plan: hard-cap the number of clients.
     if (plan === "free" && clientCount >= FREE_CLIENT_LIMIT) {
-      errors.push("Free plan is limited to 1 client — upgrade to Pro to import more.")
+      errors.push("Free plan covers 3 clients — upgrade to Pro to import more.")
       clientIdMap.set(key, null)
       return null
     }

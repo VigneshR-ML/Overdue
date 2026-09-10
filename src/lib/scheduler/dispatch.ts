@@ -73,6 +73,37 @@ export async function runDispatcher() {
 
   if (!claimed || claimed.length === 0) return { ok: true, dispatched: 0 }
 
+  // Autopilot is a Pro feature: Free users send manually ("Send now" in the
+  // ledger). Service-role plan lookup — the cookie-bound getPlan() helper
+  // can't be used in cron context. Skipped runs revert to queued untouched.
+  const autopilotRuns = [...(claimed ?? [])]
+  try {
+    const autopilotIds = autopilotRuns.map((r) => r.id as string)
+    const { data: owners } = await supabase.from("runs").select("id, user_id").in("id", autopilotIds)
+    const byId = new Map((owners ?? []).map((o: any) => [o.id as string, o.user_id as string]))
+    const userIds = [...new Set([...byId.values()])] as string[]
+    const proUsers = new Set<string>()
+    if (userIds.length) {
+      const { data: subs } = await supabase
+        .from("subscriptions")
+        .select("user_id, plan, status")
+        .in("user_id", userIds)
+      for (const s of (subs ?? []) as any[]) {
+        if (s.plan === "pro" && s.status !== "cancelled" && s.status !== "past_due") proUsers.add(s.user_id)
+      }
+    }
+    const manualIds = new Set(autopilotIds.filter((id) => !proUsers.has(byId.get(id) ?? "")))
+    if (manualIds.size) {
+      await supabase.from("runs").update({ status: "queued" }).in("id", [...manualIds])
+      for (let i = autopilotRuns.length - 1; i >= 0; i--) {
+        if (manualIds.has(autopilotRuns[i].id as string)) autopilotRuns.splice(i, 1)
+      }
+    }
+  } catch {
+    // Fail closed on lookup errors: process the claimed batch as before rather
+    // than silently dropping paying users' reminders.
+  }
+
   // Recover any runs that were claimed but never finished (crashed batch): bring
   // stale 'processing' runs older than a few minutes back to 'queued'.
   await requeueStaleProcessing(supabase)
@@ -80,7 +111,7 @@ export async function runDispatcher() {
   let dispatched = 0
   let failed = 0
 
-  for (const run of claimed) {
+  for (const run of autopilotRuns) {
     try {
       const res = await dispatchOne(run.id as string, supabase)
       if (res === "sent" || res === "completed" || res === "paused") dispatched++
@@ -457,6 +488,26 @@ export async function handleInboundReply(
     }
   }
   return "paused"
+}
+
+/**
+ * Manual send ("Send now" in the ledger — the Free plan's sending model).
+ * Verifies ownership, then executes the current step immediately regardless of
+ * schedule. Pro autopilot never needs this; Free users send each rung by hand.
+ */
+export async function sendRunNow(
+  userId: string,
+  runId: string,
+): Promise<{ ok: boolean; result?: string; error?: string }> {
+  const supabase = createAdminClient()
+  if (!supabase) return { ok: false, error: "supabase not configured" }
+  const { data: run } = await supabase.from("runs").select("id, user_id, status").eq("id", runId).single()
+  const row = run as { id: string; user_id: string; status: string } | null
+  if (!row || row.user_id !== userId) return { ok: false, error: "not found" }
+  if (row.status === "completed") return { ok: false, error: "already completed" }
+  const res = await dispatchOne(runId, supabase)
+  if (res === "failed" || res === "skipped") return { ok: false, error: res }
+  return { ok: true, result: res }
 }
 
 /**

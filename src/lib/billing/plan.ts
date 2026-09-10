@@ -2,9 +2,14 @@ import { createClient } from "@/lib/supabase/server"
 
 export type Plan = "free" | "pro"
 
-export const FREE_CLIENT_LIMIT = 1
-export const FREE_SEQUENCE_LIMIT = 1
-export const FREE_INVOICE_LIMIT = 3
+// Re-exported here so existing server imports keep working; the canonical
+// home is ./limits (client-safe, no next/headers in its graph).
+export {
+  FREE_CLIENT_LIMIT,
+  FREE_SEQUENCE_LIMIT,
+  FREE_INVOICE_LIMIT,
+  FREE_AI_DRAFTS_PER_MONTH,
+} from "./limits"
 
 /**
  * Resolves the user's effective plan from their subscription row.

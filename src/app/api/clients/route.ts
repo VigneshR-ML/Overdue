@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   if (plan === "free" && (await countForUser(user!.id, "clients")) >= FREE_CLIENT_LIMIT) {
     return NextResponse.json(
-      { ok: false, error: "Free plan is limited to 1 client — upgrade to Pro to add more." },
+      { ok: false, error: "Free plan covers 3 clients — upgrade to Pro for unlimited." },
       { status: 403 },
     )
   }

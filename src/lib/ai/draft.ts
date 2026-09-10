@@ -1,4 +1,6 @@
 import { formatMoney, formatDate } from "@/lib/utils/format"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { FREE_AI_DRAFTS_PER_MONTH } from "@/lib/billing/limits"
 import type { Invoice, Client } from "@/types"
 
 export interface SenderContext {
@@ -21,6 +23,8 @@ export interface DraftOutput {
   subject: string
   body: string
   aiUsed: boolean
+  /** True when the Free monthly AI quota is spent — body is the local template. */
+  quotaHit?: boolean
 }
 
 function templateVars(input: DraftInput) {
@@ -56,8 +60,7 @@ export function renderTemplate(template: string, vars: Record<string, string>) {
 
 // Local, deterministic drafting: renders the template with real facts. Used when
 // no LLM key is configured, or aiEnabled is off.
-export function draftLocally(input: DraftInput): DraftOutput {
-  const vars = templateVars(input)
+export function draftLocally(input: DraftInput): DraftOutput {  const vars = templateVars(input)
   return {
     subject: renderTemplate(input.subjectTemplate, vars),
     body: renderTemplate(input.bodyTemplate, vars),
@@ -70,6 +73,11 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
 
   const apiKey = process.env.LLM_API_KEY
   if (!input.aiEnabled || !apiKey) return local
+
+  // Free plan: 5 AI drafts per calendar month, then graceful fallback to the
+  // local template (never a hard failure mid-ladder). Pro is unlimited.
+  const quota = await consumeAiQuota(input.invoice.user_id)
+  if (!quota.allowed) return { ...local, quotaHit: true }
 
   const vars = templateVars(input)
   const facts = [
@@ -133,5 +141,45 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
     return { subject: subject || local.subject, body, aiUsed: true }
   } catch {
     return local
+  }
+}
+
+/**
+ * Monthly AI-draft quota (Free plan). Uses the service-role client directly —
+ * this runs in cron/dispatch contexts with no request cookies, so the
+ * cookie-bound getPlan() helper can't be used here. Fail-open: any DB problem
+ * (including the 0011 table not yet migrated) allows the draft.
+ */
+async function consumeAiQuota(userId: string): Promise<{ allowed: boolean }> {
+  try {
+    const supabase = createAdminClient()
+    if (!supabase || !userId) return { allowed: true }
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("plan, status")
+      .eq("user_id", userId)
+      .maybeSingle()
+    const plan =
+      sub && sub.status !== "cancelled" && sub.status !== "past_due" && sub.plan === "pro" ? "pro" : "free"
+    if (plan === "pro") return { allowed: true }
+
+    const month = new Date().toISOString().slice(0, 7)
+    const { data: row } = await supabase
+      .from("ai_usage")
+      .select("count")
+      .eq("user_id", userId)
+      .eq("month", month)
+      .maybeSingle()
+    const used = Number((row as { count?: number } | null)?.count ?? 0)
+    if (used >= FREE_AI_DRAFTS_PER_MONTH) return { allowed: false }
+    await supabase
+      .from("ai_usage")
+      .upsert(
+        { user_id: userId, month, count: used + 1, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,month" },
+      )
+    return { allowed: true }
+  } catch {
+    return { allowed: true }
   }
 }

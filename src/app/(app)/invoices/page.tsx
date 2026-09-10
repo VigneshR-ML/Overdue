@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { getSessionUser } from "@/lib/auth/session"
+import { getPlan } from "@/lib/billing/plan"
 import { getInvoicesWithMeta } from "@/lib/db/queries"
 import { InvoiceTable } from "@/components/ledger/invoice-table"
 import { AddInvoiceButton } from "@/components/ledger/add-invoice"
@@ -17,6 +19,8 @@ export default async function InvoicesPage({
   if (!session) redirect("/?signin=1")
   const invoices = await getInvoicesWithMeta(session.id)
   const focus = typeof searchParams?.focus === "string" ? searchParams.focus : undefined
+  const plan = await getPlan(session.id)
+  const openCount = invoices.filter((i) => i.status !== "paid" && !i.paid_at).length
 
   return (
     <div className="space-y-5">
@@ -30,6 +34,16 @@ export default async function InvoicesPage({
         </div>
         <AddInvoiceButton />
       </header>
+      {plan === "free" && openCount > 0 ? (
+        <div className="rounded-lg border border-hairline bg-surface p-4 text-sm text-ink-soft shadow-ledger">
+          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Free plan · </span>
+          reminders send when you press <span className="font-medium text-ink">Send now</span> on each
+          invoice{openCount > 1 ? ` — ${openCount} open right now` : ""}.{" "}
+          <Link href="/settings/billing" className="font-medium text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">
+            Pro autopilot sends every rung on schedule →
+          </Link>
+        </div>
+      ) : null}
       <InvoiceTable invoices={invoices} focusId={focus} />
     </div>
   )

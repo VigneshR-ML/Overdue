@@ -64,6 +64,20 @@ export function InvoiceTable({
 
   const [pausedIds, setPausedIds] = useState<Set<string>>(new Set())
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [sentFlash, setSentFlash] = useState<string | null>(null)
+
+  async function sendNow(e: React.MouseEvent, id: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    setBusyId(id)
+    const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" })
+    setBusyId(null)
+    if (!res.ok) return
+    setSentFlash(id)
+    window.setTimeout(() => setSentFlash((cur) => (cur === id ? null : cur)), 4000)
+    if (onRefresh) onRefresh()
+    else router.refresh()
+  }
 
   async function togglePause(e: React.MouseEvent, id: string) {
     e.preventDefault()
@@ -166,7 +180,20 @@ export function InvoiceTable({
                       Paid
                     </Button>
                   ) : (
-                    <span className="inline-flex gap-1">
+                    <span className="inline-flex items-center gap-1">
+                      {sentFlash === inv.id ? (
+                        <span className="font-mono text-[11px] text-moss">Sent ✓</span>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={busyId === inv.id}
+                          onClick={(e) => sendNow(e, inv.id)}
+                          title="Send the current follow-up step now"
+                        >
+                          Send now
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

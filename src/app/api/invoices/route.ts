@@ -31,10 +31,10 @@ export async function POST(request: NextRequest) {
   const supabase = createClient()
   const plan = await getPlan(user!.id)
 
-  // Free plan: up to 3 active invoices — the "first client on autopilot" funnel.
+  // Free plan: up to 10 active invoices — recover the first ones free, autopilot the rest on Pro.
   if (plan === "free" && (await countForUser(user!.id, "invoices")) >= FREE_INVOICE_LIMIT) {
     return NextResponse.json(
-      { ok: false, error: "Free plan covers 3 invoices — upgrade to Pro to recover the rest automatically." },
+      { ok: false, error: "Free plan covers 10 invoices — upgrade to Pro to recover the rest automatically." },
       { status: 403 },
     )
   }
@@ -50,10 +50,10 @@ export async function POST(request: NextRequest) {
     if (existing) {
       clientId = existing.id
     } else {
-      // Free plan: only one client allowed.
+      // Free plan: only three clients allowed.
       if (plan === "free" && (await countForUser(user!.id, "clients")) >= FREE_CLIENT_LIMIT) {
         return NextResponse.json(
-          { ok: false, error: "Free plan is limited to 1 client — upgrade to Pro to add more." },
+          { ok: false, error: "Free plan covers 3 clients — upgrade to Pro for unlimited." },
           { status: 403 },
         )
       }
