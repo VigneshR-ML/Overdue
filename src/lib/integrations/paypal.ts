@@ -69,6 +69,9 @@ export async function syncPaypalInvoices(
             ? `${detail.recipient.given_name} ${detail.recipient.surname ?? ""}`.trim()
             : null,
           client_email: detail.recipient?.email_address ?? null,
+          payment_url: Array.isArray(detail.links)
+            ? (detail.links.find((l: any) => String(l.rel ?? "").includes("payer"))?.href ?? null)
+            : null,
           line_item_summary: lineSummary,
         })
       }

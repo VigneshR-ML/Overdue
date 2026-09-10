@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createClient } from "@/lib/supabase/server"
 import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
-import { getPlan, countForUser, FREE_CLIENT_LIMIT } from "@/lib/billing/plan"
+import { getPlan, countForUser, FREE_CLIENT_LIMIT, FREE_INVOICE_LIMIT } from "@/lib/billing/plan"
 
 export const dynamic = "force-dynamic"
 
@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
   const amountCents = Math.round(Number(body.amount_cents ?? 0))
   const currency = String(body.currency ?? "USD").toUpperCase().slice(0, 3)
   const dueDate = body.due_date ? String(body.due_date).slice(0, 10) : null
+  const rawPay = String(body.payment_url ?? "").trim().slice(0, 500)
+  const paymentUrl = /^https?:\/\//i.test(rawPay) ? rawPay : null
 
   if (amountCents <= 0) {
     return NextResponse.json({ ok: false, error: "amount must be positive" }, { status: 400 })
@@ -28,6 +30,14 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient()
   const plan = await getPlan(user!.id)
+
+  // Free plan: up to 3 active invoices — the "first client on autopilot" funnel.
+  if (plan === "free" && (await countForUser(user!.id, "invoices")) >= FREE_INVOICE_LIMIT) {
+    return NextResponse.json(
+      { ok: false, error: "Free plan covers 3 invoices — upgrade to Pro to recover the rest automatically." },
+      { status: 403 },
+    )
+  }
 
   let clientId: string | null = null
   if (clientEmail) {
@@ -71,6 +81,7 @@ export async function POST(request: NextRequest) {
       currency,
       due_date: dueDate,
       issue_date: new Date().toISOString().slice(0, 10),
+      payment_url: paymentUrl,
     })
     .select("id")
     .single()

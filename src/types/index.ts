@@ -17,6 +17,7 @@ export interface Invoice {
   due_date: string | null
   paid_at: string | null
   line_item_summary: string | null
+  payment_url?: string | null
   created_at: string
 }
 
@@ -68,6 +69,9 @@ export interface Run {
   attempt?: number
   failed_at?: string | null
   error?: string | null
+  promise_date?: string | null
+  promise_note?: string | null
+  promise_amount_cents?: number | null
   updated_at?: string
   created_at: string
 }

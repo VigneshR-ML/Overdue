@@ -63,11 +63,11 @@ export default function LandingPage() {
             <p className="mt-6 max-w-measure text-lg leading-relaxed text-ink-soft">
               The first reminder goes the day after the due date. The last one arrives with
               a deadline. Everything in between is drafted in your voice, escalated on a
-              schedule, and <span className="font-mono text-[15px]">0% annoying</span>.
+              schedule, and designed to protect the client relationship.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <a href="/signup">
-                <Button size="lg">Start free — connect Stripe in 2 min</Button>
+                <Button size="lg">Recover your first invoice free</Button>
               </a>
               <a href="/#how">
                 <Button size="lg" variant="outline">How it works</Button>
@@ -95,9 +95,9 @@ export default function LandingPage() {
       <section className="border-y border-hairline bg-surface/70">
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 py-8 md:grid-cols-4">
           {[
-            ["48h", "to first recovered invoice (documented)"],
-            ["21 days", "max before a deadline hits"],
-            ["0%", "annoyance — the ladder is the brand"],
+            ["Day 1", "first reminder goes out on its own"],
+            ["Any reply", "pauses the ladder automatically"],
+            ["Payment", "stops everything, marks recovered"],
             ["100%", "of follow-ups editable before send"],
           ].map(([k, v]) => (
             <div key={k}>

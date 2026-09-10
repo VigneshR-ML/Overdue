@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { draftEmail } from "@/lib/ai/draft"
+import { detectPromise } from "@/lib/ai/promise"
 import { renderEscalationEmail, sendEmail } from "@/lib/resend/send"
+import { formatMoney } from "@/lib/utils/format"
 import type { Sequence, SequenceStep, Invoice, Client, Run } from "@/types"
 
 const CUMULATIVE_DAYS = (steps: SequenceStep[], throughIndex: number) =>
@@ -212,6 +214,28 @@ async function dispatchOne(
   }
 
   const profile = (profileRow ?? { full_name: null }) as { full_name: string | null; email?: string }
+
+  // Promise-to-pay: a client-named date waits in 'queued' with next_run_at set
+  // to the promise. Future promise → hold (no send). Reached date → clear the
+  // promise and the reply flag it came with, then continue the ladder as the
+  // missed-promise follow-up (payment is checked first on every pass anyway).
+  const promiseDate = (run as unknown as { promise_date?: string | null }).promise_date ?? null
+  if (promiseDate) {
+    if (new Date(promiseDate).getTime() > Date.now()) {
+      const t = new Date().toISOString()
+      await supabase
+        .from("runs")
+        .update({ status: "queued", next_run_at: promiseDate, updated_at: t })
+        .eq("id", runId)
+      return "paused"
+    }
+    await supabase
+      .from("runs")
+      .update({ promise_date: null, promise_note: null, promise_amount_cents: null, updated_at: new Date().toISOString() })
+      .eq("id", runId)
+    await supabase.from("messages").update({ replied: false }).eq("run_id", runId).eq("replied", true)
+  }
+
   const { data: replied } = await supabase
     .from("messages")
     .select("id")
@@ -258,6 +282,8 @@ async function dispatchOne(
         body: draft.body,
         senderName: sender.name,
         companyName: sender.company,
+        paymentUrl: invoice.payment_url ?? null,
+        amountLabel: formatMoney(amount, invoice.currency),
       }),
       replyTo: process.env.REPLY_TO_EMAIL || sender.email,
     })
@@ -366,10 +392,16 @@ export async function startRun(opts: {
   return { ok: true }
 }
 
-/** Detects a client reply and pauses the matching run. Scoped to user to prevent cross-tenant leakage. */
-export async function handleInboundReply(clientAddress: string) {
+/** Detects a client reply and pauses the matching run. Scoped to user to prevent cross-tenant leakage.
+ * When reply `text` is provided, a detected payment promise ("will pay Friday")
+ * converts the pause into a scheduled wait: status back to queued with
+ * next_run_at = promise date, so the ladder auto-resumes for the check. */
+export async function handleInboundReply(
+  clientAddress: string,
+  text?: string,
+): Promise<"promise" | "paused" | null> {
   const supabase = createAdminClient()
-  if (!supabase) return
+  if (!supabase) return null
   // The replying client's own address is the "from" of the inbound; match it to
   // the addresses we previously messaged. Any reply pauses that run's ladder.
   const { data: messages, error } = await supabase
@@ -378,7 +410,7 @@ export async function handleInboundReply(clientAddress: string) {
     .eq("to_email", clientAddress)
     .order("sent_at", { ascending: false })
     .limit(10)
-  if (error || !messages) return
+  if (error || !messages) return null
 
   // Group run IDs by user to scope pause operations.
   const byUser = new Map<string, Set<string>>()
@@ -396,6 +428,35 @@ export async function handleInboundReply(clientAddress: string) {
     await supabase.from("runs").update({ status: "paused", updated_at: t }).in("id", ids)
     await supabase.from("messages").update({ replied: true }).in("run_id", ids)
   }
+  if (byUser.size === 0) return null
+
+  // Promise-to-pay upgrade: a dated commitment becomes a scheduled wait.
+  if (text && text.trim()) {
+    try {
+      const found = await detectPromise(text)
+      if (found.isPromise && found.date) {
+        const at = `${found.date}T09:00:00.000Z`
+        const allIds = [...byUser.values()].flatMap((s) => [...s])
+        if (allIds.length) {
+          await supabase
+            .from("runs")
+            .update({
+              status: "queued",
+              next_run_at: at,
+              promise_date: at,
+              promise_note: found.note,
+              promise_amount_cents: found.amountCents,
+              updated_at: new Date().toISOString(),
+            })
+            .in("id", allIds)
+          return "promise"
+        }
+      }
+    } catch {
+      // Detection must never break the pause above.
+    }
+  }
+  return "paused"
 }
 
 /**

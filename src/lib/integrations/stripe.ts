@@ -51,6 +51,7 @@ export async function syncStripeInvoices(
             : null,
           client_name: customer?.name ?? null,
           client_email: customer?.email ?? inv.customer_email ?? null,
+          payment_url: inv.hosted_invoice_url ?? null,
           line_item_summary: inv.lines?.data
             ? inv.lines.data.map((l: any) => l.description ?? l.price?.product?.name ?? "").filter(Boolean).join(", ").slice(0, 500)
             : null,

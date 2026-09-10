@@ -28,17 +28,25 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
-    default: "Overdue — Get paid without the awkward conversation",
+    default: "Overdue — Automated Invoice Follow-Up for Agencies & Freelancers",
     template: "%s · Overdue",
   },
   description:
-    "Automated invoice follow-ups with a tone ladder that gets warmer as it gets firmer. Built for freelancers in the US and beyond.",
+    "Overdue follows up on unpaid invoices automatically — gentle day 1, firm by day 21 — pauses when clients reply and stops when you're paid. Works with Stripe, Xero, PayPal and CSV.",
+  alternates: { canonical: "/" },
   openGraph: {
-    title: "Overdue — Get paid without the awkward conversation",
+    title: "Overdue — Get paid without chasing clients",
     description:
-      "The escalation ladder for unpaid invoices. Gentle first, final last, completely on autopilot.",
+      "The follow-up autopilot for overdue invoices. Escalates, pauses on reply, stops on payment.",
     type: "website",
+    siteName: "Overdue",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Overdue — Get paid without chasing clients",
+    description: "Automated invoice follow-ups that stop the moment clients reply or pay.",
+  },
+  robots: { index: true, follow: true },
 }
 
 export const viewport: Viewport = {
@@ -46,9 +54,27 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const softwareJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Overdue",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    url: "https://getoverdue.online",
+    description:
+      "Automated invoice follow-ups that escalate gently, pause on reply, and stop on payment.",
+    offers: { "@type": "Offer", price: "19", priceCurrency: "USD" },
+  }
   return (
     <html lang="en" className={`${fraunces.variable} ${figtree.variable} ${plexMono.variable}`}>
-      <body>{children}<SpeedInsights /><Analytics /></body>
+      <body>
+        {children}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd).replace(/</g, "\\u003c") }}
+        />
+        <SpeedInsights /><Analytics />
+      </body>
     </html>
   )
 }

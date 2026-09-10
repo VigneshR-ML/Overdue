@@ -52,6 +52,7 @@ export async function syncXeroInvoices(
           paid_at: isPaid ? (inv.PaidDate ?? inv.FullyPaidOnDate ?? new Date().toISOString()) : null,
           client_name: inv.Contact?.Name ?? null,
           client_email: inv.Contact?.EmailAddress ?? null,
+          payment_url: inv.OnlineInvoiceUrl ?? null,
           line_item_summary: lineSummary,
         })
       }

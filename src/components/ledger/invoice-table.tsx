@@ -62,6 +62,31 @@ export function InvoiceTable({
     else router.refresh()
   }
 
+  const [pausedIds, setPausedIds] = useState<Set<string>>(new Set())
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  async function togglePause(e: React.MouseEvent, id: string) {
+    e.preventDefault()
+    e.stopPropagation()
+    const pausing = !pausedIds.has(id)
+    setBusyId(id)
+    const res = await fetch(`/api/invoices/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pausing ? { pause_runs: true } : { resume_runs: true }),
+    })
+    setBusyId(null)
+    if (!res.ok) return
+    setPausedIds((prev) => {
+      const next = new Set(prev)
+      if (pausing) next.add(id)
+      else next.delete(id)
+      return next
+    })
+    if (onRefresh) onRefresh()
+    else router.refresh()
+  }
+
   if (!invoices.length) {
     return (
       <EmptyState
@@ -141,9 +166,20 @@ export function InvoiceTable({
                       Paid
                     </Button>
                   ) : (
-                    <Button variant="ghost" size="sm" onClick={(e) => markPaid(e, inv.id)}>
-                      Mark paid
-                    </Button>
+                    <span className="inline-flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busyId === inv.id}
+                        onClick={(e) => togglePause(e, inv.id)}
+                        title={pausedIds.has(inv.id) ? "Resume scheduled follow-ups" : "Pause scheduled follow-ups"}
+                      >
+                        {pausedIds.has(inv.id) ? "Resume" : "Pause"}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={(e) => markPaid(e, inv.id)}>
+                        Mark paid
+                      </Button>
+                    </span>
                   )}
                 </td>
               </tr>

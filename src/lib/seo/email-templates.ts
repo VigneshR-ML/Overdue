@@ -102,7 +102,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
       "A practical guide to asking for payment by email: tone, timing, templates, and what to do when clients go quiet.",
     intro:
       "Asking for money is only awkward when you make it a personality event. The professional version is boring: number, date, next step, sign-off. Here's the exact playbook.",
-    intent: "B2B article / guide page (long-tail search).",
+    intent: "The guide version: what to write when asking feels awkward.",
     subjectLine: "Payment for {{invoice_number}} — next step?",
     body: wrap("clear and direct"),
     draftedBy: "firm",
@@ -171,7 +171,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
     metaDescription:
       "The email to ask a client for payment when net-30 has quietly become net-60. Template included, automation optional.",
     intro:
-      "Net-30 ha been silent for a month. The email that fixes it names the original terms, reset them, and sets a date — kindly, but without ambiguity.",
+      "Net-30 has been silent for a month. The email that fixes it names the original terms, reset them, and sets a date — kindly, but without ambiguity.",
     intent: "When payment terms are being stretched.",
     subjectLine: "Payment terms on {{invoice_number}}",
     body: wrap("clear"),

@@ -24,12 +24,32 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const patch: Record<string, unknown> = {}
   const VALID_STATUSES = ["pending", "sent", "overdue", "paid", "partially_paid"]
 
+  if (body.payment_url !== undefined) {
+    const rawPay = String(body.payment_url ?? "").trim().slice(0, 500)
+    patch.payment_url = rawPay && /^https?:\/\//i.test(rawPay) ? rawPay : null
+  }
+
+  // Manual pause/resume of follow-ups: flips queued runs for this invoice.
+  // Paused runs keep their schedule; resume re-queues them (overdue ones fire
+  // on the next dispatch). Returns counts so the UI can confirm.
+  if (body.pause_runs === true || body.resume_runs === true) {
+    const to = body.pause_runs === true ? "paused" : "queued"
+    const from = body.pause_runs === true ? "queued" : "paused"
+    const { data: flipped } = await supabase
+      .from("runs")
+      .update({ status: to, updated_at: new Date().toISOString() })
+      .eq("invoice_id", params.id)
+      .eq("user_id", user!.id)
+      .eq("status", from)
+      .select("id")
+    return NextResponse.json({ ok: true, runs: Array.isArray(flipped) ? flipped.length : 0 })
+  }
+
   if (body.mark_paid === true) {
     patch.status = "paid"
     patch.paid_cents = body.paid_cents ?? undefined
     patch.paid_at = new Date().toISOString()
-  } else if (body.status) {
-    if (!VALID_STATUSES.includes(body.status)) {
+  } else if (body.status) {    if (!VALID_STATUSES.includes(body.status)) {
       return NextResponse.json({ ok: false, error: `invalid status — must be one of: ${VALID_STATUSES.join(", ")}` }, { status: 400 })
     }
     patch.status = body.status

@@ -37,6 +37,8 @@ export function renderEscalationEmail(opts: {
   body: string
   senderName: string
   companyName: string
+  paymentUrl?: string | null
+  amountLabel?: string | null
 }) {
   const paragraphs = opts.body
     .split(/\n+/)
@@ -44,6 +46,11 @@ export function renderEscalationEmail(opts: {
     .filter(Boolean)
     .map((p) => `<p style="margin:0 0 14px 0;">${esc(p)}</p>`)
     .join("")
+  const payButton =
+    opts.paymentUrl && /^https?:\/\//i.test(opts.paymentUrl)
+      ? `<p style="margin:22px 0 6px 0;"><a href="${esc(opts.paymentUrl)}" style="display:inline-block;background:#1D1B17;color:#FFFFFF;text-decoration:none;font-family:monospace;font-size:13px;letter-spacing:0.5px;padding:12px 26px;border-radius:8px;">Pay${opts.amountLabel ? ` ${esc(opts.amountLabel)}` : ""} →</a></p>
+         <p style="margin:0 0 14px 0;font-size:12px;color:#6E685D;">Secure payment · takes under a minute</p>`
+      : ""
 
   return `<!doctype html>
 <html>
@@ -53,6 +60,7 @@ export function renderEscalationEmail(opts: {
         <table role="presentation" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FFFFFF;border:1px solid #E7E3D8;border-radius:10px;"><tr><td style="padding:36px;">
           <div style="font-family:monospace;font-size:12px;letter-spacing:1.5px;color:#A7A091;margin-bottom:24px;">OVERDUE &middot; ${esc(opts.companyName.toUpperCase())}</div>
           ${paragraphs}
+          ${payButton}
           <p style="margin:22px 0 0 0;font-size:12px;color:#6E685D;">Sent by Overdue &middot; ${esc(opts.senderName)} &middot; to ${esc(opts.senderName)}'s client</p>
         </td></tr></table>
       </td></tr>

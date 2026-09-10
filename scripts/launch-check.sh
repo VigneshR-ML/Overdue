@@ -80,7 +80,7 @@ check_optional "XERO_WEBHOOK_KEY"
 
 echo "--- Repo wiring ---"
 [ -f ".github/workflows/dispatch.yml" ] && echo "✓ .github/workflows/dispatch.yml exists (needs DISPATCH_URL + CRON_SECRET secrets)" || { echo "✗ dispatch.yml missing"; fail=1; }
-for m in 0001_init.sql 0002_credentials.sql 0003_vault_credentials.sql 0004_dispatch_states.sql 0005_indexes_and_constraints.sql 0006_delivery_tracking.sql 0007_vault_wrappers.sql 0008_provider_account.sql; do
+for m in 0001_init.sql 0002_credentials.sql 0003_vault_credentials.sql 0004_dispatch_states.sql 0005_indexes_and_constraints.sql 0006_delivery_tracking.sql 0007_vault_wrappers.sql 0008_provider_account.sql 0009_payment_url.sql 0010_promise_to_pay.sql; do
   [ -f "supabase/migrations/$m" ] && echo "✓ supabase/migrations/$m" || { echo "✗ supabase/migrations/$m missing"; fail=1; }
 done
 if grep -q '"crons": \[\]' vercel.json 2>/dev/null; then

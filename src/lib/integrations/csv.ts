@@ -10,6 +10,7 @@ export const CSV_HEADERS = [
   "issue_date",
   "due_date",
   "status",
+  "payment_url",
 ] as const
 
 export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: string[] } {
@@ -51,6 +52,7 @@ export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: str
     const issueDate = pick(row, "issue_date") || pick(row, "issued") || null
     const dueDate = pick(row, "due_date") || pick(row, "due") || null
     const status = (pick(row, "status") || "sent").toLowerCase()
+    const paymentUrl = pick(row, "payment_url") || pick(row, "pay_link") || pick(row, "payment_link") || null
 
     if (!clientName && !clientEmail && !number) {
       errors.push(`Row ${rowIdx + 2}: skipped (no client or invoice number)`)
@@ -78,6 +80,7 @@ export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: str
       client_name: clientName || null,
       client_email: clientEmail || null,
       line_item_summary: null,
+      payment_url: paymentUrl && /^https?:\/\//i.test(paymentUrl) ? paymentUrl : null,
     })
   })
 

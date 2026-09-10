@@ -77,11 +77,19 @@ export default function TemplatePage({ params }: Props) {
           <pre className="whitespace-pre-wrap p-5 font-sans text-[14px] leading-relaxed text-ink-soft">{t.body}</pre>
         </div>
 
-        {/* Keywords */}
-        <div className="mt-8 flex flex-wrap gap-2">
-          {t.keywords.map((k) => (
-            <span key={k} className="rounded-full border border-hairline bg-surface px-3 py-1 font-mono text-[11px] text-muted">{k}</span>
-          ))}
+        {/* Related guides (internal linking, not keyword tags) */}
+        <div className="mt-8">
+          <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">Keep reading</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {EMAIL_TEMPLATES.filter((o) => o.slug !== t.slug)
+              .sort((a, b) => Number(b.draftedBy === t.draftedBy) - Number(a.draftedBy === t.draftedBy))
+              .slice(0, 3)
+              .map((o) => (
+                <Link key={o.slug} href={`/templates/${o.slug}`} className="rounded-full border border-hairline bg-surface px-3 py-1 font-mono text-[11px] text-muted hover:text-ink">
+                  {o.name}
+                </Link>
+              ))}
+          </div>
         </div>
 
         {/* Automation pitch */}

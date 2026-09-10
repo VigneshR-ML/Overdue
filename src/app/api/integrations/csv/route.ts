@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/require-user"
 import { createClient } from "@/lib/supabase/server"
 import { parseCsv } from "@/lib/integrations/csv"
 import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
-import { getPlan, countForUser, FREE_CLIENT_LIMIT } from "@/lib/billing/plan"
+import { getPlan, countForUser, FREE_CLIENT_LIMIT, FREE_INVOICE_LIMIT } from "@/lib/billing/plan"
 
 export const dynamic = "force-dynamic"
 
@@ -23,6 +23,18 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient()
   const plan = await getPlan(user!.id)
+  // Free plan: invoice cap applies to imports too (upgrade moment, not a wall).
+  if (plan === "free") {
+    const existingInvoices = await countForUser(user!.id, "invoices")
+    const room = Math.max(0, FREE_INVOICE_LIMIT - existingInvoices)
+    if (room <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Free plan covers 3 invoices — upgrade to Pro to import more." },
+        { status: 403 },
+      )
+    }
+    invoices.splice(room)
+  }
   let clientIdMap = new Map<string, string | null>()
   let clientCount = await countForUser(user!.id, "clients")
 
@@ -79,6 +91,7 @@ export async function POST(request: NextRequest) {
         issue_date: inv.issue_date,
         due_date: inv.due_date,
         paid_at: inv.paid_at,
+        payment_url: inv.payment_url ?? null,
       },
       { onConflict: "user_id,provider,provider_id" },
     )

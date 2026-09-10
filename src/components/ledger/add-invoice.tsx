@@ -14,6 +14,7 @@ export function AddInvoiceButton() {
   const [number, setNumber] = useState("")
   const [amount, setAmount] = useState("")
   const [dueDate, setDueDate] = useState("")
+  const [paymentUrl, setPaymentUrl] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -32,13 +33,14 @@ export function AddInvoiceButton() {
         amount_cents: cents,
         currency: "USD",
         due_date: dueDate,
+        payment_url: paymentUrl.trim() || undefined,
       }),
     })
     const json = await res.json()
     setSaving(false)
     if (!res.ok) return setError(json?.error ?? "Couldn't add invoice")
     setOpen(false)
-    setClientName(""); setClientEmail(""); setNumber(""); setAmount(""); setDueDate("")
+    setClientName(""); setClientEmail(""); setNumber(""); setAmount(""); setDueDate(""); setPaymentUrl("")
     router.refresh()
   }
 
@@ -68,6 +70,9 @@ export function AddInvoiceButton() {
         </Field>
         <Field label="Due date">
           <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
+        </Field>
+        <Field label="Payment link (optional)">
+          <Input type="url" value={paymentUrl} onChange={(e) => setPaymentUrl(e.target.value)} placeholder="https://…pay this invoice" />
         </Field>
       </div>
       {error ? <p className="font-mono text-[12px] text-crimson">{error}</p> : null}

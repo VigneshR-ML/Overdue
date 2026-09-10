@@ -6,6 +6,7 @@ import { AuthForm } from "@/components/auth/auth-form"
 export const metadata: Metadata = {
   title: "Create account",
   alternates: { canonical: "/signup" },
+  robots: { index: false, follow: false },
 }
 
 export default function SignupPage() {

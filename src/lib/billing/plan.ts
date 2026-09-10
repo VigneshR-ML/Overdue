@@ -4,6 +4,7 @@ export type Plan = "free" | "pro"
 
 export const FREE_CLIENT_LIMIT = 1
 export const FREE_SEQUENCE_LIMIT = 1
+export const FREE_INVOICE_LIMIT = 3
 
 /**
  * Resolves the user's effective plan from their subscription row.
@@ -23,7 +24,7 @@ export async function getPlan(userId: string): Promise<Plan> {
 /** Counts rows in a table for a user, for quota checks. */
 export async function countForUser(
   userId: string,
-  table: "clients" | "sequences",
+  table: "clients" | "sequences" | "invoices",
 ): Promise<number> {
   const supabase = createClient()
   const { count } = await supabase

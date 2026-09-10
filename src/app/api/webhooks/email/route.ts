@@ -41,6 +41,17 @@ export async function POST(request: NextRequest) {
 
   if (!fromEmail || !fromEmail.includes("@")) return NextResponse.json({ ok: true, skipped: "no sender" })
 
-  await handleInboundReply(fromEmail)
-  return NextResponse.json({ ok: true })
+  // Reply text feeds promise-to-pay detection ("will pay Friday").
+  // Probe common shapes; cap length so one email can't blow up the classifier.
+  const text =
+    body.text ||
+    body.body ||
+    body.message?.text ||
+    body.message?.body ||
+    body.snippet ||
+    ""
+  const clipped = String(Array.isArray(text) ? text[0] ?? "" : text).slice(0, 4000)
+
+  const handled = await handleInboundReply(fromEmail, clipped || undefined)
+  return NextResponse.json({ ok: true, promise: handled ?? undefined })
 }

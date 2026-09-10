@@ -12,6 +12,7 @@ export interface InboundInvoice {
   client_name: string | null
   client_email: string | null
   line_item_summary: string | null
+  payment_url: string | null
 }
 
 export interface SyncResult {
@@ -42,6 +43,7 @@ export function upsertInvoices(
     due_date: inv.due_date,
     paid_at: inv.paid_at,
     line_item_summary: inv.line_item_summary,
+    payment_url: inv.payment_url ?? null,
     client_id: null,
   }))
   return supabase

@@ -85,6 +85,7 @@ export function MarketingFooter() {
               <li><Link href="/privacy" className="hover:text-ink">Privacy</Link></li>
               <li><Link href="/terms" className="hover:text-ink">Terms</Link></li>
               <li><Link href="/refund" className="hover:text-ink">Refund policy</Link></li>
+              <li><Link href="/security" className="hover:text-ink">Security</Link></li>
               <li><a className="hover:text-ink" href="mailto:hello@getoverdue.online">hello@getoverdue.online</a></li>
             </ul>
           </div>

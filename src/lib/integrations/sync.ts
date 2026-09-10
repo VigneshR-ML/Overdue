@@ -136,12 +136,13 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
     // Check for an existing invoice to distinguish added vs updated.
     const { data: exists } = await admin
       .from("invoices")
-      .select("id")
+      .select("id, payment_url")
       .eq("user_id", userId)
       .eq("provider", provider)
       .eq("provider_id", inv.provider_id)
       .maybeSingle()
 
+    const existing = exists as { id: string; payment_url?: string | null } | null
     const { error } = await admin.from("invoices").upsert(
       {
         user_id: userId,
@@ -157,6 +158,8 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
         due_date: inv.due_date,
         paid_at: inv.paid_at,
         line_item_summary: inv.line_item_summary,
+        // Never wipe a hand-entered pay link with a provider null.
+        payment_url: inv.payment_url ?? existing?.payment_url ?? null,
       },
       { onConflict: "user_id,provider,provider_id" },
     )
