@@ -4,13 +4,17 @@ import { useEffect, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 
 /**
- * Auth callback for Google OAuth, email confirmations, and invites.
+ * Dedicated auth callback page for Google OAuth and email confirmation links.
  *
- * This must run client-side: Google OAuth can come back either as a PKCE
- * `?code=` (whose verifier lives in the browser's localStorage — invisible to
- * any server route handler) or as an implicit session in the URL `#` fragment
- * (which never reaches the server at all). The Supabase browser client handles
- * both; once a session exists we drop the user into onboarding (or `next`).
+ * This runs client-side because Google OAuth comes back as a PKCE `?code=`
+ * whose verifier lives in browser storage (invisible to a server handler) or as
+ * an implicit session in the URL `#` fragment (never sent to the server). The
+ * Supabase browser client handles both here; once a session exists we drop the
+ * user into onboarding (or `next`).
+ *
+ * If a callback ever lands anywhere else (e.g. the site root) instead of this
+ * page — typically because the redirect URL isn't allowlisted — the global
+ * `AuthCodeHandler` in the root layout picks it up with the same logic.
  */
 export default function AuthCallback() {
   const [status, setStatus] = useState("Finishing sign-in…")
@@ -36,8 +40,20 @@ export default function AuthCallback() {
       }
 
       const code = searchParams.get("code")
+      const tokenHash = searchParams.get("token_hash")
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) {
+          toError(error.message)
+          return
+        }
+      } else if (tokenHash) {
+        const type = searchParams.get("type") ?? "email"
+        const valid = ["signup", "email", "recovery", "invite", "magiclink", "email_change"]
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: valid.includes(type) ? (type as "signup") : "email",
+        })
         if (error) {
           toError(error.message)
           return
