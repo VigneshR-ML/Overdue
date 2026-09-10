@@ -38,9 +38,15 @@ export function resolvePromiseDate(text: string, now: Date = new Date()): string
   for (let i = 0; i < 7; i++) {
     const day = WEEKDAYS[i]
     if (new RegExp(`\\b${day}\\b`).test(lower)) {
-      // Upcoming day-of-week (today counts if named and still early).
+      // Upcoming day-of-week. Today counts only if still early in the day;
+      // otherwise advance to next week's occurrence so the promise doesn't
+      // resolve to an already-expired date.
       const delta = (i - atMidnight.getDay() + 7) % 7
-      return iso(new Date(atMidnight.getTime() + delta * 86400000))
+      const target = new Date(atMidnight.getTime() + delta * 86400000)
+      if (delta === 0 && now.getHours() >= 17) {
+        return iso(new Date(atMidnight.getTime() + 7 * 86400000))
+      }
+      return iso(target)
     }
   }
   if (/\bnext week\b/.test(lower)) {
@@ -91,7 +97,7 @@ async function detectPromiseLlm(text: string): Promise<PromiseDetection | null> 
   const today = new Date().toISOString().slice(0, 10)
   try {
     const res = await fetch(
-      `${process.env.LLM_BASE_URL ?? "https://api.openai.com/v1"}/chat/completions`,
+      `${(process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

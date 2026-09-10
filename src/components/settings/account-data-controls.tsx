@@ -25,8 +25,10 @@ export function AccountDataControls() {
       const a = document.createElement("a")
       a.href = url
       a.download = `overdue-export-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(url)
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
       setMessage("Export downloaded.")
     } catch {
       setError("Network error — try again")
@@ -39,7 +41,11 @@ export function AccountDataControls() {
     setDeleting(true)
     setError(null)
     try {
-      const res = await fetch("/api/account/delete", { method: "DELETE" })
+      const res = await fetch("/api/account/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation_token: "DELETE_MY_ACCOUNT" }),
+      })
       const json = await res.json()
       if (!json.ok) {
         setError(json.error ?? "Delete failed")
@@ -92,8 +98,8 @@ export function AccountDataControls() {
         )}
       </div>
 
-      {message && <p className="text-[13px] text-moss">{message}</p>}
-      {error && <p className="text-[13px] text-ember">{error}</p>}
+      {message && <p className="text-[13px] text-moss" role="status">{message}</p>}
+      {error && <p className="text-[13px] text-ember" role="alert">{error}</p>}
     </div>
   )
 }

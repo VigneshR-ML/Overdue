@@ -77,8 +77,8 @@ export async function runDispatcher() {
   // ledger). Service-role plan lookup — the cookie-bound getPlan() helper
   // can't be used in cron context. Skipped runs revert to queued untouched.
   const autopilotRuns = [...(claimed ?? [])]
+  const autopilotIds = autopilotRuns.map((r) => r.id as string)
   try {
-    const autopilotIds = autopilotRuns.map((r) => r.id as string)
     const { data: owners } = await supabase.from("runs").select("id, user_id").in("id", autopilotIds)
     const byId = new Map((owners ?? []).map((o: any) => [o.id as string, o.user_id as string]))
     const userIds = [...new Set([...byId.values()])] as string[]
@@ -99,9 +99,12 @@ export async function runDispatcher() {
         if (manualIds.has(autopilotRuns[i].id as string)) autopilotRuns.splice(i, 1)
       }
     }
-  } catch {
-    // Fail closed on lookup errors: process the claimed batch as before rather
-    // than silently dropping paying users' reminders.
+  } catch (e) {
+    // Fail closed on lookup errors: revert ALL claimed runs to queued so Free
+    // users don't get auto-dispatched emails, and Pro users get re-tried next tick.
+    console.error("[dispatch] plan lookup failed, reverting batch:", e)
+    await supabase.from("runs").update({ status: "queued" }).in("id", autopilotIds)
+    return { ok: true, dispatched: 0, failed: 0, reason: "plan lookup failed, batch reverted" }
   }
 
   // Recover any runs that were claimed but never finished (crashed batch): bring
@@ -144,11 +147,12 @@ async function requeueStaleProcessing(supabase: NonNullable<ReturnType<typeof cr
     .eq("status", "processing")
     .lt("updated_at", staleBefore)
     .limit(500)
-  for (const r of stale ?? []) {
+  const ids = (stale ?? []).map((r) => r.id as string)
+  if (ids.length) {
     await supabase
       .from("runs")
-      .update({ status: "queued", next_run_at: new Date().toISOString() })
-      .eq("id", r.id)
+      .update({ status: "queued", next_run_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .in("id", ids)
   }
 }
 
@@ -160,13 +164,29 @@ async function requeueOnError(
   runId: string,
   err: unknown,
 ) {
-  const { data: runRow } = await supabase.from("runs").select("attempt").eq("id", runId).single()
-  const attempt = Number((runRow as { attempt?: number } | null)?.attempt ?? 0) + 1
+  // Try an atomic increment via RPC. If the function doesn't exist, fall back
+  // to a compare-and-swap style update that only increments when the attempt
+  // counter matches the value we read, avoiding lost updates from races.
+  let attempt: number
+  const rpcRes = await (supabase.rpc as any)?.("increment_attempt", { run_id: runId } as any)
+  if (Array.isArray(rpcRes?.data)) {
+    attempt = Number((rpcRes.data as unknown as { attempt: number }[])[0]?.attempt ?? 1)
+  } else {
+    const { data: row } = await supabase.from("runs").select("attempt").eq("id", runId).single()
+    const current = Number((row as { attempt?: number } | null)?.attempt ?? 0)
+    attempt = current + 1
+    // CAS-style: only bump when the stored value still matches what we read.
+    await supabase
+      .from("runs")
+      .update({ attempt, updated_at: new Date().toISOString() })
+      .eq("id", runId)
+      .eq("attempt", current)
+  }
   const msg = err instanceof Error ? err.message : String(err)
   if (attempt >= MAX_ATTEMPTS) {
     await supabase
       .from("runs")
-      .update({ status: "failed", attempt, failed_at: new Date().toISOString(), error: msg })
+      .update({ status: "failed", attempt, failed_at: new Date().toISOString(), error: msg, updated_at: new Date().toISOString() })
       .eq("id", runId)
     return
   }
@@ -179,6 +199,7 @@ async function requeueOnError(
       attempt,
       error: msg,
       next_run_at: new Date(Date.now() + backoffMs).toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq("id", runId)
 }
@@ -291,8 +312,7 @@ async function dispatchOne(
     aiEnabled: step.ai_enabled,
   })
 
-  const toEmail =
-    client?.billing_email ?? client?.email ?? profile.email ?? ""
+  const toEmail = client?.billing_email ?? client?.email ?? ""
 
   if (!toEmail) {
     await supabase
@@ -334,7 +354,9 @@ async function dispatchOne(
     const messageCount = Number(run.messages_sent ?? 0) + 1
     const nextStep = stepIndex + 1
     const dueDate = invoice.due_date ? new Date(invoice.due_date) : new Date()
-    const nextRunAt = new Date(dueDate.getTime() + CUMULATIVE_DAYS(steps, nextStep - 1) * 86400000)
+    const nextRunAtMs = dueDate.getTime() + CUMULATIVE_DAYS(steps, nextStep - 1) * 86400000
+    // Clamp to now if the computed time is in the past (late invoice + short delay)
+    const nextRunAt = new Date(Math.max(nextRunAtMs, Date.now()))
 
     if (nextStep >= steps.length) {
       await supabase
@@ -356,7 +378,22 @@ async function dispatchOne(
     }
 
     if (msgErr) {
-      console.error("[dispatch] message insert failed", msgErr.message)
+      console.error("[dispatch] message insert failed:", msgErr.message)
+      // Email was already sent but message row failed to insert.
+      // Mark as completed to prevent double-send; the message log will be
+      // incomplete but the email was delivered.
+      await supabase
+        .from("runs")
+        .update({
+          status: "completed",
+          current_step: nextStep,
+          messages_sent: messageCount,
+          last_sent_at: sentAt,
+          updated_at: new Date().toISOString(),
+          error: `message insert failed: ${msgErr.message}`,
+        })
+        .eq("id", runId)
+      return "sent"
     }
     return "sent"
   } catch (err) {
@@ -406,6 +443,18 @@ export async function startRun(opts: {
   const nextRunAt = new Date(
     dueDate.getTime() + CUMULATIVE_DAYS(steps, startStep) * 86400000,
   ).toISOString()
+
+  // Never overwrite an existing completed/processing run — only (re)create
+  // runs that don't exist or are in a recoverable paused/queued state.
+  const { data: existingRun } = await supabase
+    .from("runs")
+    .select("id, status")
+    .eq("sequence_id", opts.sequenceId)
+    .eq("invoice_id", opts.invoiceId)
+    .maybeSingle()
+  if (existingRun && (existingRun as { status: string }).status === "completed") {
+    return { ok: false, error: "run already completed" }
+  }
 
   const { error } = await supabase.from("runs").upsert(
     {
@@ -462,13 +511,16 @@ export async function handleInboundReply(
   if (byUser.size === 0) return null
 
   // Promise-to-pay upgrade: a dated commitment becomes a scheduled wait.
+  // Scope per-user to avoid cross-tenant data leaks.
   if (text && text.trim()) {
     try {
       const found = await detectPromise(text)
       if (found.isPromise && found.date) {
         const at = `${found.date}T09:00:00.000Z`
-        const allIds = [...byUser.values()].flatMap((s) => [...s])
-        if (allIds.length) {
+        for (const [userId, runIds] of byUser) {
+          const ids = [...runIds]
+          if (!ids.length) continue
+          void userId
           await supabase
             .from("runs")
             .update({
@@ -479,9 +531,9 @@ export async function handleInboundReply(
               promise_amount_cents: found.amountCents,
               updated_at: new Date().toISOString(),
             })
-            .in("id", allIds)
-          return "promise"
+            .in("id", ids)
         }
+        return "promise"
       }
     } catch {
       // Detection must never break the pause above.
@@ -504,7 +556,9 @@ export async function sendRunNow(
   const { data: run } = await supabase.from("runs").select("id, user_id, status").eq("id", runId).single()
   const row = run as { id: string; user_id: string; status: string } | null
   if (!row || row.user_id !== userId) return { ok: false, error: "not found" }
-  if (row.status === "completed") return { ok: false, error: "already completed" }
+  if (row.status === "completed" || row.status === "processing") {
+    return { ok: false, error: row.status === "completed" ? "already completed" : "currently being processed" }
+  }
   const res = await dispatchOne(runId, supabase)
   if (res === "failed" || res === "skipped") return { ok: false, error: res }
   return { ok: true, result: res }

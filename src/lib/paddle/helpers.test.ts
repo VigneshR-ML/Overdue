@@ -47,7 +47,7 @@ describe("verifyResendSignature", () => {
   it("accepts a valid Resend v1 signature", () => {
     const raw = '{"type":"email.opened"}'
     const secret = process.env.RESEND_WEBHOOK_SECRET!
-    const ts = "1720000000"
+    const ts = String(Math.floor(Date.now() / 1000))
     const sig = crypto.createHmac("sha256", secret).update(`${ts}.${raw}`).digest("hex")
     expect(verifyResendSignature(`t=${ts},v1=${sig}`, raw)).toBe(true)
   })
@@ -78,7 +78,7 @@ describe("verifyInboundReplySignature", () => {
   it("accepts a valid Svix-style signature", () => {
     const raw = "{}"
     const secret = process.env.INBOUND_WEBHOOK_SECRET!
-    const ts = "1720000000"
+    const ts = String(Math.floor(Date.now() / 1000))
     const sig = crypto.createHmac("sha256", secret).update(`${ts}.${raw}`).digest("hex")
     expect(verifyInboundReplySignature({ signature: `t=${ts},v1=${sig}`, bearer: "", rawBody: raw })).toBe(true)
   })

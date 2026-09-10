@@ -4,6 +4,7 @@ import { syncUserProvider } from "@/lib/integrations/sync"
 import { deleteCredentials } from "@/lib/integrations/credentials"
 import { createClient } from "@/lib/supabase/server"
 import { getPlan } from "@/lib/billing/plan"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -18,6 +19,11 @@ function asProvider(p: string | null): Provider | null {
 export async function POST(_req: NextRequest, { params }: { params: { provider: string } }) {
   const { user, error } = await requireUser()
   if (error) return error
+
+  const rl = rateLimit(`provider-sync:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
 
   const provider = asProvider(params.provider)
   if (!provider) return NextResponse.json({ ok: false, error: "unknown provider" }, { status: 400 })

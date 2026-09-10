@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { verifyResendSignature } from "@/lib/paddle/helpers"
+import { alreadyHandled, recordEvent } from "@/lib/integrations/paid-webhooks"
 
 export const dynamic = "force-dynamic"
 
@@ -24,6 +25,13 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 })
   }
+
+  // Idempotency check
+  const eventId = event.id ?? event.message_id ?? ""
+  if (eventId && await alreadyHandled(supabase, "resend", eventId)) {
+    return NextResponse.json({ ok: true, duplicate: true })
+  }
+
   const type = event.type ?? ""
   const data = event.data ?? {}
   const to = data.to ?? []
@@ -31,7 +39,8 @@ export async function POST(request: NextRequest) {
 
   if (!toEmail) return NextResponse.json({ ok: true, skipped: "no recipient" })
 
-  // Try to match the specific message by Resend's email ID first.
+  // Try to match the specific message by Resend's email ID only.
+  // Removed overly broad email-based fallback to prevent spoofing.
   const resendId = data.email_id ?? null
   let messages: any[] = []
   if (resendId) {
@@ -41,15 +50,6 @@ export async function POST(request: NextRequest) {
       .eq("resend_message_id", resendId)
       .limit(1)
     if (byId?.length) messages = byId
-  }
-  if (!messages.length) {
-    const { data: byEmail } = await supabase
-      .from("messages")
-      .select("id, run_id")
-      .eq("to_email", toEmail)
-      .order("sent_at", { ascending: false })
-      .limit(3)
-    messages = byEmail ?? []
   }
 
   if (!messages.length) return NextResponse.json({ ok: true, skipped: "no match" })
@@ -78,6 +78,11 @@ export async function POST(request: NextRequest) {
         .update({ status: "failed", error: type === "email.bounced" ? "bounced" : "complained", failed_at: new Date().toISOString() })
         .in("id", runIds)
     }
+  }
+
+  // Record event for idempotency
+  if (eventId) {
+    await recordEvent(supabase, "resend", eventId, event)
   }
 
   return NextResponse.json({ ok: true })

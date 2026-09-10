@@ -39,13 +39,21 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
     const plan = (await import("@/lib/billing/plan")).getPlan(session.id)
     const currentPlan = await plan
     if (currentPlan === "free" && (count ?? 0) >= 1) {
-      return // silently block — free plan limited to 1 ladder
+      redirect("/sequences?error=free-limit")
     }
 
-    const { data: tpl } = await supabase.from("sequences").select("steps").eq("id", templateId).single()
-    const steps = ((tpl?.steps as unknown as SequenceStep[]) ?? []).map((s) => ({
+    const { data: tpl, error: tplErr } = await supabase
+      .from("sequences")
+      .select("steps")
+      .eq("id", templateId)
+      .eq("is_template", true)
+      .single()
+    if (tplErr || !tpl?.steps) {
+      redirect("/sequences?error=bad-template")
+    }
+    const steps = ((tpl.steps as unknown as SequenceStep[]) ?? []).map((s) => ({
       ...s,
-      id: crypto.randomUUID(),
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `step-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     }))
 
     const { data, error } = await supabase

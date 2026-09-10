@@ -169,11 +169,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         />
       </Field>
 
-      <Field label="Password" hint="min 8 characters">
+      <Field label="Password" hint={mode === "login" ? undefined : "min 8 characters"}>
         <Input
           type="password"
           required
-          minLength={8}
+          minLength={mode === "signup" ? 8 : undefined}
           autoComplete={mode === "login" ? "current-password" : "new-password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -182,7 +182,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       </Field>
 
       {error ? (
-        <div className={cn("rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson")}>
+        <div className={cn("rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson")} role="alert">
           {error}
         </div>
       ) : null}

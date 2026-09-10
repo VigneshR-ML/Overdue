@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .from("subscriptions")
     .select("plan")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
   const plan = (sub?.plan as string) ?? "free"
 
   return (

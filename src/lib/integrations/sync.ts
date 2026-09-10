@@ -6,70 +6,94 @@ import { syncXeroInvoices } from "./xero"
 import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
 import type { InboundInvoice, SyncResult } from "./provider"
 
+const refreshMutex = new Map<string, Promise<void>>()
+
+export async function withRefreshMutex<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = refreshMutex.get(key)
+  const chain = (prev ?? Promise.resolve()).then(fn, fn)
+  refreshMutex.set(key, chain.then(() => {}, () => {}))
+  return chain
+}
+
 async function refreshXeroIfNeeded(userId: string) {
   const creds = await getCredentials(userId, "xero")
   if (!creds?.refresh_token) return
   const expiresAt = Number(creds.expires_at ?? 0)
   if (expiresAt > Date.now() + 5 * 60 * 1000) return
 
-  const cfg = getOAuthConfig("xero")
-  try {
-    const res = await fetch("https://identity.xero.com/connect/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        client_id: cfg.clientId,
-        client_secret: cfg.clientSecret,
-        refresh_token: creds.refresh_token,
-      }),
-    })
-    const token = await res.json()
-    if (res.ok && token.access_token) {
-      await setCredentials(userId, "xero", {
-        ...creds,
-        access_token: token.access_token,
-        refresh_token: token.refresh_token ?? creds.refresh_token,
-        expires_at: String(Date.now() + (token.expires_in ?? 1800) * 1000),
-        tenant_id: creds.tenant_id ?? "",
+  await withRefreshMutex(`xero:${userId}`, async () => {
+    const fresh = await getCredentials(userId, "xero")
+    if (!fresh?.refresh_token) return
+    const freshExpiry = Number(fresh.expires_at ?? 0)
+    if (freshExpiry > Date.now() + 5 * 60 * 1000) return
+
+    const cfg = getOAuthConfig("xero")
+    try {
+      const res = await fetch("https://identity.xero.com/connect/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: cfg.clientId,
+          client_secret: cfg.clientSecret,
+          refresh_token: fresh.refresh_token,
+        }),
       })
-    } else {
-      console.error("[sync] Xero token refresh failed:", res.status, token)
+      const token = await res.json()
+      if (res.ok && token.access_token) {
+        await setCredentials(userId, "xero", {
+          ...fresh,
+          access_token: token.access_token,
+          refresh_token: token.refresh_token ?? fresh.refresh_token,
+          expires_at: String(Date.now() + (token.expires_in ?? 1800) * 1000),
+          tenant_id: fresh.tenant_id ?? "",
+        })
+      } else {
+        console.error("[sync] Xero token refresh failed:", res.status, token)
+      }
+    } catch (e) {
+      console.error("[sync] Xero token refresh error:", e)
     }
-  } catch (e) {
-    console.error("[sync] Xero token refresh error:", e)
-  }
+  })
 }
 
 async function refreshStripeIfNeeded(userId: string) {
   const creds = await getCredentials(userId, "stripe")
   if (!creds?.refresh_token) return
 
-  const cfg = getOAuthConfig("stripe")
-  try {
-    const res = await fetch("https://connect.stripe.com/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        client_id: cfg.clientId,
-        client_secret: cfg.clientSecret,
-        refresh_token: creds.refresh_token,
-      }),
-    })
-    const token = await res.json()
-    if (res.ok && token.access_token) {
-      await setCredentials(userId, "stripe", {
-        ...creds,
-        access_token: token.access_token,
-        refresh_token: token.refresh_token ?? creds.refresh_token,
+  const expiresAt = Number(creds.expires_at ?? 0)
+  if (expiresAt > Date.now() + 5 * 60 * 1000) return
+
+  await withRefreshMutex(`stripe:${userId}`, async () => {
+    const fresh = await getCredentials(userId, "stripe")
+    if (!fresh?.refresh_token) return
+
+    const cfg = getOAuthConfig("stripe")
+    try {
+      const res = await fetch("https://connect.stripe.com/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: cfg.clientId,
+          client_secret: cfg.clientSecret,
+          refresh_token: fresh.refresh_token,
+        }),
       })
-    } else {
-      console.error("[sync] Stripe token refresh failed:", res.status, token)
+      const token = await res.json()
+      if (res.ok && token.access_token) {
+        await setCredentials(userId, "stripe", {
+          ...fresh,
+          access_token: token.access_token,
+          refresh_token: token.refresh_token ?? fresh.refresh_token,
+        })
+      } else {
+        console.error("[sync] Stripe token refresh failed:", res.status, token)
+      }
+    } catch (e) {
+      console.error("[sync] Stripe token refresh error:", e)
     }
-  } catch (e) {
-    console.error("[sync] Stripe token refresh error:", e)
-  }
+  })
 }
 
 export async function syncUserProvider(userId: string, provider: "stripe" | "paypal" | "xero") {

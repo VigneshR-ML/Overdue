@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -57,7 +57,16 @@ export function InvoiceTable({
     e.preventDefault()
     e.stopPropagation()
     const supabase = createClient()
-    await supabase.from("invoices").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", id)
+    try {
+      const { error } = await supabase.from("invoices").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", id)
+      if (error) {
+        setError(error.message)
+        return
+      }
+    } catch {
+      setError("Failed to mark as paid")
+      return
+    }
     if (onRefresh) onRefresh()
     else router.refresh()
   }
@@ -65,18 +74,37 @@ export function InvoiceTable({
   const [pausedIds, setPausedIds] = useState<Set<string>>(new Set())
   const [busyId, setBusyId] = useState<string | null>(null)
   const [sentFlash, setSentFlash] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const timerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current)
+    }
+  }, [])
 
   async function sendNow(e: React.MouseEvent, id: string) {
     e.preventDefault()
     e.stopPropagation()
     setBusyId(id)
-    const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" })
-    setBusyId(null)
-    if (!res.ok) return
-    setSentFlash(id)
-    window.setTimeout(() => setSentFlash((cur) => (cur === id ? null : cur)), 4000)
-    if (onRefresh) onRefresh()
-    else router.refresh()
+    try {
+      const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setError(json?.error ?? "Send failed")
+        setBusyId(null)
+        return
+      }
+      setSentFlash(id)
+      if (timerRef.current) window.clearTimeout(timerRef.current)
+      timerRef.current = window.setTimeout(() => setSentFlash((cur) => (cur === id ? null : cur)), 4000)
+      if (onRefresh) onRefresh()
+      else router.refresh()
+    } catch {
+      setError("Network error")
+    } finally {
+      setBusyId(null)
+    }
   }
 
   async function togglePause(e: React.MouseEvent, id: string) {
@@ -84,21 +112,30 @@ export function InvoiceTable({
     e.stopPropagation()
     const pausing = !pausedIds.has(id)
     setBusyId(id)
-    const res = await fetch(`/api/invoices/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pausing ? { pause_runs: true } : { resume_runs: true }),
-    })
-    setBusyId(null)
-    if (!res.ok) return
-    setPausedIds((prev) => {
-      const next = new Set(prev)
-      if (pausing) next.add(id)
-      else next.delete(id)
-      return next
-    })
-    if (onRefresh) onRefresh()
-    else router.refresh()
+    try {
+      const res = await fetch(`/api/invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pausing ? { pause_runs: true } : { resume_runs: true }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setError(json?.error ?? "Update failed")
+        return
+      }
+      setPausedIds((prev) => {
+        const next = new Set(prev)
+        if (pausing) next.add(id)
+        else next.delete(id)
+        return next
+      })
+      if (onRefresh) onRefresh()
+      else router.refresh()
+    } catch {
+      setError("Network error")
+    } finally {
+      setBusyId(null)
+    }
   }
 
   if (!invoices.length) {
@@ -214,6 +251,8 @@ export function InvoiceTable({
           </tbody>
         </table>
       </div>
+
+      {error && <p className="font-mono text-[12px] text-crimson" role="alert">{error}</p>}
 
       <p className="font-mono text-[11px] text-faint">
         {rows.length} of {invoices.length} invoices shown · marking paid here bounces the ladder

@@ -30,7 +30,7 @@ export interface DraftOutput {
 function templateVars(input: DraftInput) {
   const dueDate = input.invoice.due_date
   const daysOverdue = dueDate
-    ? Math.max(0, Math.ceil((Date.now() - new Date(dueDate).getTime()) / 86400000))
+    ? Math.max(0, Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000))
     : 0
   return {
     "{client_name}": input.client?.name ?? "there",
@@ -44,7 +44,7 @@ function templateVars(input: DraftInput) {
     "{company}": input.sender.company,
     "{paid_cents}": formatMoney(input.invoice.paid_cents, input.invoice.currency),
     "{balance}": formatMoney(
-      input.invoice.amount_cents - input.invoice.paid_cents,
+      Math.max(0, (input.invoice.amount_cents ?? 0) - (input.invoice.paid_cents ?? 0)),
       input.invoice.currency,
     ),
   }
@@ -112,7 +112,7 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
 
   try {
     const res = await fetch(
-      `${process.env.LLM_BASE_URL ?? "https://api.openai.com/v1"}/chat/completions`,
+      `${(process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`,
       {
         method: "POST",
         headers: {
@@ -139,7 +139,8 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
     const subject = String(parsed.subject ?? "").trim()
     if (!body) return local
     return { subject: subject || local.subject, body, aiUsed: true }
-  } catch {
+  } catch (e) {
+    console.error("[draft] LLM call failed:", e)
     return local
   }
 }
@@ -164,20 +165,21 @@ async function consumeAiQuota(userId: string): Promise<{ allowed: boolean }> {
     if (plan === "pro") return { allowed: true }
 
     const month = new Date().toISOString().slice(0, 7)
-    const { data: row } = await supabase
+    const limit = FREE_AI_DRAFTS_PER_MONTH
+
+    const { data: existing } = await supabase
       .from("ai_usage")
       .select("count")
       .eq("user_id", userId)
       .eq("month", month)
       .maybeSingle()
-    const used = Number((row as { count?: number } | null)?.count ?? 0)
-    if (used >= FREE_AI_DRAFTS_PER_MONTH) return { allowed: false }
-    await supabase
-      .from("ai_usage")
-      .upsert(
-        { user_id: userId, month, count: used + 1, updated_at: new Date().toISOString() },
-        { onConflict: "user_id,month" },
-      )
+    const used = Number((existing as { count?: number } | null)?.count ?? 0)
+    if (used >= limit) return { allowed: false }
+
+    await supabase.from("ai_usage").upsert(
+      { user_id: userId, month, count: used + 1, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,month" },
+    )
     return { allowed: true }
   } catch {
     return { allowed: true }

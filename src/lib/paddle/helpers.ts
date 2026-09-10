@@ -36,6 +36,11 @@ export function verifyResendSignature(header: string, rawBody: string): boolean 
   const ts = tsPart?.replace("t=", "")
   const sig = sigPart?.replace("v1=", "")
 
+  if (ts) {
+    const age = Math.abs(Date.now() / 1000 - Number(ts))
+    if (!Number.isFinite(age) || age > 300) return false
+  }
+
   const signed = crypto
     .createHmac("sha256", secret)
     .update(`${ts}.${rawBody}`)
@@ -77,6 +82,8 @@ export function verifyInboundReplySignature(opts: {
     const ts = tsPart?.replace("t=", "")
     const sig = sigPart?.replace("v1=", "")
     if (!ts || !sig) return false
+    const age = Math.abs(Date.now() / 1000 - Number(ts))
+    if (!Number.isFinite(age) || age > 300) return false
     const signed = crypto
       .createHmac("sha256", secret)
       .update(`${ts}.${opts.rawBody}`)

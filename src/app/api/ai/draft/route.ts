@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { draftEmail } from "@/lib/ai/draft"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -14,11 +15,21 @@ export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
+  const rl = rateLimit(`ai-draft:${user!.id}`, RATE_LIMITS.aiDraft.limit, RATE_LIMITS.aiDraft.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
+
   const supabase = createAdminClient()
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
 
-  const { invoiceId, subjectTemplate, bodyTemplate, tone, aiEnabled } = await request.json()
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
+  const { invoiceId, subjectTemplate, bodyTemplate, tone, aiEnabled } = body
   if (!user!.id || !invoiceId) return NextResponse.json({ ok: false, error: "invoiceId required" }, { status: 400 })
+  if (!["gentle", "nudge", "firm", "final"].includes(tone)) {
+    return NextResponse.json({ ok: false, error: "invalid tone" }, { status: 400 })
+  }
 
   const { data: invoice } = await supabase
     .from("invoices")

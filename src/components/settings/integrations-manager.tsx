@@ -40,38 +40,57 @@ export function IntegrationsManager({
   async function runSync(provider: string) {
     setBusy(provider)
     setNotice(null)
-    const res = await fetch(`/api/integrations/${provider}/sync`, { method: "POST" })
-    const json = await res.json()
-    setBusy(null)
-    if (!res.ok) return setNotice(`Sync failed: ${json?.error ?? "try again"}`)
-    const r = json.result ?? {}
-    setNotice(`${provider}: ${r.added ?? 0} added, ${r.updated ?? 0} updated.`)
-    router.refresh()
+    try {
+      const res = await fetch(`/api/integrations/${provider}/sync`, { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) return setNotice(`Sync failed: ${json?.error ?? "try again"}`)
+      const r = json.result ?? {}
+      setNotice(`${provider}: ${r.added ?? 0} added, ${r.updated ?? 0} updated.`)
+      router.refresh()
+    } catch {
+      setNotice("Sync failed: network error")
+    } finally {
+      setBusy(null)
+    }
   }
 
   async function disconnect(provider: string) {
     setBusy(provider)
-    await fetch(`/api/integrations/${provider}/disconnect`, { method: "DELETE" })
-    setBusy(null)
-    router.refresh()
+    try {
+      const res = await fetch(`/api/integrations/${provider}/disconnect`, { method: "DELETE" })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setNotice(`Disconnect failed: ${json?.error ?? "try again"}`)
+      }
+      router.refresh()
+    } catch {
+      setNotice("Disconnect failed: network error")
+    } finally {
+      setBusy(null)
+    }
   }
 
   async function importCsv() {
     if (!csvFile) return
     setBusy("csv")
     setCsvError(null)
-    const text = await csvFile.text()
-    const res = await fetch("/api/integrations/csv", {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: text,
-    })
-    const json = await res.json()
-    setBusy(null)
-    if (!res.ok) return setCsvError(json?.error ?? "CSV import failed")
-    setCsvFile(null)
-    setNotice(`CSV: ${json.result?.added ?? 0} invoices imported.`)
-    router.refresh()
+    try {
+      const text = await csvFile.text()
+      const res = await fetch("/api/integrations/csv", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: text,
+      })
+      const json = await res.json()
+      if (!res.ok) return setCsvError(json?.error ?? "CSV import failed")
+      setCsvFile(null)
+      setNotice(`CSV: ${json.result?.added ?? 0} invoices imported.`)
+      router.refresh()
+    } catch {
+      setCsvError("Network error — try again")
+    } finally {
+      setBusy(null)
+    }
   }
 
   const providers: (ProviderName & keyof typeof PROVIDER_META)[] = ["stripe", "paypal", "xero", "csv"]
@@ -195,15 +214,20 @@ function PaypalCredsForm({ onDone }: { onDone: () => void }) {
     if (!clientId || !clientSecret) return setError("Both client ID and secret are required.")
     setSaving(true)
     setError(null)
-    const res = await fetch("/api/integrations/paypal/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, clientSecret, mode }),
-    })
-    const json = await res.json()
-    setSaving(false)
-    if (!res.ok) return setError(json?.error ?? "Couldn't save credentials.")
-    onDone()
+    try {
+      const res = await fetch("/api/integrations/paypal/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, clientSecret, mode }),
+      })
+      const json = await res.json()
+      if (!res.ok) return setError(json?.error ?? "Couldn't save credentials.")
+      onDone()
+    } catch {
+      setError("Network error — please try again.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

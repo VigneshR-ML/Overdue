@@ -13,11 +13,12 @@ export default async function SequenceDetailPage({ params }: { params: { id: str
   if (!session) redirect("/?signin=1")
 
   const supabase = (await import("@/lib/supabase/server")).createClient()
-  const { data } = await supabase
+  const { data, error: fetchErr } = await supabase
     .from("sequences")
     .select("*")
     .eq("id", params.id)
-    .single()
+    .maybeSingle()
+  if (fetchErr) console.error("[sequences] fetch error:", fetchErr.message)
   const seq = data as {
     id: string
     name: string
@@ -51,6 +52,7 @@ export default async function SequenceDetailPage({ params }: { params: { id: str
 
       <SequenceEditor
         id={seq.id}
+        readOnly={seq.is_template}
         initial={{
           name: seq.name,
           is_active: seq.is_active,

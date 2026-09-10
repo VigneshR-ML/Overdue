@@ -11,6 +11,20 @@ export function AddClientButton({ onAdded }: { onAdded?: () => void }) {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
+  function close() {
+    setOpen(false)
+    setError(null)
+  }
+
+  React.useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -31,7 +45,6 @@ export function AddClientButton({ onAdded }: { onAdded?: () => void }) {
       setEmail("")
       setOpen(false)
       onAdded?.()
-      window.location.reload()
     } catch {
       setError("Network error — try again")
     } finally {
@@ -49,13 +62,17 @@ export function AddClientButton({ onAdded }: { onAdded?: () => void }) {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" disabled>
         Add client
       </Button>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 backdrop-blur-sm" onClick={close}>
         <form
           onSubmit={handleSubmit}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add a client"
           className="w-full max-w-sm rounded-lg border border-hairline bg-surface p-6 shadow-lg space-y-4"
+          onClick={(e) => e.stopPropagation()}
         >
           <div>
             <div className="font-display text-lg text-ink">Add a client</div>
@@ -80,10 +97,10 @@ export function AddClientButton({ onAdded }: { onAdded?: () => void }) {
             />
           </div>
 
-          {error && <p className="text-[13px] text-ember">{error}</p>}
+          {error && <p className="text-[13px] text-ember" role="alert">{error}</p>}
 
           <div className="flex items-center justify-end gap-2 pt-1">
-            <Button type="button" variant="ghost" size="sm" onClick={() => { setOpen(false); setError(null) }}>
+            <Button type="button" variant="ghost" size="sm" onClick={close}>
               Cancel
             </Button>
             <Button type="submit" variant="moss" size="sm" disabled={loading || !name.trim()}>

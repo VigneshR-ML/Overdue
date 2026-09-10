@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { renderTemplate } from "@/lib/ai/draft"
 import { formatDate } from "@/lib/utils/format"
@@ -42,9 +42,11 @@ const SAMPLE = {
 export function SequenceEditor({
   id,
   initial,
+  readOnly = false,
 }: {
   id: string
   initial: { name: string; is_active: boolean; steps: SequenceStep[] }
+  readOnly?: boolean
 }) {
   const router = useRouter()
   const [name, setName] = useState(initial.name)
@@ -55,6 +57,13 @@ export function SequenceEditor({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const savedTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (savedTimer.current) window.clearTimeout(savedTimer.current)
+    }
+  }, [])
 
   const [selectedId, setSelectedId] = useState(steps[0]?.id)
   const selected = steps.find((s) => s.id === selectedId) ?? steps[0]
@@ -83,7 +92,7 @@ export function SequenceEditor({
     const tone = TONES[Math.min(steps.length, TONES.length - 1)]
     const [subj, body] = openai(tone)
     const step: SequenceStep = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `step-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       step_order: steps.length + 1,
       delay_days: 7,
       tone,
@@ -105,33 +114,44 @@ export function SequenceEditor({
   async function save() {
     setSaving(true)
     setError(null)
-    const res = await fetch("/api/sequences", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name, is_active: isActive, steps: renumbered }),
-    })
-    const json = await res.json()
-    setSaving(false)
-    if (!res.ok) {
-      setError(json?.error ?? "Save failed")
-      return
+    try {
+      const res = await fetch("/api/sequences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name, is_active: isActive, steps: renumbered }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json?.error ?? "Save failed")
+        return
+      }
+      setSaved(true)
+      if (savedTimer.current) window.clearTimeout(savedTimer.current)
+      savedTimer.current = window.setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      setError("Network error — please try again.")
+    } finally {
+      setSaving(false)
     }
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
   }
 
   async function toggleActive(v: boolean) {
     setIsActive(v)
-    const res = await fetch("/api/sequences", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name, is_active: v, steps: renumbered }),
-    })
-    if (!res.ok) {
-      const json = await res.json()
-      setError(json?.error ?? "Save failed")
+    try {
+      const res = await fetch("/api/sequences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name, is_active: v, steps: renumbered }),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        setError(json?.error ?? "Save failed")
+        setIsActive(!v)
+      } else router.refresh()
+    } catch {
+      setError("Network error — please try again.")
       setIsActive(!v)
-    } else router.refresh()
+    }
   }
 
   const previewBody = renderTemplate(selected?.body_template ?? "", SAMPLE)
@@ -146,10 +166,12 @@ export function SequenceEditor({
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Standard Ladder" />
             </Field>
           </div>
-          <ToggleRow title="Active" description="Attaching this ladder auto-runs it" checked={isActive} onChange={toggleActive} />
-          <Button onClick={save} disabled={saving} variant="moss" className="gap-2">
-            {saving ? "Saving…" : saved ? "Saved ✓" : "Save ladder"}
-          </Button>
+          {!readOnly && <ToggleRow title="Active" description="Attaching this ladder auto-runs it" checked={isActive} onChange={toggleActive} />}
+          {!readOnly && (
+            <Button onClick={save} disabled={saving} variant="moss" className="gap-2">
+              {saving ? "Saving…" : saved ? "Saved ✓" : "Save ladder"}
+            </Button>
+          )}
         </div>
 
         {error ? <div className="rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson">{error}</div> : null}
@@ -157,9 +179,11 @@ export function SequenceEditor({
         <div className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
           <div className="mb-5 flex items-center justify-between">
             <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">The ladder</div>
-            <Button size="sm" variant="outline" onClick={addStep} disabled={steps.length >= 6} className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" /> Add rung
-            </Button>
+            {!readOnly && (
+              <Button size="sm" variant="outline" onClick={addStep} disabled={steps.length >= 6} className="gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> Add rung
+              </Button>
+            )}
           </div>
           <EscalationLadder steps={renumbered} onStepClick={(s) => setSelectedId(s.id)} />
         </div>
@@ -190,6 +214,7 @@ export function SequenceEditor({
                       <button
                         key={t}
                         type="button"
+                        aria-pressed={activeTone}
                         onClick={() => patchSelected({ tone: t })}
                         className={cn(
                           "rounded-md border px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-all duration-150 cursor-pointer",

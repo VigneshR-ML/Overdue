@@ -49,8 +49,17 @@ export function upsertInvoices(
   return supabase
     .from("invoices")
     .upsert(rows, { onConflict: "user_id,provider,provider_id" })
-    .then((res: any) => {
+    .then(async (res: any) => {
       if (res.error) return { added: 0, updated: 0, errors: [res.error.message] }
-      return { added: rows.length, updated: rows.length, errors: [] }
+      // Detect per-row existence by checking which provider_ids already existed
+      const providerIds = invoices.map((i) => i.provider_id)
+      const { data: existing } = await supabase
+        .from("invoices")
+        .select("provider_id")
+        .eq("user_id", userId)
+        .eq("provider", invoices[0]?.provider ?? "")
+        .in("provider_id", providerIds)
+      const existingCount = Array.isArray(existing) ? existing.length : 0
+      return { added: rows.length - existingCount, updated: existingCount, errors: [] }
     })
 }

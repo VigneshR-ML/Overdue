@@ -36,6 +36,10 @@ export async function POST(request: NextRequest) {
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
 
   const eventId = event.id ?? ""
+  if (!eventId) {
+    console.error("[paypal-webhook] event missing id — rejecting:", event.event_type)
+    return NextResponse.json({ ok: false, error: "event id required" }, { status: 400 })
+  }
   if (await alreadyHandled(supabase, "paypal", eventId)) {
     return NextResponse.json({ ok: true, duplicate: true })
   }

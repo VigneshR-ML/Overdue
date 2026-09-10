@@ -42,7 +42,7 @@ export function EscalationLadder({
         aria-hidden
       />
       {rows.map((step) => {
-        const meta = TONE_META[step.tone]
+        const meta = TONE_META[step.tone] ?? { label: step.tone, color: "#A7A091", border: "#A7A091" }
         const warm = step.tone === "firm" || step.tone === "final"
         return (
           <li key={step.id} className="relative pl-8">
@@ -97,7 +97,7 @@ export function EscalationLadder({
 }
 
 export function TonePill({ tone }: { tone: Tone }) {
-  const meta = TONE_META[tone]
+  const meta = TONE_META[tone] ?? { label: tone, color: "#A7A091", border: "#A7A091" }
   return (
     <span
       className="inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em]"

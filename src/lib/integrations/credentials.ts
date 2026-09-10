@@ -93,11 +93,28 @@ export async function setCredentials(
 export async function deleteCredentials(userId: string, provider: CredProvider) {
   const supabase = createAdminClient()
   if (!supabase) return
+
+  // Read the vault secret id first so we can purge the encrypted copy too.
+  const { data: existing } = await supabase
+    .from("integration_credentials")
+    .select("vault_secret_id")
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .single()
+
   await supabase
     .from("integration_credentials")
     .delete()
     .eq("user_id", userId)
     .eq("provider", provider)
+
+  if (existing?.vault_secret_id) {
+    try {
+      await supabase.rpc("delete_secret", { secret_id: existing.vault_secret_id })
+    } catch {
+      // Vault cleanup is best-effort; row already removed.
+    }
+  }
 }
 
 export function getOAuthConfig(provider: CredProvider) {

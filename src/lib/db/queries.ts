@@ -39,7 +39,7 @@ export function aggregateAging(invoices: AgingRow[]): AgingTotals {
     outstanding += balance
     if (inv.due_date) {
       const due = new Date(inv.due_date + "T00:00:00Z")
-      const diff = Math.ceil((due.getTime() - Date.now()) / 86400000)
+      const diff = Math.floor((due.getTime() - Date.now()) / 86400000)
       if (diff < 0) {
         overdue += balance
         overdueCount += 1
@@ -186,7 +186,9 @@ export async function getSubscriptionsForUser(userId: string) {
     .from("subscriptions")
     .select("*")
     .eq("user_id", userId)
-    .single()
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
   return data as Subscription | null
 }
 

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/require-user"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getPlan, countForUser, FREE_SEQUENCE_LIMIT } from "@/lib/billing/plan"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 import type { SequenceStep } from "@/types"
 
 export const dynamic = "force-dynamic"
@@ -26,7 +27,13 @@ export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const body = await request.json()
+  const rl = rateLimit(`sequences:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
+
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
   const name = String(body.name ?? "My ladder").slice(0, 80)
   const steps = (body.steps ?? []) as SequenceStep[]
 
@@ -58,7 +65,8 @@ export async function PUT(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const body = await request.json()
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
   const id = String(body.id ?? "")
   if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 })
 
@@ -89,6 +97,7 @@ export async function PUT(request: NextRequest) {
   if (body.is_active === true) {
     const admin = createAdminClient()
     if (!admin) return NextResponse.json({ ok: true })
+    const { startRun } = await import("@/lib/scheduler/dispatch")
     const { data: invoices } = await admin
       .from("invoices")
       .select("id, status, paid_cents, amount_cents, paid_at")
@@ -98,7 +107,6 @@ export async function PUT(request: NextRequest) {
       const amount = Number(inv.amount_cents ?? 0)
       const paid = Number(inv.paid_cents ?? 0)
       if (inv.paid_at || (inv.status === "paid" && amount > 0 && paid >= amount)) continue
-      const { startRun } = await import("@/lib/scheduler/dispatch")
       await startRun({ userId: user!.id, sequenceId: id, invoiceId: inv.id })
     }
   }
@@ -125,6 +133,9 @@ export async function DELETE(request: NextRequest) {
   if (seq.is_default || seq.is_template) {
     return NextResponse.json({ ok: false, error: "defaults and templates stay" }, { status: 400 })
   }
+
+  // Clean up orphaned runs for this sequence before deleting
+  await supabase.from("runs").delete().eq("sequence_id", id).eq("user_id", user!.id)
 
   const { error: delErr } = await supabase.from("sequences").delete().eq("id", id).eq("user_id", user!.id)
   if (delErr) return NextResponse.json({ ok: false, error: delErr.message }, { status: 400 })

@@ -78,7 +78,7 @@ export function UrgencyQueue({
               </div>
 
               <Link
-                href={`/invoices?focus=${invoice.id}`}
+                href={`/invoices?focus=${encodeURIComponent(invoice.id)}`}
                 className="rounded border border-hairline px-2.5 py-1 text-[12px] text-muted opacity-0 transition-opacity duration-150 group-hover:opacity-100 hover:border-ink-soft hover:text-ink"
               >
                 View

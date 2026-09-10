@@ -28,12 +28,17 @@ export async function POST(request: NextRequest) {
   const eventType = event.event_type
   const data = event.data ?? {}
 
+  // Reject events with missing event_id to prevent idempotency key collision
+  if (!event.event_id) {
+    return NextResponse.json({ ok: false, error: "event_id required" }, { status: 400 })
+  }
+
   // Idempotency ledger.
   const { data: already } = await supabase
     .from("webhook_events")
     .select("id")
     .eq("provider", "paddle")
-    .eq("event_id", event.event_id ?? "")
+    .eq("event_id", event.event_id)
     .maybeSingle()
   if (already) return NextResponse.json({ ok: true, duplicate: true })
 

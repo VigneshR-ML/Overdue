@@ -29,7 +29,17 @@ export function formatMoney(cents: number | null | undefined, currency = "USD") 
 
 export function formatMoneyShort(cents: number, currency = "USD") {
   const value = cents / 100
-  if (value >= 1000) return `$${(value / 1000).toFixed(value >= 100000 ? 0 : 1)}k`
+  if (value >= 1000) {
+    const symbol = (() => {
+      try {
+        const parts = new Intl.NumberFormat(undefined, { style: "currency", currency, currencyDisplay: "narrowSymbol" }).formatToParts(0)
+        return parts.find((p) => p.type === "currency")?.value ?? "$"
+      } catch {
+        return "$"
+      }
+    })()
+    return `${symbol}${(value / 1000).toFixed(value >= 100000 ? 0 : 1)}k`
+  }
   return formatMoney(cents, currency)
 }
 
@@ -40,7 +50,9 @@ export function formatMoneyShort(cents: number, currency = "USD") {
 export function daysOverdue(dueDate: string | null, paidAt?: string | null) {
   if (paidAt) return -Infinity
   if (!dueDate) return 0
-  const ms = Date.now() - new Date(dueDate).getTime()
+  const due = new Date(dueDate).getTime()
+  if (Number.isNaN(due)) return 0
+  const ms = Date.now() - due
   return Math.floor(ms / 86400000)
 }
 

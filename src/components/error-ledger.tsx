@@ -17,12 +17,14 @@ export function ErrorLedger({
   reset: () => void
   minimal?: boolean
 }) {
-  const [reported] = React.useState(false)
+  const lastErrorRef = React.useRef<string | null>(null)
 
   React.useEffect(() => {
-    if (reported) return
+    const digest = error.digest ?? error.message
+    if (lastErrorRef.current === digest) return
+    lastErrorRef.current = digest
     console.error("[overdue] error boundary caught:", error)
-  }, [error, reported])
+  }, [error])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-paper px-5 text-center">

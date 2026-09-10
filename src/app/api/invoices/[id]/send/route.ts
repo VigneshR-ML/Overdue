@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendRunNow } from "@/lib/scheduler/dispatch"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,11 @@ export const dynamic = "force-dynamic"
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requireUser()
   if (error) return error
+
+  const rl = rateLimit(`send:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
 
   const supabase = createAdminClient()
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })

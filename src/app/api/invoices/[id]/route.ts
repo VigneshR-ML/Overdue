@@ -10,7 +10,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   const { user, error } = await requireUser()
   if (error) return error
 
-  const body = await request.json()
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
   const supabase = createClient()
 
   const { data: invoice, error: fetchErr } = await supabase
@@ -47,16 +48,22 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   if (body.mark_paid === true) {
     patch.status = "paid"
-    patch.paid_cents = body.paid_cents ?? undefined
+    const paidCents = body.paid_cents !== undefined ? Number(body.paid_cents) : undefined
+    patch.paid_cents = typeof paidCents === "number" && Number.isFinite(paidCents) && paidCents >= 0 ? paidCents : undefined
     patch.paid_at = new Date().toISOString()
-  } else if (body.status) {    if (!VALID_STATUSES.includes(body.status)) {
+  } else if (body.status) {
+    if (!VALID_STATUSES.includes(body.status)) {
       return NextResponse.json({ ok: false, error: `invalid status — must be one of: ${VALID_STATUSES.join(", ")}` }, { status: 400 })
     }
     patch.status = body.status
     if (body.status === "paid") patch.paid_at = new Date().toISOString()
   }
 
-  const { error: updErr } = await supabase.from("invoices").update(patch).eq("id", params.id)
+  const { error: updErr } = await supabase
+    .from("invoices")
+    .update(patch)
+    .eq("id", params.id)
+    .eq("user_id", user!.id)
   if (updErr) return NextResponse.json({ ok: false, error: updErr.message }, { status: 400 })
 
   return NextResponse.json({ ok: true })
@@ -67,8 +74,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const { user, error } = await requireUser()
   if (error) return error
 
-  const body = await request.json()
-  const sequenceId = String(body.sequenceId ?? "").slice(0, 45)
+  let postBody: any
+  try { postBody = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
+  const sequenceId = String(postBody.sequenceId ?? "").slice(0, 45)
   if (!sequenceId) return NextResponse.json({ ok: false, error: "sequenceId required" }, { status: 400 })
 
   const res = await startRun({ userId: user!.id, sequenceId, invoiceId: params.id })

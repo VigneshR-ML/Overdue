@@ -4,14 +4,31 @@ import { createClient } from "@/lib/supabase/server"
 import { parseCsv } from "@/lib/integrations/csv"
 import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
 import { getPlan, countForUser, FREE_CLIENT_LIMIT, FREE_INVOICE_LIMIT } from "@/lib/billing/plan"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
+
+const MAX_CSV_BYTES = 10 * 1024 * 1024 // 10 MB
 
 export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
+  const rl = rateLimit(`csv-import:${user!.id}`, RATE_LIMITS.csvImport.limit, RATE_LIMITS.csvImport.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
+
+  // Enforce body size limit
+  const contentLength = Number(request.headers.get("content-length") ?? 0)
+  if (contentLength > MAX_CSV_BYTES) {
+    return NextResponse.json({ ok: false, error: "CSV file too large (max 10 MB)." }, { status: 413 })
+  }
+
   const csv = await request.text()
+  if (csv.length > MAX_CSV_BYTES) {
+    return NextResponse.json({ ok: false, error: "CSV file too large (max 10 MB)." }, { status: 413 })
+  }
   const { invoices, errors } = parseCsv(csv)
 
   if (!invoices.length) {
@@ -82,7 +99,7 @@ export async function POST(request: NextRequest) {
         user_id: user!.id,
         client_id: clientId,
         provider: "manual",
-        provider_id: `csv-${inv.number ?? inv.provider_id}`,
+        provider_id: inv.provider_id,
         number: inv.number,
         status: inv.status,
         amount_cents: inv.amount_cents,

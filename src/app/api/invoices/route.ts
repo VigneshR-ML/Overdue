@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/require-user"
 import { createClient } from "@/lib/supabase/server"
 import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
 import { getPlan, countForUser, FREE_CLIENT_LIMIT, FREE_INVOICE_LIMIT } from "@/lib/billing/plan"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -14,7 +15,13 @@ export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const body = await request.json()
+  const rl = rateLimit(`invoices:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
+
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
   const clientName = String(body.client_name ?? "Unknown client").slice(0, 120)
   const clientEmail = String(body.client_email ?? "").slice(0, 200)
   const number = String(body.number ?? "").slice(0, 80)

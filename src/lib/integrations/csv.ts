@@ -16,38 +16,67 @@ export const CSV_HEADERS = [
 export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: string[] } {
   const errors: string[] = []
   const invoices: InboundInvoice[] = []
-  const lines = csv.trim().split(/\r?\n/).filter((l) => l.trim())
-  if (lines.length < 2) {
+
+  // RFC-4180 aware line split that also respects quoted fields containing \n.
+  // Field-level escaping ("" → ") is handled by parseRow on the resulting line.
+  const rows: string[][] = []
+  let cur = ""
+  let inQ = false
+  for (const ch of csv) {
+    if (ch === '"') inQ = !inQ
+    else if (ch === "\n") {
+      if (inQ) cur += ch
+      else {
+        if (cur.trim()) rows.push(parseRow(cur))
+        cur = ""
+      }
+    } else cur += ch
+  }
+  if (cur.trim()) rows.push(parseRow(cur))
+
+  if (rows.length < 2) {
     errors.push("CSV needs a header row and at least one invoice row")
     return { invoices, errors }
   }
 
-  const [header, ...rows] = lines
-  const cols = header.split(",").map((c) => c.trim().toLowerCase())
+  const [header, ...dataRows] = rows
+  const cols = header.map((c) => c.trim().toLowerCase())
 
   const pick = (row: string[], key: string): string => {
     const i = cols.indexOf(key)
     return i >= 0 ? (row[i] ?? "").trim() : ""
   }
 
-  rows.forEach((line, rowIdx) => {
-    // Simple splitter that respects quotes.
-    const row: string[] = []
+  function parseRow(line: string): string[] {
+    const out: string[] = []
     let cur = ""
     let inQ = false
-    for (const ch of line) {
-      if (ch === '"') inQ = !inQ
-      else if (ch === "," && !inQ) {
-        row.push(cur)
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"') {
+        if (inQ && line[i + 1] === '"') {
+          cur += '"'
+          i++
+        } else inQ = !inQ
+      } else if (ch === "," && !inQ) {
+        out.push(cur)
         cur = ""
       } else cur += ch
     }
-    row.push(cur)
+    out.push(cur)
+    return out
+  }
 
+  const numeric = (s: string): number => {
+    if (!s) return NaN
+    return parseFloat(s.replace(/,/g, "").replace(/[^\d.-]/g, ""))
+  }
+
+  dataRows.forEach((row, rowIdx) => {
     const clientName = pick(row, "client_name") || pick(row, "client")
     const clientEmail = pick(row, "client_email") || pick(row, "email")
     const number = pick(row, "number") || pick(row, "invoice_number") || pick(row, "invoice_no")
-    const amount = parseFloat(pick(row, "amount") || pick(row, "total") || pick(row, "balance"))
+    const amount = numeric(pick(row, "amount") || pick(row, "total") || pick(row, "balance"))
     const currency = (pick(row, "currency") || "USD").toUpperCase()
     const issueDate = pick(row, "issue_date") || pick(row, "issued") || null
     const dueDate = pick(row, "due_date") || pick(row, "due") || null
@@ -64,7 +93,12 @@ export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: str
     }
 
     const isPaid = status === "paid" || status === "PAID"
-    const paidCents = isPaid ? Math.round(amount * 100) : pick(row, "paid_cents") ? Math.round(parseFloat(pick(row, "paid_cents")) * 100) : 0
+    const paidRaw = pick(row, "paid_cents")
+    const paidCents = isPaid
+      ? Math.round(amount * 100)
+      : paidRaw
+        ? Math.round(numeric(paidRaw) * 100)
+        : 0
 
     invoices.push({
       provider: "manual",

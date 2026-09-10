@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createClient } from "@/lib/supabase/server"
 import { getPlan, countForUser, FREE_CLIENT_LIMIT } from "@/lib/billing/plan"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -9,7 +10,13 @@ export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const body = await request.json()
+  const rl = rateLimit(`clients:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
+
+  let body: any
+  try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
   const name = String(body.name ?? "").trim().slice(0, 120)
   const email = String(body.email ?? "").trim().slice(0, 200)
 

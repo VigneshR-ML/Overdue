@@ -1,9 +1,11 @@
 import { Metadata } from "next"
+import { Suspense } from "react"
 import { MarketingNav, MarketingFooter } from "@/components/marketing/site"
 import { ReceiptTicker } from "@/components/ledger/receipt-ticker"
 import { EscalationLadder } from "@/components/ledger/escalation-ladder"
 import { Button } from "@/components/ui/button"
 import { Check } from "lucide-react"
+import { AuthNotice } from "@/components/auth/auth-notice"
 
 export const metadata: Metadata = {
   title: "Overdue — Get paid without the awkward conversation",
@@ -46,6 +48,9 @@ export default function LandingPage() {
   return (
     <div className="paper-grain min-h-screen bg-paper">
       <MarketingNav />
+      <Suspense>
+        <AuthNotice />
+      </Suspense>
 
       {/* HERO — asymmetric editorial */}
       <section className="mx-auto max-w-6xl px-5 pt-16 pb-20 lg:pt-24">

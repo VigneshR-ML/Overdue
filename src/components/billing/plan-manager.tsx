@@ -31,6 +31,17 @@ export function PlanManager({
   const [checkingOut, setCheckingOut] = useState(false)
   const isPro = plan === "pro" && status === "active"
 
+  async function handleCheckout() {
+    setCheckingOut(true)
+    try {
+      await openCheckout()
+    } catch (e) {
+      console.error("[billing] checkout failed:", e)
+    } finally {
+      setCheckingOut(false)
+    }
+  }
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* Current */}
@@ -77,13 +88,13 @@ export function PlanManager({
               className="w-full"
               variant="moss"
               disabled={!ready}
-              onClick={() => {
-                setCheckingOut(true)
-                openCheckout()
-              }}
+              onClick={handleCheckout}
             >
               {checkingOut ? "Opening checkout…" : "Upgrade to Pro — $19/mo"}
             </Button>
+            {!ready && !error && (
+              <p className="font-mono text-[11px] text-faint">Loading checkout…</p>
+            )}
             <p className="font-mono text-[11px] text-faint">
               Billed by Paddle (merchant of record) · works without a US entity · sales tax handled
             </p>

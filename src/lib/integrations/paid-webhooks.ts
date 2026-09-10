@@ -1,5 +1,6 @@
 import crypto from "crypto"
 import { getCredentials, setCredentials } from "./credentials"
+import { withRefreshMutex } from "./sync"
 
 export type PaidProvider = "stripe" | "paypal" | "xero"
 
@@ -125,24 +126,29 @@ export async function verifyPaypalWebhook(opts: {
 }
 
 /**
- * Marks the synced invoice paid. Provider invoice IDs are globally unique per
- * provider (Stripe in_*, PayPal invoice IDs, Xero GUIDs), so no user mapping
- * is needed — the dispatcher already treats status='paid' as a stop condition.
- * Returns the number of invoices flipped (0 = unknown/already paid).
+ * Marks the synced invoice paid. Scoped to a specific user when userId is
+ * provided (always preferred for cross-tenant safety). For webhook contexts
+ * where the user is unknown (e.g. Stripe Connect), falls back to provider-level
+ * matching but excludes manual/csv invoices to avoid cross-user collisions.
  */
 export async function markInvoicePaid(
   supabase: any,
   provider: PaidProvider,
   providerId: string,
+  userId?: string,
 ): Promise<number> {
   if (!providerId) return 0
-  const { data, error } = await supabase
+  let query = supabase
     .from("invoices")
     .update({ status: "paid", paid_at: new Date().toISOString() })
     .eq("provider", provider)
     .eq("provider_id", providerId)
     .neq("status", "paid")
-    .select("id")
+  // When user is known, scope to their data for safety
+  if (userId) query = query.eq("user_id", userId)
+  // When user is unknown, exclude manual/csv invoices to avoid cross-user collision
+  else query = query.neq("provider", "manual")
+  const { data, error } = await query.select("id")
   if (error) return 0
   return Array.isArray(data) ? data.length : 0
 }
@@ -178,38 +184,40 @@ export async function resolveXeroUser(supabase: any, tenantId: string): Promise<
 }
 
 async function freshXeroCreds(userId: string): Promise<{ accessToken: string; tenantId: string } | null> {
-  const creds = await getCredentials(userId, "xero")
-  if (!creds?.tenant_id) return null
-  let accessToken = creds.access_token ?? ""
-  const expiresAt = Number(creds.expires_at ?? 0)
-  if ((!accessToken || expiresAt < Date.now() + 5 * 60 * 1000) && creds.refresh_token) {
-    try {
-      const res = await fetch("https://identity.xero.com/connect/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          client_id: process.env.XERO_CLIENT_ID ?? "",
-          client_secret: process.env.XERO_CLIENT_SECRET ?? "",
-          refresh_token: creds.refresh_token,
-        }),
-      })
-      const token = await res.json()
-      if (res.ok && token.access_token) {
-        accessToken = token.access_token
-        await setCredentials(userId, "xero", {
-          ...creds,
-          access_token: accessToken,
-          refresh_token: token.refresh_token ?? creds.refresh_token,
-          expires_at: String(Date.now() + (token.expires_in ?? 1800) * 1000),
+  return withRefreshMutex(`xero:${userId}`, async () => {
+    const creds = await getCredentials(userId, "xero")
+    if (!creds?.tenant_id) return null
+    let accessToken = creds.access_token ?? ""
+    const expiresAt = Number(creds.expires_at ?? 0)
+    if ((!accessToken || expiresAt < Date.now() + 5 * 60 * 1000) && creds.refresh_token) {
+      try {
+        const res = await fetch("https://identity.xero.com/connect/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "refresh_token",
+            client_id: process.env.XERO_CLIENT_ID ?? "",
+            client_secret: process.env.XERO_CLIENT_SECRET ?? "",
+            refresh_token: creds.refresh_token,
+          }),
         })
+        const token = await res.json()
+        if (res.ok && token.access_token) {
+          accessToken = token.access_token
+          await setCredentials(userId, "xero", {
+            ...creds,
+            access_token: accessToken,
+            refresh_token: token.refresh_token ?? creds.refresh_token,
+            expires_at: String(Date.now() + (token.expires_in ?? 1800) * 1000),
+          })
+        }
+      } catch {
+        // fall through with the stale token; the API call below decides
       }
-    } catch {
-      // fall through with the stale token; the API call below decides
     }
-  }
-  if (!accessToken) return null
-  return { accessToken, tenantId: creds.tenant_id }
+    if (!accessToken) return null
+    return { accessToken, tenantId: creds.tenant_id }
+  })
 }
 
 /** Fetches one Xero ACCREC invoice status (AUTHORISED/PAID/…). Null on failure. */

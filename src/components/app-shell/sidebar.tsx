@@ -29,7 +29,11 @@ export function AppSidebar({ email, plan }: { email: string; plan: string }) {
 
   async function signOut() {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // Still navigate home even if the session revoke call fails.
+    }
     router.push("/")
     router.refresh()
   }
@@ -48,6 +52,7 @@ export function AppSidebar({ email, plan }: { email: string; plan: string }) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-150",
                 active
@@ -91,6 +96,7 @@ export function AppSidebar({ email, plan }: { email: string; plan: string }) {
           <button
             onClick={signOut}
             title="Sign out"
+            aria-label="Sign out"
             className="rounded p-1.5 text-faint transition-colors hover:bg-paper hover:text-ink cursor-pointer"
           >
             <LogOut className="h-4 w-4" />

@@ -20,7 +20,13 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const body = await request.json()
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 })
+  }
+
   const clientId = String(body.clientId ?? "").trim()
   const clientSecret = String(body.clientSecret ?? "").trim()
   const mode = body.mode === "live" ? "live" : "sandbox"
@@ -48,5 +54,8 @@ export async function POST(request: NextRequest) {
   )
 
   const syncResult = await syncUserProvider(user!.id, "paypal")
+  if (!syncResult.ok) {
+    return NextResponse.json({ ok: false, error: syncResult.error ?? "Sync failed" }, { status: 502 })
+  }
   return NextResponse.json({ ok: true, result: syncResult.result })
 }

@@ -24,12 +24,31 @@ export default function OnboardingPage() {
     })
   }, [router])
 
+  const [error, setError] = useState<string | null>(null)
+
   async function saveIdentity() {
     const supabase = createClient()
     setSaving(true)
-    await supabase.from("profiles").update({ full_name: name || email.split("@")[0], onboarding_completed: true }).eq("id", (await supabase.auth.getUser()).data.user?.id ?? "")
-    setSaving(false)
-    setStep("source")
+    setError(null)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError("Session expired — please sign in again.")
+        setSaving(false)
+        return
+      }
+      const { error: updateErr } = await supabase.from("profiles").update({ full_name: name || email.split("@")[0], onboarding_completed: true }).eq("id", user.id)
+      if (updateErr) {
+        setError("Failed to save — try again.")
+        setSaving(false)
+        return
+      }
+      setStep("source")
+    } catch {
+      setError("Network error — try again.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -49,6 +68,7 @@ export default function OnboardingPage() {
               <Field label="Your name">
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={email.split("@")[0] || "Ada Lovelace"} autoFocus />
               </Field>
+              {error && <p className="text-[13px] text-crimson" role="alert">{error}</p>}
               <Button className="w-full" size="lg" onClick={saveIdentity} disabled={saving}>
                 {saving ? "Saving…" : "Continue"}
               </Button>
@@ -75,10 +95,10 @@ export default function OnboardingPage() {
         {step === "ladder" && (
           <div className="rounded-lg border border-hairline bg-surface p-7 shadow-ledger">
             <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Step 3 of 3</div>
-            <h1 className="mt-2 font-display text-2xl tracking-tight text-ink">Your Standard Ladder is live.</h1>
+            <h1 className="mt-2 font-display text-2xl tracking-tight text-ink">You're all set.</h1>
             <p className="mt-1.5 text-sm text-muted">
-              Gentle day 1 → nudge day 7 → firm day 14 → final day 21. It only runs on invoices,
-              and stops the second a client replies or pays.
+              Create a ladder from Ladders → New, and Overdue will start with a gentle day-1 nudge,
+              escalating only if nothing happens. It stops the second a client replies or pays.
             </p>
             <div className="mt-6">
               <Button className="w-full" size="lg" variant="moss" onClick={() => router.push("/dashboard")}>

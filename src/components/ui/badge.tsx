@@ -20,7 +20,7 @@ export function Badge({
 }
 
 export function StatusDot({ color }: { color: string }) {
-  return <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+  return <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: color }} />
 }
 
 export function PaidBadge() {

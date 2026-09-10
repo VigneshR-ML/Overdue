@@ -23,25 +23,34 @@ export function AddInvoiceButton() {
     setSaving(true)
     setError(null)
     const cents = Math.round(parseFloat(amount) * 100)
-    const res = await fetch("/api/invoices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_name: clientName,
-        client_email: clientEmail,
-        number,
-        amount_cents: cents,
-        currency: "USD",
-        due_date: dueDate,
-        payment_url: paymentUrl.trim() || undefined,
-      }),
-    })
-    const json = await res.json()
-    setSaving(false)
-    if (!res.ok) return setError(json?.error ?? "Couldn't add invoice")
-    setOpen(false)
-    setClientName(""); setClientEmail(""); setNumber(""); setAmount(""); setDueDate(""); setPaymentUrl("")
-    router.refresh()
+    if (!Number.isFinite(cents) || cents <= 0) {
+      setSaving(false)
+      return setError("Please enter a valid amount greater than zero.")
+    }
+    try {
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: clientName,
+          client_email: clientEmail,
+          number,
+          amount_cents: cents,
+          currency: "USD",
+          due_date: dueDate,
+          payment_url: paymentUrl.trim() || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) return setError(json?.error ?? "Couldn't add invoice")
+      setOpen(false)
+      setClientName(""); setClientEmail(""); setNumber(""); setAmount(""); setDueDate(""); setPaymentUrl("")
+      router.refresh()
+    } catch {
+      setError("Network error — try again")
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!open) {
