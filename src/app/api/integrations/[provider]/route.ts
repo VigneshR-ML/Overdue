@@ -49,5 +49,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: { provider
   const supabase = createClient()
   await supabase.from("integrations").delete().eq("user_id", user!.id).eq("provider", provider)
 
+  // Soft-delete synced invoices to prevent orphaned escalation emails.
+  await supabase
+    .from("invoices")
+    .update({ status: "overdue", line_item_summary: null })
+    .eq("user_id", user!.id)
+    .eq("provider", provider)
+    .not("status", "eq", "paid")
+
   return NextResponse.json({ ok: true })
 }

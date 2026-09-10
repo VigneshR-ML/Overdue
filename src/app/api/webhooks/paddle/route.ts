@@ -58,9 +58,11 @@ export async function POST(request: NextRequest) {
   }
 
   const handled = await applyPaddleEvent(supabase, resolvedUserId, eventType, data)
-  await supabase.from("webhook_events").insert({
-    provider: "paddle", event_id: event.event_id ?? "", payload: event,
-  })
+  if (handled !== "unhandled") {
+    await supabase.from("webhook_events").insert({
+      provider: "paddle", event_id: event.event_id ?? "", payload: event,
+    })
+  }
 
   return NextResponse.json({ ok: true, handled })
 }

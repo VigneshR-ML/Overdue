@@ -28,7 +28,6 @@ export async function getCustomerPortalUrl(subscriptionId: string | null) {
         : "https://sandbox-api.paddle.com"
     const res = await fetch(`${base}/subscriptions/${subscriptionId}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
-      next: { revalidate: 300 },
     })
     if (!res.ok) return null
     const json = await res.json()

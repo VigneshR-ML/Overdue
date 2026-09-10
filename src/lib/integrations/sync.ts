@@ -3,6 +3,7 @@ import { getCredentials, setCredentials, getOAuthConfig } from "./credentials"
 import { syncStripeInvoices } from "./stripe"
 import { syncPaypalInvoices } from "./paypal"
 import { syncXeroInvoices } from "./xero"
+import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
 import type { InboundInvoice, SyncResult } from "./provider"
 
 async function refreshXeroIfNeeded(userId: string) {
@@ -32,9 +33,42 @@ async function refreshXeroIfNeeded(userId: string) {
         expires_at: String(Date.now() + (token.expires_in ?? 1800) * 1000),
         tenant_id: creds.tenant_id ?? "",
       })
+    } else {
+      console.error("[sync] Xero token refresh failed:", res.status, token)
     }
-  } catch {
-    // leave as-is; the sync will surface an error
+  } catch (e) {
+    console.error("[sync] Xero token refresh error:", e)
+  }
+}
+
+async function refreshStripeIfNeeded(userId: string) {
+  const creds = await getCredentials(userId, "stripe")
+  if (!creds?.refresh_token) return
+
+  const cfg = getOAuthConfig("stripe")
+  try {
+    const res = await fetch("https://connect.stripe.com/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: cfg.clientId,
+        client_secret: cfg.clientSecret,
+        refresh_token: creds.refresh_token,
+      }),
+    })
+    const token = await res.json()
+    if (res.ok && token.access_token) {
+      await setCredentials(userId, "stripe", {
+        ...creds,
+        access_token: token.access_token,
+        refresh_token: token.refresh_token ?? creds.refresh_token,
+      })
+    } else {
+      console.error("[sync] Stripe token refresh failed:", res.status, token)
+    }
+  } catch (e) {
+    console.error("[sync] Stripe token refresh error:", e)
   }
 }
 
@@ -43,6 +77,7 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
   if (!admin) return { ok: false, error: "supabase not configured" }
 
   if (provider === "xero") await refreshXeroIfNeeded(userId)
+  if (provider === "stripe") await refreshStripeIfNeeded(userId)
 
   const creds = await getCredentials(userId, provider)
   if (!creds) return { ok: false, error: "provider not connected" }
@@ -145,5 +180,11 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
 
   result.added = added
   result.updated = updated
+
+  // Auto-enroll new invoices in the user's default escalation ladder.
+  if (added > 0) {
+    try { await attachDefaultRuns(userId) } catch { /* non-critical */ }
+  }
+
   return { ok: true, result }
 }

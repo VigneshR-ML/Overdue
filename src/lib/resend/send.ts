@@ -7,7 +7,7 @@ export interface EmailPayload {
   replyTo?: string
 }
 
-export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL!
+export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? ""
 
 function getResend() {
   const key = process.env.RESEND_API_KEY

@@ -35,9 +35,11 @@ export async function POST(request: NextRequest) {
     body.headers?.From ||
     ""
 
-  const fromEmail = (Array.isArray(from) ? from[0] : from)?.trim() ?? ""
+  const raw = (Array.isArray(from) ? from[0] : from)?.trim() ?? ""
+  // Strip display name from "John Doe <john@example.com>" format.
+  const fromEmail = raw.replace(/^[^<]*<([^>]+)>.*$/, "$1").trim()
 
-  if (!fromEmail) return NextResponse.json({ ok: true, skipped: "no sender" })
+  if (!fromEmail || !fromEmail.includes("@")) return NextResponse.json({ ok: true, skipped: "no sender" })
 
   await handleInboundReply(fromEmail)
   return NextResponse.json({ ok: true })

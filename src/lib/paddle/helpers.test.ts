@@ -15,7 +15,7 @@ describe("verifyPaddleSignature", () => {
   it("accepts a valid HMAC-SHA256 signature", () => {
     const raw = '{"event_id":"evt_1"}'
     const secret = process.env.PADDLE_WEBHOOK_SECRET!
-    const ts = "1720000000"
+    const ts = String(Math.floor(Date.now() / 1000))
     const h1 = crypto.createHmac("sha256", secret).update(`${ts};${raw}`).digest("hex")
     expect(verifyPaddleSignature(`ts=${ts};h1=${h1}`, raw)).toBe(true)
   })
@@ -23,7 +23,7 @@ describe("verifyPaddleSignature", () => {
   it("rejects a tampered body", () => {
     const raw = '{"event_id":"evt_1"}'
     const secret = process.env.PADDLE_WEBHOOK_SECRET!
-    const ts = "1720000000"
+    const ts = String(Math.floor(Date.now() / 1000))
     const h1 = crypto.createHmac("sha256", secret).update(`${ts};${raw}`).digest("hex")
     expect(verifyPaddleSignature(`ts=${ts};h1=${h1}`, '{"event_id":"evt_2"}')).toBe(false)
   })

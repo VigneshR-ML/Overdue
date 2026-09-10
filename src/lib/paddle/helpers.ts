@@ -13,6 +13,10 @@ export function verifyPaddleSignature(header: string, rawBody: string): boolean 
   const h1 = h1Part?.replace("h1=", "")
   if (!ts || !h1) return false
 
+  // Reject webhooks older than 5 minutes to prevent replay attacks.
+  const age = Math.abs(Date.now() / 1000 - Number(ts))
+  if (age > 300) return false
+
   const signed = crypto.createHmac("sha256", secret).update(`${ts};${rawBody}`).digest("hex")
   const a = Buffer.from(signed, "hex")
   const b = Buffer.from(h1, "hex")
@@ -37,7 +41,12 @@ export function verifyResendSignature(header: string, rawBody: string): boolean 
     .update(`${ts}.${rawBody}`)
     .digest("hex")
 
-  return signed === sig
+  const a = Buffer.from(signed, "hex")
+  const b = Buffer.from(sig, "hex")
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i]
+  return diff === 0
 }
 
 /**
@@ -54,7 +63,14 @@ export function verifyInboundReplySignature(opts: {
   const secret = process.env.INBOUND_WEBHOOK_SECRET
   if (!secret) return false
 
-  if (opts.bearer && opts.bearer === secret) return true
+  if (opts.bearer) {
+    const a = Buffer.from(opts.bearer)
+    const b = Buffer.from(secret)
+    if (a.length !== b.length) return false
+    let diff = 0
+    for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i]
+    if (diff === 0) return true
+  }
 
   if (opts.signature) {
     const [tsPart, sigPart] = opts.signature.split(",")
@@ -65,7 +81,12 @@ export function verifyInboundReplySignature(opts: {
       .createHmac("sha256", secret)
       .update(`${ts}.${opts.rawBody}`)
       .digest("hex")
-    return sig === signed
+    const a = Buffer.from(signed, "hex")
+    const b = Buffer.from(sig, "hex")
+    if (a.length !== b.length) return false
+    let diff = 0
+    for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i]
+    return diff === 0
   }
 
   return false

@@ -51,9 +51,10 @@ function makeAdminFake(profileEmail?: string) {
   return { admin, calls }
 }
 
-function sign(body: string, ts = "1720000000") {
+function sign(body: string, ts?: string) {
+  const t = ts ?? String(Math.floor(Date.now() / 1000))
   const secret = process.env.PADDLE_WEBHOOK_SECRET!
-  return `ts=${ts};h1=${crypto.createHmac("sha256", secret).update(`${ts};${body}`).digest("hex")}`
+  return `ts=${t};h1=${crypto.createHmac("sha256", secret).update(`${t};${body}`).digest("hex")}`
 }
 
 const PRO_PRICE = "pri_pro_monthly"

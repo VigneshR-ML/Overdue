@@ -66,7 +66,16 @@ export async function PUT(request: NextRequest) {
   const patch: Record<string, unknown> = {}
   if (typeof body.name === "string") patch.name = body.name.slice(0, 80)
   if (typeof body.is_active === "boolean") patch.is_active = body.is_active
-  if (Array.isArray(body.steps)) patch.steps = body.steps
+  if (Array.isArray(body.steps)) {
+    const VALID_TONES = ["gentle", "nudge", "firm", "final"]
+    const cleaned = body.steps.map((s: any) => ({
+      ...s,
+      delay_days: Math.max(0, Number(s.delay_days ?? 1)),
+      tone: VALID_TONES.includes(s.tone) ? s.tone : "nudge",
+      step_order: Number(s.step_order ?? 0),
+    }))
+    patch.steps = cleaned
+  }
 
   const { error: err } = await supabase
     .from("sequences")
@@ -79,7 +88,8 @@ export async function PUT(request: NextRequest) {
   // If activated, attach it to any open invoices that lack a run.
   if (body.is_active === true) {
     const admin = createAdminClient()
-    const { data: invoices } = await admin!
+    if (!admin) return NextResponse.json({ ok: true })
+    const { data: invoices } = await admin
       .from("invoices")
       .select("id, status, paid_cents, amount_cents, paid_at")
       .eq("user_id", user!.id)

@@ -35,7 +35,7 @@ export default async function DashboardPage() {
             {needsOnboarding ? "Welcome to the ledger." : "Good day. Here's the money."}
           </h1>
         </div>
-        <Link href="/sequences">
+        <Link href="/sequences/new">
           <Button variant="outline" size="sm">
             New ladder <ArrowRight className="h-3.5 w-3.5" />
           </Button>

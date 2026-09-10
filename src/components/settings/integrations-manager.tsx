@@ -178,7 +178,7 @@ function PaypalCredsForm({ onDone }: { onDone: () => void }) {
   const [editing, setEditing] = useState(false)
   const [clientId, setClientId] = useState("")
   const [clientSecret, setClientSecret] = useState("")
-  const [mode, setMode] = useState<"sandbox" | "live">("sandbox")
+  const [mode, setMode] = useState<"sandbox" | "live">("live")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 

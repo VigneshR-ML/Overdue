@@ -35,13 +35,14 @@ async function readPayload(
 ): Promise<Record<string, string> | null> {
   if (vaultSecretId) {
     try {
-      const { data } = await supabase
-        .from("vault.decrypted_secrets")
-        .select("decrypted_secret")
-        .eq("id", vaultSecretId)
-        .single()
-      if (data?.decrypted_secret) {
-        const parsed = JSON.parse(data.decrypted_secret)
+      // PostgREST only serves the `public` schema, so reads go through the
+      // SECURITY DEFINER wrapper from 0007_vault_wrappers.sql (server-only,
+      // service_role key — never exposed to the anon key).
+      const { data, error } = await supabase.rpc("read_secret", {
+        secret_id: vaultSecretId,
+      })
+      if (!error && data) {
+        const parsed = JSON.parse(data as string)
         if (parsed && typeof parsed === "object") return parsed as Record<string, string>
       }
     } catch {

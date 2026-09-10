@@ -38,7 +38,7 @@ export default async function IntegrationsPage() {
       <IntegrationsManager
         rows={rows ?? []}
         stripeConfigured={isProviderConfigured("stripe")}
-        paypalConfigured={true}
+        paypalConfigured={isProviderConfigured("paypal")}
         xeroConfigured={isProviderConfigured("xero")}
       />
     </div>

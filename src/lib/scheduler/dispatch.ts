@@ -248,7 +248,6 @@ async function dispatchOne(
   }
 
   const sentAt = new Date().toISOString()
-  const messageCount = Number(run.messages_sent ?? 0) + 1
 
   try {
     const sent = await sendEmail({
@@ -275,6 +274,7 @@ async function dispatchOne(
       resend_message_id: sent.id,
     })
 
+    const messageCount = Number(run.messages_sent ?? 0) + 1
     const nextStep = stepIndex + 1
     const dueDate = invoice.due_date ? new Date(invoice.due_date) : new Date()
     const nextRunAt = new Date(dueDate.getTime() + CUMULATIVE_DAYS(steps, nextStep - 1) * 86400000)
@@ -366,7 +366,7 @@ export async function startRun(opts: {
   return { ok: true }
 }
 
-/** Detects a client reply and pauses the matching run. */
+/** Detects a client reply and pauses the matching run. Scoped to user to prevent cross-tenant leakage. */
 export async function handleInboundReply(clientAddress: string) {
   const supabase = createAdminClient()
   if (!supabase) return
@@ -374,16 +374,27 @@ export async function handleInboundReply(clientAddress: string) {
   // the addresses we previously messaged. Any reply pauses that run's ladder.
   const { data: messages, error } = await supabase
     .from("messages")
-    .select("run_id")
+    .select("run_id, user_id")
     .eq("to_email", clientAddress)
     .order("sent_at", { ascending: false })
-    .limit(5)
+    .limit(10)
   if (error || !messages) return
-  const runIds = [...new Set(messages.map((m) => m.run_id).filter(Boolean))]
-  if (runIds.length) {
+
+  // Group run IDs by user to scope pause operations.
+  const byUser = new Map<string, Set<string>>()
+  for (const m of messages) {
+    if (!m.run_id || !m.user_id) continue
+    let set = byUser.get(m.user_id)
+    if (!set) { set = new Set(); byUser.set(m.user_id, set) }
+    set.add(m.run_id)
+  }
+
+  for (const [, runIds] of byUser) {
+    const ids = [...runIds]
+    if (!ids.length) continue
     const t = new Date().toISOString()
-    await supabase.from("runs").update({ status: "paused", updated_at: t }).in("id", runIds)
-    await supabase.from("messages").update({ replied: true }).in("run_id", runIds)
+    await supabase.from("runs").update({ status: "paused", updated_at: t }).in("id", ids)
+    await supabase.from("messages").update({ replied: true }).in("run_id", ids)
   }
 }
 

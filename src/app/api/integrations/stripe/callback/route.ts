@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
         provider: "stripe",
         status: "connected",
         display_name: (token.stripe_user_id ?? "Stripe account").slice(0, 60),
+        // Connected account id (acct_...) for webhook attribution.
+        provider_account_id: token.stripe_user_id ?? null,
       },
       { onConflict: "user_id,provider" },
     )

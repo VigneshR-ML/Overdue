@@ -30,6 +30,18 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
     if (!session) return
     const supabase = (await import("@/lib/supabase/server")).createClient()
 
+    // Enforce free plan limits.
+    const { count } = await supabase
+      .from("sequences")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", session.id)
+      .eq("is_template", false)
+    const plan = (await import("@/lib/billing/plan")).getPlan(session.id)
+    const currentPlan = await plan
+    if (currentPlan === "free" && (count ?? 0) >= 1) {
+      return // silently block — free plan limited to 1 ladder
+    }
+
     const { data: tpl } = await supabase.from("sequences").select("steps").eq("id", templateId).single()
     const steps = ((tpl?.steps as unknown as SequenceStep[]) ?? []).map((s) => ({
       ...s,

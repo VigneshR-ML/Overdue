@@ -22,12 +22,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if (fetchErr || !invoice) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
 
   const patch: Record<string, unknown> = {}
+  const VALID_STATUSES = ["pending", "sent", "overdue", "paid", "partially_paid"]
 
   if (body.mark_paid === true) {
     patch.status = "paid"
     patch.paid_cents = body.paid_cents ?? undefined
     patch.paid_at = new Date().toISOString()
   } else if (body.status) {
+    if (!VALID_STATUSES.includes(body.status)) {
+      return NextResponse.json({ ok: false, error: `invalid status — must be one of: ${VALID_STATUSES.join(", ")}` }, { status: 400 })
+    }
     patch.status = body.status
     if (body.status === "paid") patch.paid_at = new Date().toISOString()
   }

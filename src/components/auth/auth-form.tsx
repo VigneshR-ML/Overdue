@@ -14,6 +14,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [magicSent, setMagicSent] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
 
   async function signInWithGoogle() {
     const supabase = createClient()
@@ -68,6 +70,61 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         setError("Check your email for a confirmation link.")
       }
     }
+  }
+
+  async function resetPassword() {
+    if (!resetEmail) return
+    const supabase = createClient()
+    setError(null)
+    setLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/login`,
+    })
+    setLoading(false)
+    if (error) return setError(error.message)
+    setResetSent(true)
+  }
+
+  if (resetSent) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-md border border-moss/40 bg-moss-soft p-4 text-sm text-moss">
+          Check your inbox — we sent a password reset link.
+        </div>
+        <Button type="button" variant="outline" className="w-full" onClick={() => { setResetSent(false) }}>
+          Back to sign in
+        </Button>
+      </div>
+    )
+  }
+
+  if (mode === "login" && resetEmail) {
+    return (
+      <form onSubmit={(e) => { e.preventDefault(); resetPassword() }} className="space-y-4">
+        <p className="text-sm text-muted">Enter your email and we&apos;ll send a reset link.</p>
+        <Field label="Email">
+          <Input
+            type="email"
+            required
+            autoComplete="email"
+            value={resetEmail}
+            onChange={(e) => setResetEmail(e.target.value)}
+            placeholder="you@studio.com"
+          />
+        </Field>
+        {error ? (
+          <div className={cn("rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson")}>
+            {error}
+          </div>
+        ) : null}
+        <Button type="submit" disabled={loading} className="w-full" size="lg">
+          {loading ? "Sending…" : "Send reset link"}
+        </Button>
+        <Button type="button" variant="ghost" className="w-full" onClick={() => setResetEmail("")}>
+          Back to sign in
+        </Button>
+      </form>
+    )
   }
 
   return (
@@ -137,6 +194,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <p className="text-center font-mono text-[11px] uppercase tracking-[0.14em] text-faint">
         Free plan · no card · cancel anytime
       </p>
+
+      {mode === "login" && (
+        <button
+          type="button"
+          onClick={() => { setResetEmail(email); setError(null) }}
+          className="block w-full text-center text-sm text-moss hover:text-moss-bright"
+        >
+          Forgot your password?
+        </button>
+      )}
     </form>
   )
 }

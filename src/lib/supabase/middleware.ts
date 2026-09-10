@@ -30,7 +30,7 @@ export async function updateSession(request: NextRequest) {
 
   const isAuthed = Boolean(user)
   const path = request.nextUrl.pathname
-  const isAppRoute = path.startsWith("/dashboard") || path.startsWith("/invoices") || path.startsWith("/clients") || path.startsWith("/sequences") || path.startsWith("/insights") || path.startsWith("/settings")
+  const isAppRoute = path.startsWith("/dashboard") || path.startsWith("/invoices") || path.startsWith("/clients") || path.startsWith("/sequences") || path.startsWith("/insights") || path.startsWith("/settings") || path.startsWith("/reports")
   const isAuthPage = path.startsWith("/login") || path.startsWith("/signup")
   const isOnboarding = path.startsWith("/onboarding")
 

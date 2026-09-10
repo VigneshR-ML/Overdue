@@ -6,8 +6,9 @@ export const maxDuration = 60
 
 /**
  * Cron endpoint. Called hourly by GitHub Actions (.github/workflows/dispatch.yml)
- * with the CRON_SECRET bearer token. vercel.json crons are intentionally empty
- * (Vercel Cron needs Pro for hourly). Dispatches every due rung idempotently.
+ * with the CRON_SECRET bearer token. Also supports GET for Vercel Cron compatibility.
+ * vercel.json crons are intentionally empty (Vercel Cron needs Pro for hourly).
+ * Dispatches every due rung idempotently.
  */
 export async function POST(request: NextRequest) {
   const auth = request.headers.get("authorization") ?? ""
@@ -18,4 +19,8 @@ export async function POST(request: NextRequest) {
 
   const report = await runDispatcher()
   return NextResponse.json(report)
+}
+
+export async function GET(request: NextRequest) {
+  return POST(request)
 }

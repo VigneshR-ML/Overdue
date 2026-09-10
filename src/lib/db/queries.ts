@@ -38,7 +38,7 @@ export function aggregateAging(invoices: AgingRow[]): AgingTotals {
 
     outstanding += balance
     if (inv.due_date) {
-      const due = new Date(inv.due_date + "T12:00:00")
+      const due = new Date(inv.due_date + "T00:00:00Z")
       const diff = Math.ceil((due.getTime() - Date.now()) / 86400000)
       if (diff < 0) {
         overdue += balance

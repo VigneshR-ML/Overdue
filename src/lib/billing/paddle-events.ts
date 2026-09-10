@@ -82,6 +82,18 @@ export async function applyPaddleEvent(
       return eventType
     }
 
+    case "transaction.refunded": {
+      // Downgrade to free on refund.
+      const subId = data.subscription_id ?? data.subscription?.id ?? null
+      if (subId) {
+        await supabase
+          .from("subscriptions")
+          .update({ plan: "free", status: "cancelled" })
+          .eq("user_id", userId)
+      }
+      return eventType
+    }
+
     default:
       return "unhandled"
   }

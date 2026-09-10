@@ -50,7 +50,14 @@ export async function GET(request: NextRequest) {
 
     const supabase = createClient()
     await supabase.from("integrations").upsert(
-      { user_id: userId, provider: "xero", status: "connected", display_name: connections?.[0]?.tenantName ?? "Xero" },
+      {
+        user_id: userId,
+        provider: "xero",
+        status: "connected",
+        display_name: connections?.[0]?.tenantName ?? "Xero",
+        // Lets /api/webhooks/xero map tenantId → owner for paid detection.
+        provider_account_id: tenantId || null,
+      },
       { onConflict: "user_id,provider" },
     )
 
