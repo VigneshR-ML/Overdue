@@ -3,6 +3,7 @@ import Link from "next/link"
 import { MarketingNav, MarketingFooter } from "@/components/marketing/site"
 import { Button } from "@/components/ui/button"
 import { Check } from "lucide-react"
+import { ProPrice } from "@/components/billing/pro-price"
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -51,7 +52,7 @@ export default function PricingPage() {
             </span>
             <div className="font-display text-xl text-ink">Pro</div>
             <div className="mt-3 font-mono text-[15px] text-muted">
-              <span className="font-display text-3xl text-ink">$19</span> / month
+              <ProPrice className="font-display text-3xl text-ink" /> / month
             </div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
               {["Unlimited clients & ladders", "Stripe + PayPal + Xero sync", "Escalation engine on autopilot", "AI drafting, human-voiced", "Reply-detection & pause", "Payment-history scoring"].map((f) => (

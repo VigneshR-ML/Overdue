@@ -6,6 +6,7 @@ import { EscalationLadder } from "@/components/ledger/escalation-ladder"
 import { Button } from "@/components/ui/button"
 import { Check } from "lucide-react"
 import { AuthNotice } from "@/components/auth/auth-notice"
+import { ProPrice } from "@/components/billing/pro-price"
 
 export const metadata: Metadata = {
   title: "Overdue — Get paid without the awkward conversation",
@@ -214,7 +215,7 @@ export default function LandingPage() {
               The one that pays you back
             </span>
             <div className="font-display text-xl text-ink">Pro</div>
-            <div className="mt-3 font-mono text-[15px] text-muted"><span className="font-display text-3xl text-ink">$19</span> / month</div>
+            <div className="mt-3 font-mono text-[15px] text-muted"><ProPrice className="font-display text-3xl text-ink" /> / month</div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
               {["Unlimited clients & ladders", "Stripe + PayPal + Xero sync", "Escalation engine on autopilot", "AI drafting, human-voiced", "Reply-detection & pause", "Payment-history scoring"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
