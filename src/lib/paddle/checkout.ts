@@ -79,7 +79,6 @@ export function usePaddleCheckout(props: { email?: string; userId?: string }) {
         settings: {
           displayMode: "overlay",
           successUrl: `${window.location.origin}/settings?upgraded=1`,
-          eventData: { user_id: props.userId ?? "" },
         },
         customer: props.email ? { email: props.email } : undefined,
       })
@@ -87,7 +86,7 @@ export function usePaddleCheckout(props: { email?: string; userId?: string }) {
       console.error("[paddle] Checkout.open failed:", e)
       setError("Failed to open checkout. If this persists, try disabling browser extensions and reloading.")
     }
-  }, [props.email, props.userId])
+  }, [props.email])
 
   return { ready, error, openCheckout }
 }
