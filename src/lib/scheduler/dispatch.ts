@@ -339,6 +339,12 @@ async function dispatchOne(
       replyTo: process.env.REPLY_TO_EMAIL || sender.email,
     })
 
+    if (sent.skipped) {
+      // No mail backend (dev) — don't count as delivered or advance the ladder.
+      await requeueOnError(supabase, runId, new Error("mail backend unavailable"))
+      return "failed"
+    }
+
     const { error: msgErr } = await supabase.from("messages").insert({
       user_id: run.user_id,
       run_id: runId,

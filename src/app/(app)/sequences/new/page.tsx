@@ -21,6 +21,34 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
     ? templates?.find((t) => t.id === searchParams.from)
     : null
 
+  async function createBlank(formData: FormData) {
+    "use server"
+    const name = (formData.get("name") as string) || "My ladder"
+
+    const session = await getSessionUser()
+    if (!session) return
+    const supabase = (await import("@/lib/supabase/server")).createClient()
+
+    // Enforce free plan limits.
+    const { count } = await supabase
+      .from("sequences")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", session.id)
+      .eq("is_template", false)
+    const currentPlan = await (await import("@/lib/billing/plan")).getPlan(session.id)
+    if (currentPlan === "free" && (count ?? 0) >= 1) {
+      redirect("/sequences?error=free-limit")
+    }
+
+    const { data, error } = await supabase
+      .from("sequences")
+      .insert({ user_id: session.id, name, is_active: true, steps: [], is_template: false })
+      .select("id")
+      .single()
+
+    if (!error && data) redirect(`/sequences/${data.id}`)
+  }
+
   async function createFromTemplate(formData: FormData) {
     "use server"
     const templateId = formData.get("templateId") as string
@@ -36,8 +64,7 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
       .select("id", { count: "exact", head: true })
       .eq("user_id", session.id)
       .eq("is_template", false)
-    const plan = (await import("@/lib/billing/plan")).getPlan(session.id)
-    const currentPlan = await plan
+    const currentPlan = await (await import("@/lib/billing/plan")).getPlan(session.id)
     if (currentPlan === "free" && (count ?? 0) >= 1) {
       redirect("/sequences?error=free-limit")
     }
@@ -79,7 +106,7 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
       {preset ? (
         <form action={createFromTemplate} className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
           <input type="hidden" name="templateId" value={preset.id} />
-          <div className="font-display text-xl text-ink">Clone “{preset.name}”</div>
+          <div className="font-display text-xl text-ink">Clone "{preset.name}"</div>
           <div className="mt-1 text-sm text-muted">{preset.description}</div>
           <div className="mt-3 flex gap-1.5">
             {(preset.steps as unknown as SequenceStep[]).map((s) => <TonePill key={s.id} tone={s.tone} />)}
@@ -97,7 +124,7 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
           </div>
         </form>
       ) : (
-        <form action={createFromTemplate} className="space-y-4">
+        <form action={createBlank} className="space-y-4">
           <div className="flex max-w-sm items-end gap-3">
             <label className="block flex-1 space-y-1.5">
               <span className="text-[13px] font-medium text-ink-soft">Ladder name</span>

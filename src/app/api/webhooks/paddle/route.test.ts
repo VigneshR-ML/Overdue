@@ -20,6 +20,10 @@ function makeAdminFake(profileEmail?: string) {
     select: () => chain,
     eq: () => chain,
     is: () => chain,
+    ilike: (_col: string, val: string) => {
+      chain._email = val
+      return chain
+    },
     limit: () => chain,
     order: () => chain,
     maybeSingle: () => ({
@@ -54,7 +58,7 @@ function makeAdminFake(profileEmail?: string) {
 function sign(body: string, ts?: string) {
   const t = ts ?? String(Math.floor(Date.now() / 1000))
   const secret = process.env.PADDLE_WEBHOOK_SECRET!
-  return `ts=${t};h1=${crypto.createHmac("sha256", secret).update(`${t};${body}`).digest("hex")}`
+  return `ts=${t};h1=${crypto.createHmac("sha256", secret).update(`${t}:${body}`).digest("hex")}`
 }
 
 const PRO_PRICE = "pri_pro_monthly"
@@ -130,7 +134,7 @@ describe("POST /api/webhooks/paddle", () => {
     const fRaw = makeAdminFake()
     adminCtx.current = fRaw as unknown as typeof adminCtx.current
     // simulate a matching profile
-    ;((adminCtx.current as any).admin.from("profiles").eq as any)("email", "a@b.com")
+    ;((adminCtx.current as any).admin.from("profiles").ilike as any)("email", "a@b.com")
     const body = subscriptionCreated({ user_id: undefined })
     const payload = JSON.parse(body)
     payload.data.custom_data = {}

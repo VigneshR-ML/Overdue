@@ -201,7 +201,7 @@ export default function LandingPage() {
             <div className="font-display text-xl text-ink">Free</div>
             <div className="mt-3 font-mono text-[15px] text-muted"><span className="font-display text-3xl text-ink">$0</span> / forever</div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["1 client", "Stripe sync + CSV import", "1 ladder, 1 message per step", "AI drafts with your key"].map((f) => (
+              {["3 clients", "CSV import", "1 ladder, 1 message per step", "AI drafts"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>

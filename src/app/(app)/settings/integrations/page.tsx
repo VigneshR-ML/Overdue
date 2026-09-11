@@ -10,7 +10,7 @@ export const metadata = { title: "Invoice sources" }
 
 export const dynamic = "force-dynamic"
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({ searchParams }: { searchParams?: { upgrade?: string } }) {
   const supabase = createClient()
   const {
     data: { user },
@@ -23,8 +23,20 @@ export default async function IntegrationsPage() {
     .eq("user_id", user.id)
   const rows = (data as IntegrationRow[]) ?? []
 
+  const pendingUpgrade = searchParams?.upgrade === "1"
+
   return (
     <div className="space-y-5">
+      {pendingUpgrade ? (
+        <div className="rounded-md border border-ember/40 bg-ember/10 p-4 text-sm text-ink-soft">
+          Automated sync from Stripe, PayPal and Xero is a Pro feature.{" "}
+          <Link href="/settings/billing" className="font-medium text-ink underline underline-offset-2">
+            Upgrade to Pro
+          </Link>{" "}
+          to connect invoicing sources.
+        </div>
+      ) : null}
+
       <Link href="/settings" className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted hover:text-ink">
         <ArrowLeft className="h-3.5 w-3.5" /> Settings
       </Link>

@@ -76,7 +76,8 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
 
   // Free plan: 5 AI drafts per calendar month, then graceful fallback to the
   // local template (never a hard failure mid-ladder). Pro is unlimited.
-  const quota = await consumeAiQuota(input.invoice.user_id)
+  // Check before calling the LLM, but only deduct after a successful draft.
+  const quota = await checkAiQuota(input.invoice.user_id)
   if (!quota.allowed) return { ...local, quotaHit: true }
 
   const vars = templateVars(input)
@@ -138,6 +139,8 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
     const body = String(parsed.body ?? "").trim()
     const subject = String(parsed.subject ?? "").trim()
     if (!body) return local
+    // Only charge the quota once the LLM produced a usable draft.
+    await markAiQuotaUsed(input.invoice.user_id)
     return { subject: subject || local.subject, body, aiUsed: true }
   } catch (e) {
     console.error("[draft] LLM call failed:", e)
@@ -151,7 +154,7 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
  * cookie-bound getPlan() helper can't be used here. Fail-open: any DB problem
  * (including the 0011 table not yet migrated) allows the draft.
  */
-async function consumeAiQuota(userId: string): Promise<{ allowed: boolean }> {
+async function checkAiQuota(userId: string): Promise<{ allowed: boolean }> {
   try {
     const supabase = createAdminClient()
     if (!supabase || !userId) return { allowed: true }
@@ -174,14 +177,38 @@ async function consumeAiQuota(userId: string): Promise<{ allowed: boolean }> {
       .eq("month", month)
       .maybeSingle()
     const used = Number((existing as { count?: number } | null)?.count ?? 0)
-    if (used >= limit) return { allowed: false }
+    return { allowed: used < limit }
+  } catch {
+    return { allowed: true }
+  }
+}
 
+async function markAiQuotaUsed(userId: string): Promise<void> {
+  try {
+    const supabase = createAdminClient()
+    if (!supabase || !userId) return
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("plan, status")
+      .eq("user_id", userId)
+      .maybeSingle()
+    const plan =
+      sub && sub.status !== "cancelled" && sub.status !== "past_due" && sub.plan === "pro" ? "pro" : "free"
+    if (plan === "pro") return
+
+    const month = new Date().toISOString().slice(0, 7)
+    const { data: existing } = await supabase
+      .from("ai_usage")
+      .select("count")
+      .eq("user_id", userId)
+      .eq("month", month)
+      .maybeSingle()
+    const used = Number((existing as { count?: number } | null)?.count ?? 0)
     await supabase.from("ai_usage").upsert(
       { user_id: userId, month, count: used + 1, updated_at: new Date().toISOString() },
       { onConflict: "user_id,month" },
     )
-    return { allowed: true }
   } catch {
-    return { allowed: true }
+    // Fail-open: quota is best-effort.
   }
 }

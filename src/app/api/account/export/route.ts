@@ -49,7 +49,7 @@ export async function GET() {
     const to = from + PAGE - 1
     const { data } = await admin
       .from("integration_credentials")
-      .select("id, user_id, provider, provider_account_id, mode, tenant_id, created_at, updated_at")
+      .select("id, user_id, provider, updated_at")
       .eq("user_id", user!.id)
       .range(from, to)
       .order("id", { ascending: true })

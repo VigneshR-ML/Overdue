@@ -11,7 +11,7 @@ export const metadata = { title: "Ladders" }
 
 export const dynamic = "force-dynamic"
 
-export default async function SequencesPage() {
+export default async function SequencesPage({ searchParams }: { searchParams?: { error?: string } }) {
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
   const userId = session.id
@@ -21,8 +21,20 @@ export default async function SequencesPage() {
 
   const templates = await getTemplates()
 
+  const errorBanner = searchParams?.error === "free-limit"
+    ? "Free plan is limited to 1 ladder. Upgrade to Pro to add more."
+    : searchParams?.error === "bad-template"
+    ? "Couldn't load that template — try a different one."
+    : null
+
   return (
     <div className="space-y-6">
+      {errorBanner ? (
+        <div role="alert" className="rounded-md border border-ember/40 bg-ember/10 p-4 text-sm text-ink-soft">
+          {errorBanner}
+        </div>
+      ) : null}
+
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Escalation</div>

@@ -55,13 +55,22 @@ export async function DELETE(_req: NextRequest, { params }: { params: { provider
   const supabase = createClient()
   await supabase.from("integrations").delete().eq("user_id", user!.id).eq("provider", provider)
 
-  // Soft-delete synced invoices to prevent orphaned escalation emails.
-  await supabase
+  // Stop queued reminders for invoices that came from this provider so nobody
+  // gets a follow-up after the source was disconnected.
+  const { data: providerInvoices } = await supabase
     .from("invoices")
-    .update({ status: "overdue", line_item_summary: null })
+    .select("id")
     .eq("user_id", user!.id)
     .eq("provider", provider)
-    .not("status", "eq", "paid")
+  const providerInvoiceIds = (providerInvoices ?? []).map((i: { id: string }) => i.id)
+  if (providerInvoiceIds.length > 0) {
+    await supabase
+      .from("runs")
+      .update({ status: "paused", updated_at: new Date().toISOString(), error: "source disconnected" })
+      .eq("user_id", user!.id)
+      .in("status", ["queued", "processing"])
+      .in("invoice_id", providerInvoiceIds)
+  }
 
   return NextResponse.json({ ok: true })
 }

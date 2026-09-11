@@ -49,7 +49,8 @@ async function refreshXeroIfNeeded(userId: string) {
           tenant_id: fresh.tenant_id ?? "",
         })
       } else {
-        console.error("[sync] Xero token refresh failed:", res.status, token)
+        // Never log token responses — they contain access/refresh tokens.
+        console.error("[sync] Xero token refresh failed:", res.status, token.error ?? token.error_description ?? "unknown")
       }
     } catch (e) {
       console.error("[sync] Xero token refresh error:", e)

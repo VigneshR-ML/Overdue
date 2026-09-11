@@ -16,7 +16,7 @@ describe("verifyPaddleSignature", () => {
     const raw = '{"event_id":"evt_1"}'
     const secret = process.env.PADDLE_WEBHOOK_SECRET!
     const ts = String(Math.floor(Date.now() / 1000))
-    const h1 = crypto.createHmac("sha256", secret).update(`${ts};${raw}`).digest("hex")
+    const h1 = crypto.createHmac("sha256", secret).update(`${ts}:${raw}`).digest("hex")
     expect(verifyPaddleSignature(`ts=${ts};h1=${h1}`, raw)).toBe(true)
   })
 
@@ -24,7 +24,7 @@ describe("verifyPaddleSignature", () => {
     const raw = '{"event_id":"evt_1"}'
     const secret = process.env.PADDLE_WEBHOOK_SECRET!
     const ts = String(Math.floor(Date.now() / 1000))
-    const h1 = crypto.createHmac("sha256", secret).update(`${ts};${raw}`).digest("hex")
+    const h1 = crypto.createHmac("sha256", secret).update(`${ts}:${raw}`).digest("hex")
     expect(verifyPaddleSignature(`ts=${ts};h1=${h1}`, '{"event_id":"evt_2"}')).toBe(false)
   })
 

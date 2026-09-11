@@ -37,7 +37,7 @@ export default function OnboardingPage() {
         setSaving(false)
         return
       }
-      const { error: updateErr } = await supabase.from("profiles").update({ full_name: name || email.split("@")[0], onboarding_completed: true }).eq("id", user.id)
+      const { error: updateErr } = await supabase.from("profiles").update({ full_name: name || email.split("@")[0] }).eq("id", user.id)
       if (updateErr) {
         setError("Failed to save — try again.")
         setSaving(false)
@@ -49,6 +49,16 @@ export default function OnboardingPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function finish() {
+    // Onboarding is only complete once the user reached the final step.
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from("profiles").update({ onboarding_completed: true }).eq("id", user.id)
+    }
+    router.push("/dashboard")
   }
 
   return (
@@ -101,7 +111,7 @@ export default function OnboardingPage() {
               escalating only if nothing happens. It stops the second a client replies or pays.
             </p>
             <div className="mt-6">
-              <Button className="w-full" size="lg" variant="moss" onClick={() => router.push("/dashboard")}>
+              <Button className="w-full" size="lg" variant="moss" onClick={finish}>
                 Open the ledger
               </Button>
             </div>

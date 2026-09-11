@@ -12,7 +12,7 @@ export async function applyPaddleEvent(
   eventType: string,
   data: any,
 ) {
-  const priceId = process.env.PADDLE_PRICE_PRO_MONTHLY ?? ""
+  const priceId = process.env.PADDLE_PRICE_PRO_MONTHLY || process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY || ""
   const isPro = data.items?.some?.((i: any) => i.price?.id === priceId)
   const plan = isPro ? "pro" : "free"
 

@@ -17,8 +17,12 @@ function getResend() {
 export async function sendEmail(payload: EmailPayload) {
   const resend = getResend()
   if (!resend) {
-    // No API key configured — local/dev. Do not fail dispatch silently in prod.
-    console.info("[email] skipped (no RESEND_API_KEY):", payload.to, "|", payload.subject)
+    // No API key configured — local/dev. Never silently count as delivered in
+    // production: dispatch treats { skipped: true } as a failure and requeues.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("RESEND_API_KEY is not configured")
+    }
+    console.info("[email] skipped (no RESEND_API_KEY):", payload.subject)
     return { id: null, skipped: true }
   }
   const { data, error } = await resend.emails.send({

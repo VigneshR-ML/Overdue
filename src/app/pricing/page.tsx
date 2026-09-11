@@ -35,7 +35,7 @@ export default function PricingPage() {
               <span className="font-display text-3xl text-ink">$0</span> / forever
             </div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["1 client", "CSV import", "1 ladder, 1 message per step", "AI drafts with your key"].map((f) => (
+              {["3 clients", "CSV import", "1 ladder, 1 message per step", "AI drafts"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>

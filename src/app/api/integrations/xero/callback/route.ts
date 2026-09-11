@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { setCredentials, getOAuthConfig } from "@/lib/integrations/credentials"
 import { verifyState, appUrl } from "@/lib/integrations/oauth"
+import { getPlan } from "@/lib/billing/plan"
 import { syncUserProvider } from "@/lib/integrations/sync"
 
 export const dynamic = "force-dynamic"
@@ -14,6 +15,11 @@ export async function GET(request: NextRequest) {
 
   const userId = verifyState(state)
   if (!userId) return NextResponse.redirect(`${appUrl()}/settings/integrations?xero=bad_state`)
+
+  const plan = await getPlan(userId)
+  if (plan === "free") {
+    return NextResponse.redirect(`${appUrl()}/settings/integrations?upgrade=1`)
+  }
 
   const cfg = getOAuthConfig("xero")
   try {

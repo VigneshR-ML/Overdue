@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { getPlan } from "@/lib/billing/plan"
 import { AppSidebar } from "@/components/app-shell/sidebar"
 
 export const metadata = { title: "App" }
@@ -17,12 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/?signin=1")
 
   const email = user.email ?? "you@ledger.app"
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("plan")
-    .eq("user_id", user.id)
-    .maybeSingle()
-  const plan = (sub?.plan as string) ?? "free"
+  const plan = await getPlan(user.id)
 
   return (
     <div className="flex min-h-screen bg-paper">

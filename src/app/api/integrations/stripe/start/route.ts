@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
+import { getPlan } from "@/lib/billing/plan"
 import { getOAuthConfig } from "@/lib/integrations/credentials"
 import { signState, appUrl } from "@/lib/integrations/oauth"
 
@@ -12,6 +13,11 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   const { user, error } = await requireUser()
   if (error) return error
+
+  const plan = await getPlan(user!.id)
+  if (plan === "free") {
+    return NextResponse.redirect(`${appUrl()}/settings/integrations?upgrade=1`)
+  }
 
   const cfg = getOAuthConfig("stripe")
   if (!cfg.clientId) {

@@ -97,7 +97,7 @@ export function PlanManager({
           <div className="mt-5 space-y-2 text-sm text-ink-soft">
             {isPro
               ? FEATURES.map((f) => <Row key={f} ok label={f} />)
-              : ["1 client", "Stripe sync + CSV import", "1 ladder", "AI drafts with your key"].map((f) => (
+              : ["3 clients", "CSV import", "1 ladder, 1 message per step", "AI drafts"].map((f) => (
                   <Row key={f} ok label={f} />
                 ))}
           </div>

@@ -41,7 +41,10 @@ function mapStatus(raw?: string | null): "active" | "trialing" | "past_due" | "c
 }
 
 function planForSub(sub: any): "free" | "pro" {
-  const priceId = process.env.PADDLE_PRICE_PRO_MONTHLY ?? ""
+  // The server-side price id must match the one the checkout embeds
+  // (NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY), otherwise a live purchase maps to
+  // "free"; fall back so a mismatch can never silently downgrade a payer.
+  const priceId = process.env.PADDLE_PRICE_PRO_MONTHLY || process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY || ""
   return sub?.items?.some?.((i: any) => i.price?.id === priceId) ? "pro" : "free"
 }
 
@@ -138,9 +141,13 @@ export async function reconcilePaddleSubscription(
 }
 
 /** Binds a freshly-created Paddle customer_id to the session user and reconciles. */
-export async function attachPaddleCustomer(userId: string, customerId: string) {
+export async function attachPaddleCustomer(userId: string, customerId: string, email: string) {
   const supabase = createAdminClient()
-  if (!supabase || !customerId) return { applied: false }
+  if (!supabase || !customerId || !email) return { applied: false }
+
+  // Verify the customer belongs to the session user before binding.
+  const customer = await findPdCustomerByEmail(email)
+  if (!customer || customer.id !== customerId) return { applied: false }
 
   await supabase
     .from("subscriptions")
