@@ -17,7 +17,7 @@ export function verifyPaddleSignature(header: string, rawBody: string): boolean 
   const age = Math.abs(Date.now() / 1000 - Number(ts))
   if (age > 300) return false
 
-  const signed = crypto.createHmac("sha256", secret).update(`${ts};${rawBody}`).digest("hex")
+  const signed = crypto.createHmac("sha256", secret).update(`${ts}:${rawBody}`).digest("hex")
   const a = Buffer.from(signed, "hex")
   const b = Buffer.from(h1, "hex")
   if (a.length !== b.length) return false
