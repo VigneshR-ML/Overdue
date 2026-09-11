@@ -67,7 +67,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         router.push("/dashboard")
         router.refresh()
       } else {
-        setError("Check your email for a confirmation link.")
+        setError("Your email hasn't been confirmed yet. Please check your inbox for the confirmation link, or sign up again.")
       }
     }
   }
@@ -89,7 +89,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     return (
       <div className="space-y-4">
         <div className="rounded-md border border-moss/40 bg-moss-soft p-4 text-sm text-moss">
-          Check your inbox — we sent a password reset link.
+          Check your inbox — we sent a password reset link. It can take a minute.
         </div>
         <Button type="button" variant="outline" className="w-full" onClick={() => { setResetSent(false) }}>
           Back to sign in
@@ -131,8 +131,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <form onSubmit={submit} className="space-y-4">
       {magicSent ? (
         <div className="rounded-md border border-moss/40 bg-moss-soft p-4 text-sm text-moss">
-          Check your inbox — we sent a confirmation link. It can take a minute; if it's not
-          there, look in spam (the sender is the Supabase auth address on this account).
+          Check your inbox — we sent a confirmation link to <strong>{email}</strong>.
+          It can take a minute; if it&apos;s not there, check spam or promotions.
         </div>
       ) : null}
 

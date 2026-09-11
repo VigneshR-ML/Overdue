@@ -55,7 +55,8 @@ export function AuthCodeHandler() {
         } else if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) {
-            toError(error.message)
+            const isPkce = /pkce|code.verifier/i.test(error.message)
+            toError(isPkce ? "pkce_error" : error.message)
             return
           }
         }
