@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { getSubscriptionsForUser } from "@/lib/db/queries"
 import { getCustomerPortalUrl } from "@/lib/paddle/server"
+import { reconcilePaddleSubscription } from "@/lib/billing/reconcile"
 import { PlanManager } from "@/components/billing/plan-manager"
 import { ArrowLeft } from "lucide-react"
 
@@ -10,14 +11,25 @@ export const metadata = { title: "Billing" }
 
 export const dynamic = "force-dynamic"
 
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams?: { upgraded?: string }
+}) {
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
+
+  // Self-heal against Paddle (source of truth) so a just-completed checkout —
+  // or a webhook that never arrived — still surfaces the Pro plan immediately.
+  await reconcilePaddleSubscription(session.id, session.email).catch(() => null)
 
   const sub = await getSubscriptionsForUser(session.id)
   const portalUrl = sub?.paddle_subscription_id
     ? await getCustomerPortalUrl(sub.paddle_subscription_id)
     : null
+
+  const isPro = sub?.plan === "pro" && sub?.status === "active"
+  const justUpgraded = searchParams?.upgraded === "1" && isPro
 
   return (
     <div className="space-y-5">
@@ -37,6 +49,8 @@ export default async function BillingPage() {
         email={session.email}
         userId={session.id}
         portalUrl={portalUrl}
+        renewalDate={sub?.current_period_end ?? null}
+        justUpgraded={justUpgraded}
       />
 
       <p className="font-mono text-[11px] leading-relaxed text-faint">

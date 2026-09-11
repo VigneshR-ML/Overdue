@@ -27,9 +27,33 @@ export function usePaddleCheckout(props: { email?: string; userId?: string }) {
           environment: process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT === "live" ? "production" : "sandbox",
           eventCallback: (event: any) => {
             switch (event?.name) {
-              case "checkout.completed":
+              case "checkout.completed": {
                 window.dispatchEvent(new CustomEvent("overdue:paddle-completed"))
+                // Tell our server which Paddle customer this session created, so
+                // we can bind customer_id → user and flip to Pro immediately
+                // without relying on webhooks or a perfect email match.
+                const tx =
+                  event?.data?.transaction ??
+                  event?.data ??
+                  ({} as Record<string, any>)
+                const customerId =
+                  event?.data?.customer?.id ??
+                  event?.data?.checkout?.customer_id ??
+                  tx.customer_id ??
+                  event?.data?.customer_id ??
+                  null
+                if (customerId) {
+                  try {
+                    localStorage.setItem("overdue:paddle_customer_id", customerId)
+                  } catch {}
+                  fetch(`/api/billing/paddle/attach`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ customerId }),
+                  }).catch((e) => console.error("[paddle] attach failed:", e))
+                }
                 break
+              }
               case "checkout.error":
               case "checkout.failed": {
                 console.error("[paddle] checkout error event:", JSON.stringify(event?.data ?? event, null, 2))
@@ -78,7 +102,7 @@ export function usePaddleCheckout(props: { email?: string; userId?: string }) {
         items: [{ priceId, quantity: 1 }],
         settings: {
           displayMode: "overlay",
-          successUrl: `${window.location.origin}/settings?upgraded=1`,
+          successUrl: `${window.location.origin}/settings/billing?upgraded=1`,
         },
         customer: props.email ? { email: props.email } : undefined,
       })

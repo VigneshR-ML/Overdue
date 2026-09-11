@@ -44,15 +44,27 @@ export async function POST(request: NextRequest) {
 
   const userId = data.custom_data?.user_id ?? data.user_id ?? null
 
-  // Resolve the user by email when custom_data isn't present.
+  // Resolve the user that owns this event, in order of preference:
+  //  1. custom_data.user_id (set via checkout customData)
+  //  2. customer email on the event
+  //  3. paddle_customer_id already stored against a local subscriptions row
   let resolvedUserId: string | null = userId
   if (!resolvedUserId && data.customer?.email) {
+    const email = String(data.customer.email).toLowerCase()
     const { data: profile } = await supabase
       .from("profiles")
       .select("id")
-      .eq("email", data.customer.email)
+      .ilike("email", email)
       .maybeSingle()
     resolvedUserId = (profile as { id?: string } | null)?.id ?? null
+  }
+  if (!resolvedUserId && data.customer_id) {
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("user_id")
+      .eq("paddle_customer_id", data.customer_id)
+      .maybeSingle()
+    resolvedUserId = (sub as { user_id?: string } | null)?.user_id ?? null
   }
   if (!resolvedUserId) {
     // Record event anyway for debugging; nothing to update.
@@ -60,6 +72,16 @@ export async function POST(request: NextRequest) {
       provider: "paddle", event_id: event.event_id ?? "", payload: event,
     })
     return NextResponse.json({ ok: true, unresolved: true })
+  }
+
+  // Persist the customer_id so later events (subscription.updated, renewals)
+  // resolve instantly without email/custom_data matching.
+  if (data.customer_id) {
+    await supabase
+      .from("subscriptions")
+      .update({ paddle_customer_id: data.customer_id })
+      .eq("user_id", resolvedUserId)
+      .is("paddle_customer_id", null)
   }
 
   const handled = await applyPaddleEvent(supabase, resolvedUserId, eventType, data)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { usePaddleCheckout } from "@/lib/paddle/checkout"
 import { Button } from "@/components/ui/button"
 import { Badge, StatusDot } from "@/components/ui/badge"
@@ -20,16 +20,47 @@ export function PlanManager({
   email,
   userId,
   portalUrl,
+  renewalDate,
+  justUpgraded,
 }: {
   plan: "free" | "pro"
   status: string
   email: string
   userId: string
   portalUrl?: string | null
+  renewalDate?: string | null
+  justUpgraded?: boolean
 }) {
   const { ready, error, openCheckout } = usePaddleCheckout({ email, userId })
   const [checkingOut, setCheckingOut] = useState(false)
   const isPro = plan === "pro" && status === "active"
+
+  // If a checkout completed but the navigation aborted the attach request (or
+  // the page redirected before it landed), replay it from localStorage so the
+  // upgrade still registers without needing a webhook.
+  useEffect(() => {
+    if (isPro) return
+    let customerId: string | null = null
+    try {
+      customerId = localStorage.getItem("overdue:paddle_customer_id")
+    } catch {}
+    if (!customerId) return
+    fetch(`/api/billing/paddle/attach`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId }),
+    })
+      .then((r) => r.json().catch(() => ({})))
+      .then((res) => {
+        if (res?.applied) window.location.reload()
+        else {
+          try {
+            localStorage.removeItem("overdue:paddle_customer_id")
+          } catch {}
+        }
+      })
+      .catch(() => ({}))
+  }, [isPro])
 
   async function handleCheckout() {
     setCheckingOut(true)
@@ -42,67 +73,89 @@ export function PlanManager({
     }
   }
 
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {/* Current */}
-      <div className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
-        <div className="flex items-center justify-between">
-          <div className="font-display text-lg text-ink">Current plan</div>
-          <Badge className={isPro ? "border-moss/30 bg-moss-soft text-moss" : "border-hairline text-muted"}>
-            <StatusDot color={isPro ? "#2F5D50" : "#A7A091"} />
-            {plan} {status !== "active" && status !== "free" ? `· ${status}` : ""}
-          </Badge>
-        </div>
-        <div className="mt-5 space-y-2 text-sm text-ink-soft">
-          {isPro
-            ? FEATURES.map((f) => <Row key={f} ok label={f} />)
-            : ["1 client", "Stripe sync + CSV import", "1 ladder", "AI drafts with your key"].map((f) => (
-                <Row key={f} ok label={f} />
-              ))}
-        </div>
-      </div>
+  const renewalLabel =
+    renewalDate && isPro ? formatRenewal(renewalDate) : null
 
-      {/* Upgrade / manage */}
-      <div className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
-        <div className="font-display text-lg text-ink">{isPro ? "Manage Pro" : "Go Pro"}</div>
-        <p className="mt-1 text-sm text-muted">
-          {isPro
-            ? "Manage payments and cancellation through the Paddle billing portal."
-            : "$19/month, cancel in two clicks, 30-day refund. One recovered invoice usually pays for the year."}
-        </p>
-        {error ? (
-          <p className="mt-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft">{error}</p>
-        ) : isPro ? (
-          portalUrl ? (
-            <a href={portalUrl} target="_blank" rel="noreferrer" className="mt-5 block">
-              <Button className="w-full" variant="outline">Open Paddle billing portal</Button>
-            </a>
-          ) : (
-            <p className="mt-5 text-[13px] text-muted">
-              Manage payments and cancellation in your Paddle account while the portal link loads.
-            </p>
-          )
-        ) : (
-          <div className="mt-5 space-y-3">
-            <Button
-              className="w-full"
-              variant="moss"
-              disabled={!ready}
-              onClick={handleCheckout}
-            >
-              {checkingOut ? "Opening checkout…" : "Upgrade to Pro — $19/mo"}
-            </Button>
-            {!ready && !error && (
-              <p className="font-mono text-[11px] text-faint">Loading checkout…</p>
-            )}
-            <p className="font-mono text-[11px] text-faint">
-              Billed by Paddle (merchant of record) · works without a US entity · sales tax handled
-            </p>
+  return (
+    <div className="space-y-4">
+      {justUpgraded ? (
+        <div role="status" className="rounded-md border border-moss/40 bg-moss-soft p-4 text-sm text-moss">
+          Payment successful — welcome to Pro. Your upgrade is live right now.
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Current */}
+        <div className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
+          <div className="flex items-center justify-between">
+            <div className="font-display text-lg text-ink">Current plan</div>
+            <Badge className={isPro ? "border-moss/30 bg-moss-soft text-moss" : "border-hairline text-muted"}>
+              <StatusDot color={isPro ? "#2F5D50" : "#A7A091"} />
+              {plan} {status !== "active" && status !== "free" ? `· ${status}` : ""}
+            </Badge>
           </div>
-        )}
+          <div className="mt-5 space-y-2 text-sm text-ink-soft">
+            {isPro
+              ? FEATURES.map((f) => <Row key={f} ok label={f} />)
+              : ["1 client", "Stripe sync + CSV import", "1 ladder", "AI drafts with your key"].map((f) => (
+                  <Row key={f} ok label={f} />
+                ))}
+          </div>
+          {renewalLabel ? (
+            <p className="mt-5 border-t border-hairline pt-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
+              Next renewal · <span className="text-ink">{renewalLabel}</span>
+            </p>
+          ) : null}
+        </div>
+
+        {/* Upgrade / manage */}
+        <div className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
+          <div className="font-display text-lg text-ink">{isPro ? "Manage Pro" : "Go Pro"}</div>
+          <p className="mt-1 text-sm text-muted">
+            {isPro
+              ? "Manage payments and cancellation through the Paddle billing portal."
+              : "$19/month, cancel in two clicks, 30-day refund. One recovered invoice usually pays for the year."}
+          </p>
+          {error ? (
+            <p className="mt-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft">{error}</p>
+          ) : isPro ? (
+            portalUrl ? (
+              <a href={portalUrl} target="_blank" rel="noreferrer" className="mt-5 block">
+                <Button className="w-full" variant="outline">Open Paddle billing portal</Button>
+              </a>
+            ) : (
+              <p className="mt-5 text-[13px] text-muted">
+                Manage payments and cancellation in your Paddle account while the portal link loads.
+              </p>
+            )
+          ) : (
+            <div className="mt-5 space-y-3">
+              <Button
+                className="w-full"
+                variant="moss"
+                disabled={!ready}
+                onClick={handleCheckout}
+              >
+                {checkingOut ? "Opening checkout…" : "Upgrade to Pro — $19/mo"}
+              </Button>
+              {!ready && !error && (
+                <p className="font-mono text-[11px] text-faint">Loading checkout…</p>
+              )}
+              <p className="font-mono text-[11px] text-faint">
+                Billed by Paddle (merchant of record) · works without a US entity · sales tax handled
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
+}
+
+function formatRenewal(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
 
 function Row({ ok, label }: { ok: boolean; label: string }) {
