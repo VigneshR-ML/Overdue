@@ -26,16 +26,29 @@ export function usePaddleCheckout(props: { email?: string; userId?: string }) {
           token: vendorId!,
           environment: process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT === "live" ? "production" : "sandbox",
           eventCallback: (event: any) => {
-            // Paddle fires 'checkout.completed'; the webhook does the real sync.
-            if (event?.name === "checkout.completed") {
-              window.dispatchEvent(new CustomEvent("overdue:paddle-completed"))
+            switch (event?.name) {
+              case "checkout.completed":
+                window.dispatchEvent(new CustomEvent("overdue:paddle-completed"))
+                break
+              case "checkout.error":
+              case "checkout.failed": {
+                console.error("[paddle] checkout error event:", JSON.stringify(event?.data ?? event, null, 2))
+                const detail =
+                  event?.data?.error?.detail ??
+                  event?.data?.error?.code ??
+                  event?.data?.error?.message ??
+                  "Paddle couldn't initialize the checkout session."
+                setError(detail)
+                break
+              }
             }
           },
         })
         if (cancelled) return
         paddleRef.current = paddle
         setReady(true)
-      } catch {
+      } catch (e) {
+        console.error("[paddle] initialize failed:", e)
         if (!cancelled) setError("Couldn't load the payment provider.")
       }
     })()
@@ -60,15 +73,20 @@ export function usePaddleCheckout(props: { email?: string; userId?: string }) {
       setError("Checkout hasn't finished loading — try again.")
       return
     }
-    paddleRef.current.Checkout.open({
-      items: [{ priceId, quantity: 1 }],
-      settings: {
-        displayMode: "overlay",
-        successUrl: `${window.location.origin}/settings?upgraded=1`,
-        eventData: { user_id: props.userId ?? "" },
-      },
-      customer: props.email ? { email: props.email } : undefined,
-    })
+    try {
+      paddleRef.current.Checkout.open({
+        items: [{ priceId, quantity: 1 }],
+        settings: {
+          displayMode: "overlay",
+          successUrl: `${window.location.origin}/settings?upgraded=1`,
+          eventData: { user_id: props.userId ?? "" },
+        },
+        customer: props.email ? { email: props.email } : undefined,
+      })
+    } catch (e) {
+      console.error("[paddle] Checkout.open failed:", e)
+      setError("Failed to open checkout. If this persists, try disabling browser extensions and reloading.")
+    }
   }, [props.email, props.userId])
 
   return { ready, error, openCheckout }
