@@ -1,9 +1,10 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
-import { getAgingTotals, getUrgencyQueue, getProfile } from "@/lib/db/queries"
+import { getAgingTotals, getUrgencyQueue, getProfile, getRecoveryQueue } from "@/lib/db/queries"
 import { AgingStrip } from "@/components/ledger/aging-strip"
 import { UrgencyQueue } from "@/components/ledger/urgency-queue"
+import { RecoveryQueue } from "@/components/ledger/recovery-queue"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, ArrowRight } from "lucide-react"
@@ -16,10 +17,11 @@ export default async function DashboardPage() {
   if (!session) redirect("/?signin=1")
   const userId = session.id
 
-  const [totals, queue, profile] = await Promise.all([
+  const [totals, queue, profile, recovery] = await Promise.all([
     getAgingTotals(userId),
     getUrgencyQueue(userId, 15),
     getProfile(userId),
+    getRecoveryQueue(userId, 5),
   ])
 
   const needsOnboarding = profile && !profile.onboarding_completed
@@ -59,6 +61,15 @@ export default async function DashboardPage() {
       )}
 
       <AgingStrip totals={totals} />
+
+      {recovery.length > 0 && (
+        <section className="space-y-2">
+          <RecoveryQueue items={recovery} />
+          <p className="font-mono text-[11px] text-faint">
+            Risk scores are weighted from lateness, unanswered reminders, history, disputes and promises — no black box.
+          </p>
+        </section>
+      )}
 
       {queue.length > 0 ? (
         <>

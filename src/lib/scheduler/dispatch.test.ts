@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { computeStartStep, cumulativeDays } from "@/lib/scheduler/dispatch"
+import { computeStartStep, cumulativeDays, mapReplyToRunAction } from "@/lib/scheduler/dispatch"
 import type { SequenceStep } from "@/types"
 
 const STEPS: SequenceStep[] = [
@@ -43,5 +43,28 @@ describe("computeStartStep", () => {
 
   it("returns 0 for an empty ladder", () => {
     expect(computeStartStep([], 20)).toBe(0)
+  })
+})
+
+describe("mapReplyToRunAction", () => {
+  it("routes promise to a scheduled wait", () => {
+    expect(mapReplyToRunAction("promise")).toBe("promise")
+  })
+  it("routes dispute to dispute intake", () => {
+    expect(mapReplyToRunAction("dispute")).toBe("dispute")
+  })
+  it("routes payment claims to manual verification", () => {
+    expect(mapReplyToRunAction("paid")).toBe("verify")
+    expect(mapReplyToRunAction("already_paid")).toBe("verify")
+  })
+  it("routes escalations to a human", () => {
+    expect(mapReplyToRunAction("angry")).toBe("human")
+    expect(mapReplyToRunAction("needs_human")).toBe("human")
+    expect(mapReplyToRunAction("question")).toBe("human")
+  })
+  it("pauses for everything else", () => {
+    expect(mapReplyToRunAction("other")).toBe("paused")
+    expect(mapReplyToRunAction("payment_plan")).toBe("paused")
+    expect(mapReplyToRunAction("wrong_recipient")).toBe("paused")
   })
 })

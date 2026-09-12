@@ -2,9 +2,10 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { getSessionUser } from "@/lib/auth/session"
 import { getPlan } from "@/lib/billing/plan"
-import { getInvoicesWithMeta } from "@/lib/db/queries"
+import { getInvoicesWithMeta, getReplyThread, getOpenDisputesForInvoice } from "@/lib/db/queries"
 import { InvoiceTable } from "@/components/ledger/invoice-table"
 import { AddInvoiceButton } from "@/components/ledger/add-invoice"
+import { ReplyThread } from "@/components/ledger/reply-thread"
 
 export const metadata = { title: "Invoices" }
 
@@ -21,6 +22,10 @@ export default async function InvoicesPage({
   const focus = typeof searchParams?.focus === "string" ? searchParams.focus : undefined
   const plan = await getPlan(session.id)
   const openCount = invoices.filter((i) => i.status !== "paid" && !i.paid_at).length
+
+  const [replyThread, openDisputes] = focus
+    ? await Promise.all([getReplyThread(session.id, focus), getOpenDisputesForInvoice(session.id, focus)])
+    : [null, null]
 
   return (
     <div className="space-y-5">
@@ -45,6 +50,7 @@ export default async function InvoicesPage({
         </div>
       ) : null}
       <InvoiceTable invoices={invoices} focusId={focus} />
+      {replyThread ? <ReplyThread replies={replyThread} disputes={openDisputes ?? []} /> : null}
     </div>
   )
 }

@@ -53,5 +53,5 @@ export async function POST(request: NextRequest) {
   const clipped = String(Array.isArray(text) ? text[0] ?? "" : text).slice(0, 4000)
 
   const handled = await handleInboundReply(fromEmail, clipped || undefined)
-  return NextResponse.json({ ok: true, promise: handled ?? undefined })
+  return NextResponse.json({ ok: true, classification: handled ?? undefined })
 }

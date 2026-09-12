@@ -1,9 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { draftEmail } from "@/lib/ai/draft"
-import { detectPromise } from "@/lib/ai/promise"
+import { classifyReply } from "@/lib/ai/reply"
 import { renderEscalationEmail, sendEmail } from "@/lib/resend/send"
 import { formatMoney } from "@/lib/utils/format"
-import type { Sequence, SequenceStep, Invoice, Client, Run } from "@/types"
+import type { Sequence, SequenceStep, Invoice, Client, Run, ReplyClassification } from "@/types"
 
 const CUMULATIVE_DAYS = (steps: SequenceStep[], throughIndex: number) =>
   steps.reduce((sum, s, i) => (i <= throughIndex ? sum + s.delay_days : sum), 0) ?? 0
@@ -110,6 +110,37 @@ export async function runDispatcher() {
   // Recover any runs that were claimed but never finished (crashed batch): bring
   // stale 'processing' runs older than a few minutes back to 'queued'.
   await requeueStaleProcessing(supabase)
+
+  // Automation safety: runs carrying a reply that needs a person (open dispute,
+  // unverified payment claim, angry/needs-human) are paused instead of auto
+  // dispatched — never chase a client mid-dispute. Manual "Send now" still
+  // works via sendRunNow → dispatchOne; resolving the reply clears the flag.
+  try {
+    const { data: confRows } = await supabase
+      .from("runs")
+      .select("id, automation_confidence")
+      .in("id", autopilotIds)
+    const lowConf = new Set<string>()
+    for (const r of (confRows ?? []) as any[]) {
+      if (typeof r.automation_confidence === "number" && r.automation_confidence < 60) lowConf.add(r.id)
+    }
+    if (lowConf.size) {
+      await supabase
+        .from("runs")
+        .update({
+          status: "paused",
+          error: "paused: reply needs human review",
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", [...lowConf])
+      for (let i = autopilotRuns.length - 1; i >= 0; i--) {
+        if (lowConf.has(autopilotRuns[i].id as string)) autopilotRuns.splice(i, 1)
+      }
+    }
+  } catch {
+    // Fail-open on lookup errors: classification is best-effort, never block
+    // the whole batch because of it.
+  }
 
   let dispatched = 0
   let failed = 0
@@ -478,74 +509,178 @@ export async function startRun(opts: {
   return { ok: true }
 }
 
-/** Detects a client reply and pauses the matching run. Scoped to user to prevent cross-tenant leakage.
- * When reply `text` is provided, a detected payment promise ("will pay Friday")
- * converts the pause into a scheduled wait: status back to queued with
- * next_run_at = promise date, so the ladder auto-resumes for the check. */
+/** What an inbound reply should do to a run — mirrors the classifier outputs. */
+export type RunReplyAction = "promise" | "dispute" | "verify" | "human" | "paused"
+
+export function mapReplyToRunAction(classification: ReplyClassification): RunReplyAction {
+  switch (classification) {
+    case "promise":
+      return "promise"
+    case "dispute":
+      return "dispute"
+    case "paid":
+    case "already_paid":
+      return "verify"
+    case "angry":
+    case "needs_human":
+    case "question":
+      return "human"
+    default:
+      return "paused"
+  }
+}
+
+/** Automation confidence applied when a reply pauses a run (blocks autopilot). */
+const PAUSED_AUTOMATION_CONFIDENCE: Record<RunReplyAction, number | null> = {
+  promise: null, // scheduled wait — dispatcher re-checks payment on arrival
+  dispute: 10,
+  verify: 15,
+  human: 10,
+  paused: 10,
+}
+
+export interface ReplyOutcome {
+  classification: ReplyClassification
+  action: RunReplyAction
+  date: string | null
+}
+
+/**
+ * Detects a client reply and pauses the matching run. Scoped to user to
+ * prevent cross-tenant leakage. Every reply is classified (reply_intel) and
+ * routed:
+ *   promise      → scheduled wait until the named date
+ *   dispute      → pause + open a disputes row (blocks automation)
+ *   paid/new     → pause for manual "verify payment"
+ *   angry/human  → pause + automation_confidence 10 (needs a person)
+ * Everything else pauses the ladder (the existing safe default).
+ */
 export async function handleInboundReply(
   clientAddress: string,
   text?: string,
-): Promise<"promise" | "paused" | null> {
+): Promise<ReplyOutcome | null> {
   const supabase = createAdminClient()
   if (!supabase) return null
   // The replying client's own address is the "from" of the inbound; match it to
   // the addresses we previously messaged. Any reply pauses that run's ladder.
   const { data: messages, error } = await supabase
     .from("messages")
-    .select("run_id, user_id")
+    .select("run_id, user_id, invoice_id")
     .eq("to_email", clientAddress)
     .order("sent_at", { ascending: false })
     .limit(10)
   if (error || !messages) return null
 
-  // Group run IDs by user to scope pause operations.
-  const byUser = new Map<string, Set<string>>()
+  // Group run IDs by user to scope pause operations; keep invoice_id per run so
+  // reply_intel + disputes can attach the right invoice.
+  const byUser = new Map<string, { runs: Set<string>; invoiceId: string | null }>()
   for (const m of messages) {
     if (!m.run_id || !m.user_id) continue
-    let set = byUser.get(m.user_id)
-    if (!set) { set = new Set(); byUser.set(m.user_id, set) }
-    set.add(m.run_id)
+    let entry = byUser.get(m.user_id)
+    if (!entry) {
+      entry = { runs: new Set(), invoiceId: null }
+      byUser.set(m.user_id, entry)
+    }
+    entry.runs.add(m.run_id)
+    if (!entry.invoiceId && m.invoice_id) entry.invoiceId = m.invoice_id
   }
 
-  for (const [, runIds] of byUser) {
-    const ids = [...runIds]
-    if (!ids.length) continue
-    const t = new Date().toISOString()
-    await supabase.from("runs").update({ status: "paused", updated_at: t }).in("id", ids)
-    await supabase.from("messages").update({ replied: true }).in("run_id", ids)
-  }
   if (byUser.size === 0) return null
 
-  // Promise-to-pay upgrade: a dated commitment becomes a scheduled wait.
-  // Scope per-user to avoid cross-tenant data leaks.
+  // Classify the reply (heuristic, LLM-optional, fails open — see ai/reply.ts).
+  let intel: Awaited<ReturnType<typeof classifyReply>> | null = null
   if (text && text.trim()) {
     try {
-      const found = await detectPromise(text)
-      if (found.isPromise && found.date) {
-        const at = `${found.date}T09:00:00.000Z`
-        for (const [userId, runIds] of byUser) {
-          const ids = [...runIds]
-          if (!ids.length) continue
-          void userId
-          await supabase
-            .from("runs")
-            .update({
-              status: "queued",
-              next_run_at: at,
-              promise_date: at,
-              promise_note: found.note,
-              promise_amount_cents: found.amountCents,
-              updated_at: new Date().toISOString(),
-            })
-            .in("id", ids)
-        }
-        return "promise"
-      }
+      intel = await classifyReply(text)
     } catch {
-      // Detection must never break the pause above.
+      intel = null
     }
   }
-  return "paused"
+  const classification: ReplyClassification = intel?.classification ?? "other"
+  const action = mapReplyToRunAction(classification)
+  const t = new Date().toISOString()
+
+  for (const [userId, entry] of byUser) {
+    const ids = [...entry.runs]
+    if (!ids.length) continue
+
+    // Pause the ladder (all classes) — later promise handling re-queues it.
+    await supabase.from("runs").update({ status: "paused", updated_at: t }).in("id", ids)
+    await supabase.from("messages").update({ replied: true }).in("run_id", ids)
+
+    // Denormalise the classification onto the runs for the dispatcher/UI.
+    const confidence = PAUSED_AUTOMATION_CONFIDENCE[action]
+    const patch: Record<string, unknown> = {
+      reply_classification: classification,
+      last_reply_at: t,
+      updated_at: t,
+    }
+    if (confidence !== null) patch.automation_confidence = confidence
+    await supabase.from("runs").update(patch).in("id", ids)
+
+    // Structured record of the reply (one per matched run-invoice).
+    if (entry.invoiceId) {
+      await supabase.from("reply_intel").insert({
+        user_id: userId,
+        run_id: ids[0],
+        invoice_id: entry.invoiceId,
+        classification,
+        confidence: intel?.confidence ?? 40,
+        source: intel?.source ?? "heuristic",
+        raw_text: text?.slice(0, 4000) ?? null,
+        extracted_date: intel?.date ?? null,
+        amount_cents: intel?.amountCents ?? null,
+        notes: intel?.note ?? null,
+      }).select().maybeSingle()
+
+      // Disputes are first-class: pause chasing and open a row for the user.
+      if (action === "dispute") {
+        const { data: existing } = await supabase
+          .from("disputes")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("invoice_id", entry.invoiceId)
+          .eq("status", "open")
+          .limit(1)
+          .maybeSingle()
+        if (!existing) {
+          await supabase.from("disputes").insert({
+            user_id: userId,
+            invoice_id: entry.invoiceId,
+            category: intel?.reason ?? "invoice disputed",
+            amount_cents: intel?.amountCents ?? null,
+            reason: intel?.note ?? text?.slice(0, 400) ?? null,
+          })
+        }
+      }
+    }
+  }
+
+  // Promise-to-pay upgrade: a dated commitment becomes a scheduled wait.
+  // The run waits in 'queued' with next_run_at = promise date; the dispatcher
+  // re-checks payment and continues the ladder (or clears it) when it arrives.
+  if (action === "promise" && intel?.date) {
+    const at = `${intel.date}T09:00:00.000Z`
+    for (const [userId, entry] of byUser) {
+      const ids = [...entry.runs]
+      if (!ids.length) continue
+      void userId
+      await supabase
+        .from("runs")
+        .update({
+          status: "queued",
+          next_run_at: at,
+          promise_date: at,
+          promise_note: intel.note,
+          promise_amount_cents: intel.amountCents,
+          automation_confidence: null,
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", ids)
+    }
+  }
+
+  return { classification, action, date: intel?.date ?? null }
 }
 
 /**

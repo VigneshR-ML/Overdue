@@ -1,5 +1,57 @@
 export type Tone = "gentle" | "nudge" | "firm" | "final"
 
+export type ReplyClassification =
+  | "paid"
+  | "promise"
+  | "dispute"
+  | "question"
+  | "payment_plan"
+  | "already_paid"
+  | "wrong_recipient"
+  | "angry"
+  | "needs_human"
+  | "other"
+
+export const REPLY_CLASSIFICATIONS: ReplyClassification[] = [
+  "paid",
+  "promise",
+  "dispute",
+  "question",
+  "payment_plan",
+  "already_paid",
+  "wrong_recipient",
+  "angry",
+  "needs_human",
+  "other",
+]
+
+export interface ReplyIntelligence {
+  id: string
+  user_id: string
+  run_id: string | null
+  invoice_id: string | null
+  classification: ReplyClassification
+  confidence: number
+  source: "heuristic" | "llm"
+  raw_text: string | null
+  extracted_date: string | null
+  amount_cents: number | null
+  notes: string | null
+  created_at: string
+}
+
+export interface Dispute {
+  id: string
+  user_id: string
+  invoice_id: string
+  category: string | null
+  amount_cents: number | null
+  reason: string | null
+  status: "open" | "resolved"
+  resolved_at: string | null
+  created_at: string
+}
+
 export type InvoiceStatus = "pending" | "sent" | "paid" | "partially_paid" | "overdue"
 
 export interface Invoice {
@@ -72,6 +124,10 @@ export interface Run {
   promise_date?: string | null
   promise_note?: string | null
   promise_amount_cents?: number | null
+  reply_classification?: ReplyClassification | null
+  last_reply_at?: string | null
+  promise_missed?: boolean
+  automation_confidence?: number | null
   updated_at?: string
   created_at: string
 }
