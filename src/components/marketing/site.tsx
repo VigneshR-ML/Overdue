@@ -1,4 +1,7 @@
+"use client"
+
 import Link from "next/link"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
 export function Wordmark({ className = "" }: { className?: string }) {
@@ -27,25 +30,59 @@ export function Wordmark({ className = "" }: { className?: string }) {
 }
 
 export function MarketingNav() {
+  const [open, setOpen] = useState(false)
   return (
     <header className="sticky top-0 z-40 border-b border-hairline bg-paper/90 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
         <Wordmark />
-        <nav className="hidden items-center gap-7 text-sm text-ink-soft md:flex">
+        <nav className="hidden items-center gap-7 text-sm text-ink-soft md:flex" aria-label="Primary">
           <Link className="transition-colors hover:text-ink" href="/#how">How it works</Link>
           <Link className="transition-colors hover:text-ink" href="/#ladder">The ladder</Link>
           <Link className="transition-colors hover:text-ink" href="/#pricing">Pricing</Link>
           <Link className="transition-colors hover:text-ink" href="/templates">Templates</Link>
+          <Link className="transition-colors hover:text-ink" href="/tools">Tools</Link>
         </nav>
         <div className="flex items-center gap-2">
-          <Link href="/login">
+          <Link href="/login" className="hidden sm:inline">
             <Button variant="ghost" size="sm">Sign in</Button>
           </Link>
           <Link href="/signup">
             <Button variant="ink" size="sm">Start free</Button>
           </Link>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? "Close menu" : "Open menu"}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-hairline bg-surface font-mono text-[16px] text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss md:hidden"
+          >
+            {open ? "✕" : "☰"}
+          </button>
         </div>
       </div>
+      {open ? (
+        <nav className="border-t border-hairline bg-paper px-5 py-3 md:hidden" aria-label="Mobile">
+          <div className="flex flex-col gap-1 text-[15px]">
+            {[
+              ["/#how", "How it works"],
+              ["/#ladder", "The ladder"],
+              ["/#pricing", "Pricing"],
+              ["/templates", "Templates"],
+              ["/tools", "Tools · Free calculators"],
+              ["/login", "Sign in"],
+            ].map(([href, label]) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setOpen(false)}
+                className="rounded-md px-3 py-2 text-ink-soft transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-moss"
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      ) : null}
     </header>
   )
 }
@@ -54,7 +91,7 @@ export function MarketingFooter() {
   return (
     <footer className="border-t border-hairline bg-surface">
       <div className="mx-auto max-w-6xl px-5 py-12">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           <div className="col-span-2 md:col-span-1">
             <Wordmark />
             <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-muted">
@@ -77,6 +114,16 @@ export function MarketingFooter() {
               <li><Link href="/templates/late-payment-reminder-email" className="hover:text-ink">Late payment reminder</Link></li>
               <li><Link href="/templates/final-invoice-email" className="hover:text-ink">Final notice</Link></li>
               <li><Link href="/templates" className="hover:text-ink">All templates</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">Tools · Free</div>
+            <ul className="mt-3 space-y-2 text-sm text-muted">
+              <li><Link href="/tools" className="hover:text-ink">All calculators</Link></li>
+              <li><Link href="/tools/late-fee-calculator" className="hover:text-ink">Late fee calculator</Link></li>
+              <li><Link href="/tools/dso-calculator" className="hover:text-ink">DSO calculator</Link></li>
+              <li><Link href="/tools/invoice-aging-calculator" className="hover:text-ink">Aging calculator</Link></li>
+              <li><Link href="/tools/collection-roi-calculator" className="hover:text-ink">Collections ROI</Link></li>
             </ul>
           </div>
           <div>

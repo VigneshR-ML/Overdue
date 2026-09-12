@@ -12,17 +12,18 @@ export const metadata: Metadata = {
 }
 
 export default function ToolsHubPage() {
+  const count = TOOL_CALCULATORS.length
   return (
     <div className="min-h-screen bg-paper">
       <MarketingNav />
       <main className="mx-auto max-w-6xl px-5 py-16">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Ledger tools · Free</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Ledger tools · Free · No signup</div>
           <h1 className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">
             The math is the first follow-up.
           </h1>
           <p className="mx-auto mt-4 max-w-measure text-[15px] leading-relaxed text-muted">
-            Five calculators that run the same collection ledger as Overdue — pure client-side
+            {count} calculators that run the same collection ledger as Overdue — pure client-side
             arithmetic, computed in your browser, nothing sent anywhere.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -30,9 +31,9 @@ export default function ToolsHubPage() {
               <Link
                 key={t.slug}
                 href={`/tools/${t.slug}`}
-                className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-4 py-2 font-mono text-[12px] text-muted transition-colors hover:border-moss hover:text-ink"
+                className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-4 py-2 font-mono text-[12px] text-muted transition-colors hover:border-moss hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
               >
-                <span className="text-moss">·</span> {t.name}
+                <span className="text-moss" aria-hidden="true">·</span> {t.name}
               </Link>
             ))}
           </div>
@@ -43,11 +44,11 @@ export default function ToolsHubPage() {
             <Link
               key={t.slug}
               href={`/tools/${t.slug}`}
-              className="group flex flex-col rounded-xl border border-hairline bg-surface p-6 shadow-ledger transition-all duration-150 hover:-translate-y-0.5 hover:border-moss"
+              className="group flex flex-col rounded-xl border border-hairline bg-surface p-6 shadow-ledger transition-all duration-150 hover:-translate-y-0.5 hover:border-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
             >
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{t.spec.kicker}</span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint transition-colors group-hover:text-moss">Open →</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint transition-colors group-hover:text-moss" aria-hidden="true">Open →</span>
               </div>
               <h2 className="mt-2 font-display text-xl tracking-tight text-ink group-hover:text-moss-bright">
                 {t.name}

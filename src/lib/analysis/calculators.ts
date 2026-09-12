@@ -114,10 +114,26 @@ export interface PaymentPlanResult {
 
 /** Even split for a payment plan without inflationary promise math. */
 export function paymentPlan({ amountCents, installments }: PaymentPlanInput): PaymentPlanResult {
-  const n = Math.max(1, Math.round(installments))
-  const base = Math.floor(amountCents / n)
-  const last = amountCents - base * (n - 1)
+  const safeN = Number.isFinite(installments) ? Math.round(installments) : 1
+  const n = Math.max(1, Math.min(60, safeN))
+  const safeAmount = Number.isFinite(amountCents) ? Math.max(0, amountCents) : 0
+  const base = Math.floor(safeAmount / n)
+  const last = safeAmount - base * (n - 1)
   return { perInstallmentCents: base, lastInstallmentCents: last, totalCents: base * (n - 1) + last }
+}
+
+/** Days Sales Outstanding from outstanding receivables + trailing-90-day revenue. */
+export function dso(outstandingCents: number, revenue90dCents: number): {
+  days: number | null
+  perDayCents: number
+} {
+  const outstanding = Number.isFinite(outstandingCents) ? Math.max(0, outstandingCents) : 0
+  const rev90 = Number.isFinite(revenue90dCents) ? Math.max(0, revenue90dCents) : 0
+  if (rev90 <= 0) return { days: null, perDayCents: 0 }
+  const perDayCents = rev90 / 90
+  const days = outstanding / perDayCents
+  if (!Number.isFinite(days)) return { days: null, perDayCents }
+  return { days, perDayCents }
 }
 
 export function weeksToDate(days: number): string {

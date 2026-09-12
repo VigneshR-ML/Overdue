@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Check } from "lucide-react"
 import { AuthNotice } from "@/components/auth/auth-notice"
 import { ProPrice } from "@/components/billing/pro-price"
+import { TOOL_CALCULATORS } from "@/lib/seo/tool-calculators"
 
 export const metadata: Metadata = {
   title: "Overdue — Get paid without the awkward conversation",
@@ -180,6 +181,41 @@ export default function LandingPage() {
           <div className="max-w-md">
             <EscalationLadder steps={LADDER_STEPS} />
           </div>
+        </div>
+      </section>
+
+      {/* TOOLS — free calculators, surfaced on landing */}
+      <section id="tools" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-xl">
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Tools · Free · No signup</div>
+            <h2 className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">
+              Do the math <em className="italic">before</em> you chase.
+            </h2>
+            <p className="mt-4 text-[15px] leading-relaxed text-muted">
+              Five browser-only calculators on the same ledger math as Overdue. Nothing leaves your
+              browser — every number is yours.
+            </p>
+          </div>
+          <a href="/tools" className="font-mono text-[12px] uppercase tracking-[0.12em] text-moss hover:text-moss-bright">
+            View all tools →
+          </a>
+        </div>
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {TOOL_CALCULATORS.slice(0, 3).map((t) => (
+            <a
+              key={t.slug}
+              href={`/tools/${t.slug}`}
+              className="group flex flex-col rounded-xl border border-hairline bg-surface p-6 shadow-ledger transition-all duration-150 hover:-translate-y-0.5 hover:border-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
+            >
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{t.spec.kicker}</div>
+              <h3 className="mt-2 font-display text-xl tracking-tight text-ink group-hover:text-moss-bright">{t.name}</h3>
+              <p className="mt-2 text-[14px] leading-relaxed text-muted">{t.spec.description}</p>
+              <span className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-faint transition-colors group-hover:text-moss">
+                Open →
+              </span>
+            </a>
+          ))}
         </div>
       </section>
 
