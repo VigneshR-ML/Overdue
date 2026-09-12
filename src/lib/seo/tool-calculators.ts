@@ -1,4 +1,4 @@
-import type { CalculatorResult, CalculatorSpec } from "@/components/marketing/calculator"
+import type { CalculatorResult, CalculatorSpec } from "@/lib/calculators/types"
 import { formatMoney } from "@/lib/utils/format"
 import {
   lateFeeForMonth,

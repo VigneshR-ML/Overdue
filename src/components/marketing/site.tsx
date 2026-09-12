@@ -40,7 +40,7 @@ export function MarketingNav() {
           <Link className="transition-colors hover:text-ink" href="/#ladder">The ladder</Link>
           <Link className="transition-colors hover:text-ink" href="/#pricing">Pricing</Link>
           <Link className="transition-colors hover:text-ink" href="/templates">Templates</Link>
-          <Link className="transition-colors hover:text-ink" href="/tools">Tools</Link>
+          <Link className="transition-colors hover:text-ink" href="/#tools">Tools</Link>
         </nav>
         <div className="flex items-center gap-2">
           <Link href="/login" className="hidden sm:inline">
@@ -68,7 +68,7 @@ export function MarketingNav() {
               ["/#ladder", "The ladder"],
               ["/#pricing", "Pricing"],
               ["/templates", "Templates"],
-              ["/tools", "Tools · Free calculators"],
+              ["/#tools", "Tools"],
               ["/login", "Sign in"],
             ].map(([href, label]) => (
               <Link
@@ -117,13 +117,11 @@ export function MarketingFooter() {
             </ul>
           </div>
           <div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">Tools · Free</div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">Tools</div>
             <ul className="mt-3 space-y-2 text-sm text-muted">
-              <li><Link href="/tools" className="hover:text-ink">All calculators</Link></li>
-              <li><Link href="/tools/late-fee-calculator" className="hover:text-ink">Late fee calculator</Link></li>
-              <li><Link href="/tools/dso-calculator" className="hover:text-ink">DSO calculator</Link></li>
-              <li><Link href="/tools/invoice-aging-calculator" className="hover:text-ink">Aging calculator</Link></li>
-              <li><Link href="/tools/collection-roi-calculator" className="hover:text-ink">Collections ROI</Link></li>
+              <li><Link href="/#tools" className="hover:text-ink">Calculators overview</Link></li>
+              <li><Link href="/login" className="hover:text-ink">Log in to use tools</Link></li>
+              <li><Link href="/signup" className="hover:text-ink">Start free</Link></li>
             </ul>
           </div>
           <div>

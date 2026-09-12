@@ -2,17 +2,15 @@
 
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Calculator } from "@/components/marketing/calculator"
+import { RealtimeCalculator } from "@/components/calculators/realtime-calculator"
 import { TOOL_CALCULATORS, getToolCalculatorBySlug } from "@/lib/seo/tool-calculators"
-import { Button } from "@/components/ui/button"
 
 /**
- * Client leaf for /tools/[slug]. Only `slug` crosses the RSC→client boundary;
- * the spec (including its compute) is resolved here, in the browser, so no
- * function ever crosses the serialization boundary and the arithmetic stays
- * pure client-side.
+ * Authenticated tool detail — lives inside the app shell (sidebar, no
+ * marketing nav, no signup pitch). Only `slug` crosses the RSC→client
+ * boundary; the spec (including `compute`) resolves here in the browser.
  */
-export function ToolPageClient({ slug }: { slug: string }) {
+export function AppToolDetail({ slug }: { slug: string }) {
   const tool = getToolCalculatorBySlug(slug)
   if (!tool) return notFound()
 
@@ -21,20 +19,24 @@ export function ToolPageClient({ slug }: { slug: string }) {
   return (
     <div>
       <nav aria-label="Breadcrumb" className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">
-        <Link href="/tools" className="rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss">Tools</Link>
+        <Link
+          href="/tools"
+          className="rounded hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
+        >
+          Tools
+        </Link>
         <span className="mx-2" aria-hidden="true">/</span>
         <span aria-current="page" className="text-muted">{tool.name}</span>
       </nav>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+      <div className="mt-6 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-moss">{tool.spec.kicker}</div>
           <h1 className="mt-2 font-display text-4xl tracking-tight text-ink sm:text-5xl">{tool.name}</h1>
           <p className="mt-4 max-w-measure text-[15px] leading-relaxed text-ink-soft">{tool.intro}</p>
-          <p className="mt-3 max-w-measure text-[14px] leading-relaxed text-muted">{tool.spec.description}</p>
 
           <div className="mt-6">
-            <Calculator spec={tool.spec} />
+            <RealtimeCalculator spec={tool.spec} />
           </div>
 
           <div className="mt-10">
@@ -51,26 +53,9 @@ export function ToolPageClient({ slug }: { slug: string }) {
               ))}
             </div>
           </div>
-
-          <div className="mt-10 rounded-lg border border-moss/30 bg-surface p-6 shadow-ledger">
-            <h2 className="font-display text-2xl tracking-tight text-ink">Stop calculating. Start collecting.</h2>
-            <p className="mt-2 max-w-measure text-[14px] leading-relaxed text-muted">
-              This calculator turns the number into a decision. Overdue runs the ladder — the right
-              email at the right interval — and drafts it in your voice, so the follow-ups happen
-              even on weeks when you&apos;re buried in the work.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link href="/signup">
-                <Button variant="moss">Run it on autopilot</Button>
-              </Link>
-              <Link href="/tools">
-                <Button variant="outline">All tools</Button>
-              </Link>
-            </div>
-          </div>
         </div>
 
-        <aside className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger lg:sticky lg:top-24">
+        <aside className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger lg:sticky lg:top-8">
           <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-moss">What you get</div>
           <ul className="mt-3 space-y-2">
             {tool.whatYouGet.map((item) => (
@@ -82,14 +67,14 @@ export function ToolPageClient({ slug }: { slug: string }) {
           </ul>
           <div className="mt-5 border-t border-hairline pt-4">
             <p className="font-mono text-[11px] leading-relaxed text-faint">
-              Free forever. No signup. Every number is computed in your browser — nothing leaves this page.
+              Part of your workspace — every number is computed in your browser, nothing leaves this page.
             </p>
             <div className="mt-3">
               <Link
-                href="/templates"
+                href="/invoices"
                 className="font-mono text-[11px] uppercase tracking-[0.12em] text-moss hover:text-moss-bright"
               >
-                Pair it with a template →
+                Open your ledger →
               </Link>
             </div>
           </div>

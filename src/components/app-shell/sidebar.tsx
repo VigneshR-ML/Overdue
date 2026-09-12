@@ -22,6 +22,7 @@ const NAV = [
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/sequences", label: "Ladders", icon: Waypoints },
   { href: "/insights", label: "Insights", icon: ChartNoAxesCombined },
+  { href: "/tools", label: "Tools", icon: Calculator },
 ]
 
 export function AppSidebar({ email, plan }: { email: string; plan: string }) {
@@ -86,17 +87,6 @@ export function AppSidebar({ email, plan }: { email: string; plan: string }) {
           <Settings className="h-4 w-4" strokeWidth={2} />
           Settings
         </Link>
-        <a
-          href="/tools"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Free invoice calculators (opens in new tab)"
-          className="mt-1 flex items-center gap-3 rounded-md px-3 py-2 text-sm text-faint transition-colors duration-150 hover:bg-paper hover:text-ink"
-        >
-          <Calculator className="h-4 w-4" strokeWidth={2} />
-          Free calculators
-          <span className="ml-auto font-mono text-[9px] uppercase tracking-widest" aria-hidden="true">↗</span>
-        </a>
         <div className="mt-2 flex items-center gap-2.5 rounded-md px-3 py-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-moss/10 font-display text-[12px] text-moss">
             {(email || "?").slice(0, 1).toUpperCase()}

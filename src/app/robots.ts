@@ -12,6 +12,7 @@ export default function robots(): MetadataRoute.Robots {
         "/invoices",
         "/sequences",
         "/insights",
+        "/tools",
         "/settings",
         "/onboarding",
         "/api/",

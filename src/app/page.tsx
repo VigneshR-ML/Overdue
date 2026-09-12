@@ -8,6 +8,7 @@ import { Check } from "lucide-react"
 import { AuthNotice } from "@/components/auth/auth-notice"
 import { ProPrice } from "@/components/billing/pro-price"
 import { TOOL_CALCULATORS } from "@/lib/seo/tool-calculators"
+import { LandingToolTeaser } from "@/components/marketing/landing-tool-teaser"
 
 export const metadata: Metadata = {
   title: "Overdue — Get paid without the awkward conversation",
@@ -184,38 +185,39 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* TOOLS — free calculators, surfaced on landing */}
+      {/* TOOLS — minimal highlight; full calculators live in the workspace */}
       <section id="tools" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="max-w-xl">
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Tools · Free · No signup</div>
+        <div className="grid items-start gap-12 lg:grid-cols-2">
+          <div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Tools · In your workspace</div>
             <h2 className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">
               Do the math <em className="italic">before</em> you chase.
             </h2>
-            <p className="mt-4 text-[15px] leading-relaxed text-muted">
-              Five browser-only calculators on the same ledger math as Overdue. Nothing leaves your
-              browser — every number is yours.
+            <p className="mt-4 max-w-measure text-[15px] leading-relaxed text-muted">
+              Five calculators on the same ledger math as Overdue — late fees, aging, collections
+              ROI, payment plans and DSO. Type a number, watch the answer move. Nothing leaves
+              your browser.
             </p>
+            <ul className="mt-6 space-y-2.5">
+              {TOOL_CALCULATORS.map((t) => (
+                <li key={t.slug} className="flex items-baseline gap-3 text-[14px]">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-moss">{t.spec.kicker}</span>
+                  <span className="text-ink-soft">{t.name}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <a href="/signup">
+                <Button size="lg">Use the tools free</Button>
+              </a>
+              <a href="/login">
+                <Button size="lg" variant="outline">Log in</Button>
+              </a>
+            </div>
           </div>
-          <a href="/tools" className="font-mono text-[12px] uppercase tracking-[0.12em] text-moss hover:text-moss-bright">
-            View all tools →
-          </a>
-        </div>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {TOOL_CALCULATORS.slice(0, 3).map((t) => (
-            <a
-              key={t.slug}
-              href={`/tools/${t.slug}`}
-              className="group flex flex-col rounded-xl border border-hairline bg-surface p-6 shadow-ledger transition-all duration-150 hover:-translate-y-0.5 hover:border-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
-            >
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">{t.spec.kicker}</div>
-              <h3 className="mt-2 font-display text-xl tracking-tight text-ink group-hover:text-moss-bright">{t.name}</h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-muted">{t.spec.description}</p>
-              <span className="mt-4 font-mono text-[11px] uppercase tracking-[0.14em] text-faint transition-colors group-hover:text-moss">
-                Open →
-              </span>
-            </a>
-          ))}
+          <div className="lg:pl-4">
+            <LandingToolTeaser slug="late-fee-calculator" />
+          </div>
         </div>
       </section>
 

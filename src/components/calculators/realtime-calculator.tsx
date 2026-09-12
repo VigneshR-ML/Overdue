@@ -1,56 +1,35 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { formatMoney } from "@/lib/utils/format"
-import type { ReactNode } from "react"
-
-export interface CalculatorField {
-  key: string
-  label: string
-  type: "money" | "number" | "percent" | "date" | "text"
-  placeholder?: string
-  defaultValue: string
-  step?: string
-}
-
-export interface CalculatorResult {
-  label: string
-  value: string
-  sub?: string
-  tone?: "moss" | "ember" | "rust"
-}
-
-export interface CalculatorSpec {
-  title: string
-  kicker: string
-  description: ReactNode
-  fields: CalculatorField[]
-  compute: (values: Record<string, string>) => CalculatorResult[]
-  example?: Record<string, string>
-}
-
-function toCents(v: string): number {
-  const n = parseFloat(String(v).replace(/[$,\s]/g, ""))
-  return Number.isFinite(n) ? Math.round(n * 100) : 0
-}
-
-function fmt(cents: number) {
-  return formatMoney(Math.round(cents))
-}
-
-function fmtPct(v: string): number {
-  const n = parseFloat(String(v).replace(/[%\s]/g, ""))
-  return Number.isFinite(n) ? n : 0
-}
+import type { CalculatorSpec } from "@/lib/calculators/types"
 
 function seedFrom(spec: CalculatorSpec): Record<string, string> {
   if (spec.example) return { ...spec.example }
-  return Object.fromEntries(spec.fields.map((f: CalculatorField) => [f.key, f.defaultValue]))
+  return Object.fromEntries(spec.fields.map((f) => [f.key, f.defaultValue]))
 }
 
-export function Calculator({ spec }: { spec: CalculatorSpec }) {
+function slugify(s: string) {
+  return s.replace(/[^a-z0-9]+/gi, "-").toLowerCase()
+}
+
+/**
+ * Realtime calculator — separate from the old marketing leaf. There is no
+ * submit button by design: results recompute live on every keystroke via
+ * `useMemo`, announced through `aria-live`.
+ */
+export function RealtimeCalculator({
+  spec,
+  compact = false,
+  idPrefix,
+}: {
+  spec: CalculatorSpec
+  compact?: boolean
+  idPrefix?: string
+}) {
   const [values, setValues] = useState<Record<string, string>>(() => seedFrom(spec))
   const [copied, setCopied] = useState(false)
+
+  // Live on every change — no submit step.
   const results = useMemo(() => {
     try {
       return spec.compute(values)
@@ -60,10 +39,7 @@ export function Calculator({ spec }: { spec: CalculatorSpec }) {
   }, [spec, values])
 
   const resultText = useMemo(
-    () =>
-      results
-        .map((r) => `${r.label}: ${r.value}${r.sub ? ` (${r.sub})` : ""}`)
-        .join("\n"),
+    () => results.map((r) => `${r.label}: ${r.value}${r.sub ? ` (${r.sub})` : ""}`).join("\n"),
     [results],
   )
 
@@ -83,7 +59,7 @@ export function Calculator({ spec }: { spec: CalculatorSpec }) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1600)
     } catch {
-      // clipboard failure stays silent — copy affordance is best-effort
+      // clipboard is best-effort
     }
   }
 
@@ -91,18 +67,24 @@ export function Calculator({ spec }: { spec: CalculatorSpec }) {
     setValues(seedFrom(spec))
   }
 
-  return (
-    <div className="mx-auto max-w-md">
-      <h2 className="font-display text-3xl tracking-tight text-ink">{spec.title}</h2>
-      <p className="mt-2 text-sm leading-relaxed text-muted">{spec.description}</p>
+  const prefix = idPrefix ?? slugify(spec.title)
 
-      <form
+  return (
+    <div className={compact ? "mx-auto max-w-md" : "mx-auto max-w-md"}>
+      {!compact ? (
+        <>
+          <h2 className="font-display text-3xl tracking-tight text-ink">{spec.title}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">{spec.description}</p>
+        </>
+      ) : null}
+
+      <div
         className="mt-6 space-y-4 rounded-lg border border-hairline bg-surface p-5 shadow-ledger"
-        onSubmit={(e) => e.preventDefault()}
-        aria-label={`${spec.title} inputs`}
+        role="group"
+        aria-label={`${spec.title} inputs — results update live`}
       >
         {spec.fields.map((f) => {
-          const id = `calc-${spec.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${f.key}`
+          const id = `rtc-${prefix}-${f.key}`
           return (
             <label key={f.key} className="block" htmlFor={id}>
               <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">{f.label}</span>
@@ -121,7 +103,7 @@ export function Calculator({ spec }: { spec: CalculatorSpec }) {
           )
         })}
         <div className="flex items-center justify-between gap-2 pt-1">
-          <p className="font-mono text-[11px] text-faint">Runs in your browser — nothing is sent anywhere.</p>
+          <p className="font-mono text-[11px] text-faint">Updates live as you type — nothing is sent anywhere.</p>
           <button
             type="button"
             onClick={reset}
@@ -130,11 +112,11 @@ export function Calculator({ spec }: { spec: CalculatorSpec }) {
             Reset
           </button>
         </div>
-      </form>
+      </div>
 
       <div className="mt-5 overflow-hidden rounded-lg border border-hairline bg-surface shadow-ledger">
         <div className="flex items-center justify-between border-b border-hairline bg-paper/70 px-5 py-2.5">
-          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Result</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Result · live</span>
           <button
             type="button"
             onClick={copyResults}
@@ -146,7 +128,7 @@ export function Calculator({ spec }: { spec: CalculatorSpec }) {
         <dl className="divide-y divide-hairline" aria-live="polite" aria-atomic="true">
           {results.length === 0 ? (
             <div className="px-5 py-4 text-[13px] text-muted">
-              Enter values above — nothing leaves your browser.
+              Enter values above — results appear here instantly.
             </div>
           ) : (
             results.map((r) => (
@@ -155,7 +137,13 @@ export function Calculator({ spec }: { spec: CalculatorSpec }) {
                 <dd className="text-right">
                   <div
                     className={
-                      r.tone === "rust" ? "text-rust" : r.tone === "ember" ? "text-ember" : r.tone === "moss" ? "text-moss" : "text-ink"
+                      r.tone === "rust"
+                        ? "text-rust"
+                        : r.tone === "ember"
+                          ? "text-ember"
+                          : r.tone === "moss"
+                            ? "text-moss"
+                            : "text-ink"
                     }
                   >
                     <span className="font-display text-xl tracking-tight">{r.value}</span>
