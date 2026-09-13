@@ -39,11 +39,11 @@ const FAQS = [
   },
   {
     q: "Who pays and where does the money go?",
-    a: "Overdue bills you through Paddle, a merchant of record that works for solo founders worldwide (including India — no separate entity needed) and handles sales tax everywhere. Your client payments still land exactly where they do today.",
+    a: "Overdue bills you through Dodo Payments, a merchant of record that works for solo founders worldwide (including India — no separate entity needed) and handles sales tax everywhere. Your client payments still land exactly where they do today.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Plans are monthly, cancellable in two clicks from the billing page, and there's a 30-day money-back policy on Pro.",
+    a: "Yes. Plans are monthly, cancellable in two clicks from the billing page, there's a 7-day free trial, and a 30-day money-back policy on Pro.",
   },
 ]
 

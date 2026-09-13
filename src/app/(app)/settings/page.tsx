@@ -54,7 +54,7 @@ export default async function SettingsPage() {
               <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Billing</span>
             </CardHeader>
             <CardBody className="space-y-3">
-              <p className="text-sm text-muted">Free or Pro. Your plan, your payment history — via Paddle.</p>
+              <p className="text-sm text-muted">Free or Pro. Your plan, your payment history — via Dodo Payments.</p>
               <span className="font-mono text-[12px] text-moss">Manage →</span>
             </CardBody>
           </Card>

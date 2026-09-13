@@ -70,19 +70,42 @@ export async function PUT(request: NextRequest) {
   const id = String(body.id ?? "")
   if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 })
 
+  const rl = rateLimit(`sequences-put:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
+
   const supabase = createClient()
   const patch: Record<string, unknown> = {}
   if (typeof body.name === "string") patch.name = body.name.slice(0, 80)
   if (typeof body.is_active === "boolean") patch.is_active = body.is_active
   if (Array.isArray(body.steps)) {
-    const VALID_TONES = ["gentle", "nudge", "firm", "final"]
-    const cleaned = body.steps.map((s: any) => ({
-      ...s,
-      delay_days: Math.max(0, Number(s.delay_days ?? 1)),
-      tone: VALID_TONES.includes(s.tone) ? s.tone : "nudge",
-      step_order: Number(s.step_order ?? 0),
-    }))
-    patch.steps = cleaned
+    if (body.steps.length > 20) {
+      return NextResponse.json({ ok: false, error: "max 20 steps per ladder" }, { status: 400 })
+    }
+    try {
+      const VALID_TONES = ["gentle", "nudge", "firm", "final"]
+      const cleaned = body.steps.map((s: any, idx: number) => {
+        const rawDelay = Number(s.delay_days ?? 1)
+        if (!Number.isFinite(rawDelay)) throw new Error(`step ${idx}: delay_days must be a number`)
+        const subject = String(s.subject_template ?? "").slice(0, 200)
+        const bodyT = String(s.body_template ?? "").slice(0, 5000)
+        return {
+          ...s,
+          delay_days: Math.min(365, Math.max(0, Math.floor(rawDelay))),
+          tone: VALID_TONES.includes(s.tone) ? s.tone : "nudge",
+          step_order: Number.isFinite(Number(s.step_order)) ? Number(s.step_order) : idx,
+          subject_template: subject,
+          body_template: bodyT,
+        }
+      })
+      patch.steps = cleaned
+    } catch (e: any) {
+      return NextResponse.json({ ok: false, error: e?.message ?? "invalid steps" }, { status: 400 })
+    }
+  }
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ ok: false, error: "nothing to update" }, { status: 400 })
   }
 
   const { error: err } = await supabase

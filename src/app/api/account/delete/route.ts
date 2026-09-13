@@ -30,6 +30,25 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "admin client not configured" }, { status: 500 })
   }
 
+  // Cancel any live Dodo Payments subscription BEFORE deleting the auth user,
+  // so we don't leave ghost charges behind.
+  try {
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("dodo_subscription_id, plan, status")
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const dodoSubId = (sub as { dodo_subscription_id?: string | null } | null)?.dodo_subscription_id
+    if (dodoSubId) {
+      const { cancelSubscription } = await import("@/lib/dodo/server")
+      await cancelSubscription(dodoSubId)
+    }
+  } catch (e) {
+    console.error("[account-delete] dodo cancel failed (continuing):", e)
+  }
+
   // Delete auth user first — cascades to profiles, clients, invoices, runs,
   // messages, subscriptions, integrations, integration_credentials.
   const { error: deleteErr } = await admin.auth.admin.deleteUser(user!.id)

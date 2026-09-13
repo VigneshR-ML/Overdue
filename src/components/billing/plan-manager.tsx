@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { usePaddleCheckout } from "@/lib/paddle/checkout"
+import { useDodoCheckout } from "@/lib/dodo/checkout"
 import { Button } from "@/components/ui/button"
 import { Badge, StatusDot } from "@/components/ui/badge"
 
@@ -31,35 +31,24 @@ export function PlanManager({
   renewalDate?: string | null
   justUpgraded?: boolean
 }) {
-  const { ready, error, openCheckout } = usePaddleCheckout({ email, userId })
+  const { ready, error, openCheckout } = useDodoCheckout({ email, userId })
   const [checkingOut, setCheckingOut] = useState(false)
   const isPro = plan === "pro" && status === "active"
 
-  // If a checkout completed but the navigation aborted the attach request (or
-  // the page redirected before it landed), replay it from localStorage so the
-  // upgrade still registers without needing a webhook.
+  // If a checkout completed but the attach hasn't run yet (redirect landed
+  // before any customer id was known), reconcile via the billing page's
+  // self-heal on reload. Replay a stashed marker once to trigger it.
   useEffect(() => {
     if (isPro) return
-    let customerId: string | null = null
+    let marker: string | null = null
     try {
-      customerId = localStorage.getItem("overdue:paddle_customer_id")
+      marker = localStorage.getItem("overdue:dodo_checkout")
     } catch {}
-    if (!customerId) return
-    fetch(`/api/billing/paddle/attach`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ customerId }),
-    })
-      .then((r) => r.json().catch(() => ({})))
-      .then((res) => {
-        if (res?.applied) window.location.reload()
-        else {
-          try {
-            localStorage.removeItem("overdue:paddle_customer_id")
-          } catch {}
-        }
-      })
-      .catch(() => ({}))
+    if (!marker) return
+    try {
+      localStorage.removeItem("overdue:dodo_checkout")
+    } catch {}
+    window.location.reload()
   }, [isPro])
 
   async function handleCheckout() {
@@ -113,19 +102,19 @@ export function PlanManager({
           <div className="font-display text-lg text-ink">{isPro ? "Manage Pro" : "Go Pro"}</div>
           <p className="mt-1 text-sm text-muted">
             {isPro
-              ? "Manage payments and cancellation through the Paddle billing portal."
-              : "$19/month, cancel in two clicks, 30-day refund. One recovered invoice usually pays for the year."}
+              ? "Manage payments and cancellation through the Dodo Payments customer portal."
+              : "7-day free trial, then $19/month — cancel in two clicks, 30-day refund. One recovered invoice usually pays for the year."}
           </p>
           {error ? (
             <p className="mt-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft">{error}</p>
           ) : isPro ? (
             portalUrl ? (
               <a href={portalUrl} target="_blank" rel="noreferrer" className="mt-5 block">
-                <Button className="w-full" variant="outline">Open Paddle billing portal</Button>
+                <Button className="w-full" variant="outline">Open billing portal</Button>
               </a>
             ) : (
               <p className="mt-5 text-[13px] text-muted">
-                Manage payments and cancellation in your Paddle account while the portal link loads.
+                Manage payments and cancellation from your receipt email while the portal link loads.
               </p>
             )
           ) : (
@@ -136,13 +125,13 @@ export function PlanManager({
                 disabled={!ready}
                 onClick={handleCheckout}
               >
-                {checkingOut ? "Opening checkout…" : "Upgrade to Pro — $19/mo"}
+                {checkingOut ? "Opening checkout…" : "Start 7-day free trial — $19/mo after"}
               </Button>
               {!ready && !error && (
                 <p className="font-mono text-[11px] text-faint">Loading checkout…</p>
               )}
               <p className="font-mono text-[11px] text-faint">
-                Billed by Paddle (merchant of record) · works without a US entity · sales tax handled
+                Billed by Dodo Payments (merchant of record) · works without a US entity · sales tax handled
               </p>
             </div>
           )}

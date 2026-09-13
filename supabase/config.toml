@@ -1,0 +1,8 @@
+# Supabase CLI config — minimal so `supabase db push` works in CI.
+# Link with: supabase link --project-ref $SUPABASE_PROJECT_REF
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000

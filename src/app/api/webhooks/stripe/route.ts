@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { verifyStripeSignature, markInvoicePaid, alreadyHandled, recordEvent } from "@/lib/integrations/paid-webhooks"
+import { verifyStripeSignature, markInvoicePaid, alreadyHandled, recordEvent, resolveInvoiceOwner } from "@/lib/integrations/paid-webhooks"
 
 export const dynamic = "force-dynamic"
 
@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
   let flipped = 0
   if (PAID_TYPES.has(event.type)) {
     const invoiceId = event.data?.object?.id ?? ""
-    flipped = await markInvoicePaid(supabase, "stripe", invoiceId)
+    const ownerId = await resolveInvoiceOwner(supabase, "stripe", invoiceId)
+    if (ownerId) flipped = await markInvoicePaid(supabase, "stripe", invoiceId, ownerId)
     handled = event.type
   }
   await recordEvent(supabase, "stripe", eventId, event)

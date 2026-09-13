@@ -136,7 +136,7 @@ export function MarketingFooter() {
           </div>
         </div>
         <div className="mt-10 flex flex-col gap-1 border-t border-hairline pt-5 font-mono text-[11px] text-faint sm:flex-row sm:items-center sm:justify-between">
-          <span>© {new Date().getFullYear()} Overdue Labs · Paddle-powered payments everywhere</span>
+          <span>© {new Date().getFullYear()} Overdue Labs · Secure payments everywhere</span>
           <span>Made for people who send invoices</span>
         </div>
       </div>

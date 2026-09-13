@@ -150,10 +150,11 @@ export interface Message {
 export interface Subscription {
   id: string
   user_id: string
-  paddle_subscription_id: string | null
-  paddle_customer_id: string | null
+  dodo_subscription_id: string | null
+  dodo_customer_id: string | null
+  product_id: string | null
   plan: "free" | "pro"
-  status: "active" | "trialing" | "past_due" | "cancelled"
+  status: "active" | "on_hold" | "paused" | "past_due" | "cancelled" | "failed" | "expired"
   current_period_end: string | null
 }
 

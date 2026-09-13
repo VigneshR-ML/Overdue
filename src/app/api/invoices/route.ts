@@ -25,14 +25,21 @@ export async function POST(request: NextRequest) {
   const clientName = String(body.client_name ?? "Unknown client").slice(0, 120)
   const clientEmail = String(body.client_email ?? "").slice(0, 200)
   const number = String(body.number ?? "").slice(0, 80)
-  const amountCents = Math.round(Number(body.amount_cents ?? 0))
+  const rawAmount = Number(body.amount_cents ?? 0)
+  if (!Number.isFinite(rawAmount)) {
+    return NextResponse.json({ ok: false, error: "amount must be a number" }, { status: 400 })
+  }
+  const amountCents = Math.round(rawAmount)
   const currency = String(body.currency ?? "USD").toUpperCase().slice(0, 3)
   const dueDate = body.due_date ? String(body.due_date).slice(0, 10) : null
   const rawPay = String(body.payment_url ?? "").trim().slice(0, 500)
   const paymentUrl = /^https?:\/\//i.test(rawPay) ? rawPay : null
 
-  if (amountCents <= 0) {
-    return NextResponse.json({ ok: false, error: "amount must be positive" }, { status: 400 })
+  if (!Number.isFinite(amountCents) || amountCents <= 0 || amountCents > 100_000_000_00) {
+    return NextResponse.json({ ok: false, error: "amount must be a positive number" }, { status: 400 })
+  }
+  if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+    return NextResponse.json({ ok: false, error: "client_email is invalid" }, { status: 400 })
   }
 
   const supabase = createClient()

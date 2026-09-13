@@ -49,12 +49,11 @@ echo "--- App (required) ---"
 check_required "NEXT_PUBLIC_APP_URL"
 check_required "APP_ENV"
 
-echo "--- Paddle billing (required for launch) ---"
-check_required "NEXT_PUBLIC_PADDLE_VENDOR_ID"
-check_required "PADDLE_API_KEY"
-check_required "PADDLE_WEBHOOK_SECRET"
-check_required "NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTHLY"
-check_required "PADDLE_PRICE_PRO_MONTHLY"
+echo "--- Dodo Payments billing (required for launch) ---"
+check_required "DODO_PAYMENTS_API_KEY"
+check_required "DODO_PAYMENTS_WEBHOOK_KEY"
+check_required "DODO_PAYMENTS_ENVIRONMENT"
+check_required "DODO_PRODUCT_PRO_MONTHLY"
 
 echo "--- Resend + inbound (required for dispatch) ---"
 check_required "RESEND_API_KEY"
@@ -80,7 +79,7 @@ check_optional "XERO_WEBHOOK_KEY"
 
 echo "--- Repo wiring ---"
 [ -f ".github/workflows/dispatch.yml" ] && echo "✓ .github/workflows/dispatch.yml exists (needs DISPATCH_URL + CRON_SECRET secrets)" || { echo "✗ dispatch.yml missing"; fail=1; }
-for m in 0001_init.sql 0002_credentials.sql 0003_vault_credentials.sql 0004_dispatch_states.sql 0005_indexes_and_constraints.sql 0006_delivery_tracking.sql 0007_vault_wrappers.sql 0008_provider_account.sql 0009_payment_url.sql 0010_promise_to_pay.sql 0011_ai_usage.sql; do
+for m in 0001_init.sql 0002_credentials.sql 0003_vault_credentials.sql 0004_dispatch_states.sql 0005_indexes_and_constraints.sql 0006_delivery_tracking.sql 0007_vault_wrappers.sql 0008_provider_account.sql 0009_payment_url.sql 0010_promise_to_pay.sql 0011_ai_usage.sql 0012_credentials_rls.sql 0013_reply_intel.sql 0014_lemon_billing.sql 0015_dodo_billing.sql; do
   [ -f "supabase/migrations/$m" ] && echo "✓ supabase/migrations/$m" || { echo "✗ supabase/migrations/$m missing"; fail=1; }
 done
 if grep -q '"crons": \[\]' vercel.json 2>/dev/null; then
@@ -96,7 +95,7 @@ if [ "$APP_URL_LEN" -gt 0 ] && grep -q "^NEXT_PUBLIC_APP_URL=http://localhost" "
 fi
 
 echo
-if [ "$fail" -eq 0 ]; then echo "All required keys present. 🎉 Then run: bash scripts/paddle-e2e.sh"
+if [ "$fail" -eq 0 ]; then echo "All required keys present. 🎉 Then run: bash scripts/dodo-e2e.sh"
 else echo "Missing required keys above — paste them into $ENV_FILE (never commit it)."
 fi
 exit "$fail"

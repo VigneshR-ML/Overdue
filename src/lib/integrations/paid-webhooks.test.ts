@@ -109,13 +109,17 @@ describe("markInvoicePaid", () => {
     return { from: () => chain }
   }
 
-  it("returns flipped count", async () => {
-    await expect(markInvoicePaid(fakeDb([{ id: "a" }]), "stripe", "in_1")).resolves.toBe(1)
-    await expect(markInvoicePaid(fakeDb([]), "paypal", "INV-9")).resolves.toBe(0)
+  it("returns flipped count when userId is known", async () => {
+    await expect(markInvoicePaid(fakeDb([{ id: "a" }]), "stripe", "in_1", "u1")).resolves.toBe(1)
+    await expect(markInvoicePaid(fakeDb([]), "paypal", "INV-9", "u1")).resolves.toBe(0)
+  })
+
+  it("refuses unscoped flips (no userId) to prevent cross-tenant writes", async () => {
+    await expect(markInvoicePaid(fakeDb([{ id: "a" }]), "stripe", "in_1")).resolves.toBe(0)
   })
 
   it("no-ops on empty provider id", async () => {
-    await expect(markInvoicePaid(fakeDb([{ id: "a" }]), "xero", "")).resolves.toBe(0)
+    await expect(markInvoicePaid(fakeDb([{ id: "a" }]), "xero", "", "u1")).resolves.toBe(0)
   })
 })
 

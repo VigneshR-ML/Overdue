@@ -36,7 +36,7 @@ const SECTIONS = [
   },
   {
     h: "7. Webhooks are signed",
-    b: "Every inbound webhook (Paddle, Resend, Stripe, PayPal, Xero, reply detection, cron dispatch) is verified by HMAC signature or shared secret before anything happens. Unsigned or replayed requests are rejected with 401, and processed events are deduplicated in an idempotency ledger.",
+    b: "Every inbound webhook (Dodo Payments, Resend, Stripe, PayPal, Xero, reply detection, cron dispatch) is verified by HMAC signature or shared secret before anything happens. Unsigned or replayed requests are rejected with 401, and processed events are deduplicated in an idempotency ledger.",
   },
   {
     h: "8. AI drafting",
@@ -44,7 +44,7 @@ const SECTIONS = [
   },
   {
     h: "9. Payments",
-    b: "Paddle is our merchant of record: card numbers, tax handling and refunds run through Paddle, never our servers. We store only your plan, status and subscription ids.",
+    b: "Dodo Payments is our merchant of record: card numbers, tax handling and refunds run through Dodo Payments, never our servers. We store only your plan, status and subscription ids.",
   },
   {
     h: "10. Retention & deletion",

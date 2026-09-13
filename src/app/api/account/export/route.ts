@@ -30,12 +30,15 @@ export async function GET() {
     for (let page = 0; ; page++) {
       const from = page * PAGE
       const to = from + PAGE - 1
-      const { data } = await admin
+      const { data, error } = await admin
         .from(table)
         .select("*")
         .eq("user_id", user!.id)
         .range(from, to)
         .order("id", { ascending: true })
+      if (error) {
+        return NextResponse.json({ ok: false, error: `export failed on ${table}: ${error.message}` }, { status: 500 })
+      }
       rows.push(...(data ?? []))
       if (!data || data.length < PAGE) break
     }
@@ -47,12 +50,15 @@ export async function GET() {
   for (let page = 0; ; page++) {
     const from = page * PAGE
     const to = from + PAGE - 1
-    const { data } = await admin
+    const { data, error } = await admin
       .from("integration_credentials")
       .select("id, user_id, provider, updated_at")
       .eq("user_id", user!.id)
       .range(from, to)
       .order("id", { ascending: true })
+    if (error) {
+      return NextResponse.json({ ok: false, error: `export failed on integration_credentials: ${error.message}` }, { status: 500 })
+    }
     credRows.push(...(data ?? []))
     if (!data || data.length < PAGE) break
   }

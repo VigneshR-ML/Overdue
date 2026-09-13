@@ -4,6 +4,11 @@
 
 create extension if not exists "pgcrypto";
 
+-- New secret values (post-migration writes) go through Vault; this column holds
+-- the vault.secrets id returned by vault.create_secret. Must exist BEFORE the
+-- backfill below (fresh db push runs top-to-bottom on an empty DB).
+alter table public.integration_credentials add column if not exists vault_secret_id uuid;
+
 -- Backfill: move any plaintext payloads already stored into Vault.
 do $$
 declare
@@ -25,7 +30,3 @@ begin
     end if;
   end loop;
 end $$;
-
--- New secret values (post-migration writes) go through Vault; this column holds
--- the vault.secrets id returned by vault.create_secret.
-alter table public.integration_credentials add column if not exists vault_secret_id uuid;

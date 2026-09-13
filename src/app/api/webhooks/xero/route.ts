@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       const creds = await freshXeroCreds(userId)
       if (creds) {
         const status = await fetchXeroInvoiceStatus(creds.accessToken, creds.tenantId, invoiceId)
-        if (status === "PAID") flipped += await markInvoicePaid(supabase, "xero", invoiceId)
+        if (status === "PAID") flipped += await markInvoicePaid(supabase, "xero", invoiceId, userId)
       }
     }
     await recordEvent(supabase, "xero", eventId, ev)

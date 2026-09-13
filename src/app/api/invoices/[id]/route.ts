@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createClient } from "@/lib/supabase/server"
 import { startRun } from "@/lib/scheduler/dispatch"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -9,6 +10,11 @@ export const dynamic = "force-dynamic"
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requireUser()
   if (error) return error
+
+  const rl = rateLimit(`invoices-patch:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
 
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
@@ -48,8 +54,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   if (body.mark_paid === true) {
     patch.status = "paid"
-    const paidCents = body.paid_cents !== undefined ? Number(body.paid_cents) : undefined
-    patch.paid_cents = typeof paidCents === "number" && Number.isFinite(paidCents) && paidCents >= 0 ? paidCents : undefined
+    if (body.paid_cents !== undefined) {
+      const paidCents = Number(body.paid_cents)
+      if (!Number.isFinite(paidCents) || paidCents < 0) {
+        return NextResponse.json({ ok: false, error: "paid_cents must be a non-negative number" }, { status: 400 })
+      }
+      patch.paid_cents = Math.round(paidCents)
+    }
     patch.paid_at = new Date().toISOString()
   } else if (body.status) {
     if (!VALID_STATUSES.includes(body.status)) {
@@ -57,6 +68,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
     patch.status = body.status
     if (body.status === "paid") patch.paid_at = new Date().toISOString()
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ ok: false, error: "nothing to update" }, { status: 400 })
   }
 
   const { error: updErr } = await supabase

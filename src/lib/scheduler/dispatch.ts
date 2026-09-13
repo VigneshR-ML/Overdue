@@ -86,10 +86,16 @@ export async function runDispatcher() {
     if (userIds.length) {
       const { data: subs } = await supabase
         .from("subscriptions")
-        .select("user_id, plan, status")
+        .select("user_id, plan, status, current_period_end")
         .in("user_id", userIds)
       for (const s of (subs ?? []) as any[]) {
-        if (s.plan === "pro" && s.status !== "cancelled" && s.status !== "past_due") proUsers.add(s.user_id)
+        if (s.plan !== "pro") continue
+        if (s.status === "expired" || s.status === "unpaid") continue
+        // Cancelled keeps autopilot through the paid grace period.
+        if (s.status === "cancelled") {
+          if (!s.current_period_end || new Date(s.current_period_end).getTime() <= Date.now()) continue
+        }
+        proUsers.add(s.user_id)
       }
     }
     const manualIds = new Set(autopilotIds.filter((id) => !proUsers.has(byId.get(id) ?? "")))
@@ -180,10 +186,15 @@ async function requeueStaleProcessing(supabase: NonNullable<ReturnType<typeof cr
     .limit(500)
   const ids = (stale ?? []).map((r) => r.id as string)
   if (ids.length) {
-    await supabase
-      .from("runs")
-      .update({ status: "queued", next_run_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .in("id", ids)
+    // Stagger requeues with jitter to avoid thundering-herd on the next tick.
+    const nowMs = Date.now()
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100)
+      await supabase
+        .from("runs")
+        .update({ status: "queued", next_run_at: new Date(nowMs + i * 1000).toISOString(), updated_at: new Date().toISOString() })
+        .in("id", chunk)
+    }
   }
 }
 
@@ -248,12 +259,24 @@ async function dispatchOne(
   const run = runRow as unknown as Run
 
   const [{ data: sequenceRow }, { data: invoiceRow }, { data: profileRow }] = await Promise.all([
-    supabase.from("sequences").select("id, name, is_active, steps").eq("id", run.sequence_id).single(),
+    supabase.from("sequences").select("id, user_id, is_template, name, is_active, steps").eq("id", run.sequence_id).single(),
     supabase.from("invoices").select("*").eq("id", run.invoice_id).single(),
     supabase.from("profiles").select("full_name, email").eq("id", run.user_id).single(),
   ])
 
   if (!sequenceRow || !invoiceRow) return "skipped"
+  // Cross-tenant guard: service_role bypasses RLS, so verify ownership here.
+  // Templates are ownerless (user_id NULL, is_template true) and usable by anyone.
+  const seqOwner = (sequenceRow as any).user_id as string | null
+  const seqIsTemplate = Boolean((sequenceRow as any).is_template)
+  if (
+    (!seqIsTemplate && seqOwner !== run.user_id) ||
+    (invoiceRow as any).user_id !== run.user_id
+  ) {
+    console.error("[dispatch] cross-tenant run blocked:", runId)
+    await supabase.from("runs").update({ status: "failed", error: "ownership mismatch", updated_at: new Date().toISOString() }).eq("id", runId)
+    return "failed"
+  }
   const sequence = sequenceRow as unknown as ParsedSequence
   if (!sequence.is_active) {
     const t = new Date().toISOString()
@@ -264,15 +287,16 @@ async function dispatchOne(
   const invoice = invoiceRow as unknown as Invoice
 
   const clientRow = invoice.client_id
-    ? await supabase.from("clients").select("*").eq("id", invoice.client_id).single()
+    ? await supabase.from("clients").select("*").eq("id", invoice.client_id).eq("user_id", run.user_id).single()
     : { data: null }
   const client = clientRow.data as unknown as Client | null
 
-  // If paid at any point, neutralise the run.
+  // If paid at any point, neutralise the run. $0 invoices with paid_at also
+  // complete; partial payments keep the ladder running.
   const amount = Number(invoice.amount_cents ?? 0)
   const paid = Number(invoice.paid_cents ?? 0)
   const paidAt = invoice.paid_at
-  if (paidAt || (invoice.status === "paid" && amount > 0 && paid >= amount)) {
+  if (paidAt || invoice.status === "paid" || (amount > 0 && paid >= amount)) {
     const t = new Date().toISOString()
     await supabase.from("runs").update({ status: "completed", updated_at: t }).eq("id", runId)
     return "completed"
@@ -416,18 +440,17 @@ async function dispatchOne(
 
     if (msgErr) {
       console.error("[dispatch] message insert failed:", msgErr.message)
-      // Email was already sent but message row failed to insert.
-      // Mark as completed to prevent double-send; the message log will be
-      // incomplete but the email was delivered.
+      // Email was sent but the log insert failed. Do NOT complete the ladder
+      // (that would silently drop remaining rungs). Requeue so the next tick
+      // retries; dedupe via resend_message_id prevents double-send confusion
+      // and the error is visible for ops.
       await supabase
         .from("runs")
         .update({
-          status: "completed",
-          current_step: nextStep,
-          messages_sent: messageCount,
-          last_sent_at: sentAt,
+          status: "queued",
+          next_run_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
           updated_at: new Date().toISOString(),
-          error: `message insert failed: ${msgErr.message}`,
+          error: `message insert failed (email sent): ${msgErr.message}`,
         })
         .eq("id", runId)
       return "sent"
@@ -453,11 +476,15 @@ export async function startRun(opts: {
 
   const { data: sequenceRow } = await supabase
     .from("sequences")
-    .select("steps, is_active")
+    .select("steps, is_active, user_id, is_template")
     .eq("id", opts.sequenceId)
     .single()
-  const { data: invoiceRow } = await supabase.from("invoices").select("*").eq("id", opts.invoiceId).single()
+  const { data: invoiceRow } = await supabase.from("invoices").select("*").eq("id", opts.invoiceId).eq("user_id", opts.userId).single()
   if (!sequenceRow || !invoiceRow) return { ok: false, error: "sequence or invoice not found" }
+  // Ownership: own ladders or public templates only.
+  const sOwner = (sequenceRow as any).user_id as string | null
+  const sTemplate = Boolean((sequenceRow as any).is_template)
+  if (!sTemplate && sOwner !== opts.userId) return { ok: false, error: "sequence or invoice not found" }
   if (!(sequenceRow as { is_active: boolean }).is_active) return { ok: false, error: "sequence inactive" }
 
   const steps = ((sequenceRow as { steps: SequenceStep[] }).steps || [])

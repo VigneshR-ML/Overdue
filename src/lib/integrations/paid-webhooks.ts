@@ -126,10 +126,8 @@ export async function verifyPaypalWebhook(opts: {
 }
 
 /**
- * Marks the synced invoice paid. Scoped to a specific user when userId is
- * provided (always preferred for cross-tenant safety). For webhook contexts
- * where the user is unknown (e.g. Stripe Connect), falls back to provider-level
- * matching but excludes manual/csv invoices to avoid cross-user collisions.
+ * Marks the synced invoice paid. userId is REQUIRED — no unscoped fallback,
+ * so two app users sharing one Stripe account can't flip each other's rows.
  */
 export async function markInvoicePaid(
   supabase: any,
@@ -137,23 +135,41 @@ export async function markInvoicePaid(
   providerId: string,
   userId?: string,
 ): Promise<number> {
-  if (!providerId) return 0
-  let query = supabase
+  if (!providerId || !userId) return 0
+  const { data, error } = await supabase
     .from("invoices")
     .update({ status: "paid", paid_at: new Date().toISOString() })
+    .eq("user_id", userId)
     .eq("provider", provider)
     .eq("provider_id", providerId)
     .neq("status", "paid")
-  // When user is known, scope to their data for safety
-  if (userId) query = query.eq("user_id", userId)
-  // When user is unknown, exclude manual/csv invoices to avoid cross-user collision
-  else query = query.neq("provider", "manual")
-  const { data, error } = await query.select("id")
+    .select("id")
   if (error) return 0
   return Array.isArray(data) ? data.length : 0
 }
 
-/** Idempotency ledger shared with the Paddle webhook (provider + event_id). */
+/**
+ * Resolves the single owning user for a provider invoice id. Returns null when
+ * unknown or ambiguous (multiple users share the id) — callers must skip the
+ * flip in that case rather than risk cross-tenant writes.
+ */
+export async function resolveInvoiceOwner(
+  supabase: any,
+  provider: PaidProvider,
+  providerId: string,
+): Promise<string | null> {
+  if (!providerId) return null
+  const { data } = await supabase
+    .from("invoices")
+    .select("user_id")
+    .eq("provider", provider)
+    .eq("provider_id", providerId)
+    .limit(10)
+  const owners = [...new Set(((data ?? []) as any[]).map((r) => r.user_id).filter(Boolean))]
+  return owners.length === 1 ? owners[0] : null
+}
+
+/** Idempotency ledger shared with the billing webhooks (provider + event_id). */
 export async function alreadyHandled(supabase: any, provider: string, eventId: string): Promise<boolean> {
   if (!eventId) return false
   const { data } = await supabase
@@ -166,7 +182,17 @@ export async function alreadyHandled(supabase: any, provider: string, eventId: s
 }
 
 export async function recordEvent(supabase: any, provider: string, eventId: string, payload: unknown): Promise<void> {
-  await supabase.from("webhook_events").insert({ provider, event_id: eventId, payload: payload ?? {} })
+  if (!eventId) return
+  try {
+    const { error } = await supabase.from("webhook_events").insert({ provider, event_id: eventId, payload: payload ?? {} })
+    // 409/23505 = concurrent delivery already recorded — safe to ignore (TOCTOU).
+    // Any other error is logged but never throws, so webhooks don't 500 on ledger issues.
+    if (error && (error as any).code !== "23505" && !/duplicate|unique|conflict/i.test((error as any).message ?? "")) {
+      console.error(`[${provider}-webhook] ledger insert failed:`, (error as any).message)
+    }
+  } catch (e) {
+    console.error(`[${provider}-webhook] ledger insert threw:`, e)
+  }
 }
 
 // ── Xero helpers: tenant → user → fresh token → invoice status ──────────────

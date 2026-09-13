@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { handleInboundReply } from "@/lib/scheduler/dispatch"
-import { verifyInboundReplySignature } from "@/lib/paddle/helpers"
+import { verifyInboundReplySignature } from "@/lib/webhooks/signatures"
 
 export const dynamic = "force-dynamic"
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   try {
     body = JSON.parse(rawBody)
   } catch {
-    body = {}
+    return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 })
   }
 
   const from =

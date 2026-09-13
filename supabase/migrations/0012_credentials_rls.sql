@@ -10,6 +10,8 @@ alter table public.integration_credentials enable row level security;
 
 -- No policies: the table must be touched exclusively through service_role / Vault.
 -- A deny-all policy makes the intent explicit even if a future GRANT re-appears.
+drop policy if exists integration_credentials_service_only
+  on public.integration_credentials;
 create policy integration_credentials_service_only
   on public.integration_credentials
   for all
@@ -17,4 +19,28 @@ create policy integration_credentials_service_only
   with check (false);
 
 revoke all on public.integration_credentials from anon, authenticated;
-revoke all on function public.create_secret, public.read_secret, public.delete_secret from anon, authenticated;
+-- delete_secret wrapper may not exist on DBs that never applied the follow-up
+-- migration: create it first so the REVOKE below never aborts the migration.
+create or replace function public.delete_secret(secret_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = vault, pg_temp
+as $$
+begin
+  delete from vault.secrets where id = secret_id;
+end;
+$$;
+
+do $$ begin
+  revoke all on function public.create_secret(text, text) from anon, authenticated;
+exception when undefined_function then null;
+end $$;
+do $$ begin
+  revoke all on function public.read_secret(uuid) from anon, authenticated;
+exception when undefined_function then null;
+end $$;
+do $$ begin
+  revoke all on function public.delete_secret(uuid) from anon, authenticated;
+exception when undefined_function then null;
+end $$;

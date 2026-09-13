@@ -2,8 +2,8 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { getSubscriptionsForUser } from "@/lib/db/queries"
-import { getCustomerPortalUrl } from "@/lib/paddle/server"
-import { reconcilePaddleSubscription } from "@/lib/billing/reconcile"
+import { reconcileDodoSubscription } from "@/lib/billing/reconcile"
+import { getCustomerPortalUrl } from "@/lib/dodo/server"
 import { PlanManager } from "@/components/billing/plan-manager"
 import { ArrowLeft } from "lucide-react"
 
@@ -19,13 +19,13 @@ export default async function BillingPage({
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
 
-  // Self-heal against Paddle (source of truth) so a just-completed checkout —
-  // or a webhook that never arrived — still surfaces the Pro plan immediately.
-  await reconcilePaddleSubscription(session.id, session.email).catch(() => null)
+  // Self-heal against Dodo Payments (source of truth) so a just-completed
+  // checkout — or a webhook that never arrived — still surfaces Pro immediately.
+  await reconcileDodoSubscription(session.id, session.email).catch(() => null)
 
   const sub = await getSubscriptionsForUser(session.id)
-  const portalUrl = sub?.paddle_subscription_id
-    ? await getCustomerPortalUrl(sub.paddle_subscription_id)
+  const portalUrl = sub?.dodo_customer_id
+    ? await getCustomerPortalUrl(sub.dodo_customer_id)
     : null
 
   const isPro = sub?.plan === "pro" && sub?.status === "active"
@@ -39,7 +39,7 @@ export default async function BillingPage({
       <header>
         <h1 className="font-display text-3xl tracking-tight text-ink">Billing</h1>
         <p className="mt-1 text-sm text-muted">
-          Billed by Paddle, our merchant of record — sales tax handled in 200+ countries.
+          Billed by Dodo Payments, our merchant of record — sales tax handled in 200+ countries.
         </p>
       </header>
 
@@ -54,7 +54,7 @@ export default async function BillingPage({
       />
 
       <p className="font-mono text-[11px] leading-relaxed text-faint">
-        30-day refund on Pro · cancel anytime from the Paddle portal · subscriptions renew monthly.
+        7-day free trial · 30-day refund on Pro · cancel anytime from the billing portal · subscriptions renew monthly.
       </p>
     </div>
   )

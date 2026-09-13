@@ -18,11 +18,26 @@ export async function getPlan(userId: string): Promise<Plan> {
   const supabase = createClient()
   const { data } = await supabase
     .from("subscriptions")
-    .select("plan, status")
+    .select("plan, status, current_period_end")
     .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle()
   if (!data) return "free"
-  if (data.status === "cancelled" || data.status === "past_due") return "free"
+  // Cancelled keeps Pro through the paid grace period (current_period_end in
+  // the future); once expired/past that date it falls to free.
+  if (data.status === "cancelled") {
+    const end = (data as { current_period_end?: string | null }).current_period_end
+    if (end && new Date(end).getTime() > Date.now()) {
+      return (data as { plan?: string }).plan === "pro" ? "pro" : "free"
+    }
+    return "free"
+  }
+  // failed / expired revoke Pro outright.
+  if (data.status === "failed" || data.status === "expired") return "free"
+  // past_due / paused / on_hold keep Pro during the retry/grace window so a
+  // failed renewal doesn't instantly lock users out; webhooks flip to free on
+  // expiry/refund.
   return data.plan === "pro" ? "pro" : "free"
 }
 

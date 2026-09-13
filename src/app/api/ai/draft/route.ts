@@ -30,6 +30,12 @@ export async function POST(request: NextRequest) {
   if (!["gentle", "nudge", "firm", "final"].includes(tone)) {
     return NextResponse.json({ ok: false, error: "invalid tone" }, { status: 400 })
   }
+  if (typeof subjectTemplate === "string" && subjectTemplate.length > 200) {
+    return NextResponse.json({ ok: false, error: "subjectTemplate too long (max 200)" }, { status: 400 })
+  }
+  if (typeof bodyTemplate === "string" && bodyTemplate.length > 5000) {
+    return NextResponse.json({ ok: false, error: "bodyTemplate too long (max 5000)" }, { status: 400 })
+  }
 
   const { data: invoice } = await supabase
     .from("invoices")

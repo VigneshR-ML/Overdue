@@ -10,7 +10,7 @@ Mono for money, and a semantic color temperature ramp for overdue urgency.
 
 - Next.js 14 (App Router, TypeScript) + Tailwind
 - Supabase (Postgres + Auth + RLS) — `supabase/migrations/`
-- Paddle Billing (merchant of record — works worldwide including solo founders in India)
+- Dodo Payments (merchant of record — works worldwide including solo founders in India)
 - Resend (email delivery + tracking)
 - LLM drafting via any OpenAI-compatible endpoint
 - Vercel Cron for the dispatch engine
@@ -26,19 +26,20 @@ npm run dev
 ### Supabase
 1. Create a project, copy `Project URL` + `anon public` + `service_role` into `.env.local`.
    **Rotate the keys if `.env.example` ever shipped with values** — it is meant to be blank.
-2. Run the migrations in order: `0001_init.sql` → `0011_ai_usage.sql`.
+2. Run the migrations in order: `0001_init.sql` → `0015_dodo_billing.sql`.
    (`0005` indexes/constraints, `0006` delivery tracking, `0007` Vault wrappers
    for PostgREST, `0008` provider-account mapping for paid webhooks,
    `0009` per-invoice payment URL, `0010` promise-to-pay on runs,
-   `0011` monthly AI-draft usage.)
+   `0011` monthly AI-draft usage, `0012` credentials RLS, `0013` reply intel,
+   `0014`→`0015` Dodo Payments billing cutover.)
 3. Enable **Email (password)** auth provider → users + `profiles` + `subscriptions` +
    the default ladder are auto-created by the `on_auth_user_created` triggers.
 
 ### Ops checklist before launch
 - [ ] `.env.local` — all keys (see `.env.example`)
 - [ ] `APP_ENV=production` on the live deploy (NOT `NODE_ENV`)
-- [ ] Paddle sandbox: vendor id + price ID → test checkout via `/settings/billing`
-- [ ] Paddle webhook → `https://<your-app>.vercel.app/api/webhooks/paddle` (`PADDLE_WEBHOOK_SECRET`)
+- [ ] Dodo Payments: API key + Pro product id → test checkout via `/settings/billing`
+- [ ] Dodo Payments webhook → `https://<your-app>.vercel.app/api/webhooks/dodo` (`DODO_PAYMENTS_WEBHOOK_KEY`)
 - [ ] Resend: verify domain, point `RESEND_FROM_EMAIL`, webhook → `/api/webhooks/resend`
       (`RESEND_WEBHOOK_SECRET`)
 - [ ] Inbound reply webhook → `/api/webhooks/email` with `INBOUND_WEBHOOK_SECRET` (Svix-signed or Bearer)
@@ -59,12 +60,12 @@ npm run dev
   render → optional LLM refinement), sends via Resend, re-schedules the next rung.
 - **Stop conditions:** invoice paid (any source/webhook), client replied (inbound webhook),
   ladder deactivated.
-- **Billing:** Paddle checkout overlay (client) + signed webhook (server) keeps `subscriptions`
+- **Billing:** Dodo Payments hosted checkout (server-created, client redirect) + signed webhook (server) keeps `subscriptions`
   current. **Plan gating is enforced:** Free = 1 client / 1 ladder / no automated sync; Pro unlocks
   unlimited clients, ladders and Stripe/PayPal/Xero sync (`src/lib/billing/plan.ts`).
 
 ## Costs @ launch volume
-Paddle 5%+$0.50 · Vercel/Supabase $0 tiers · Resend ≤3k/mo free · LLM ~$5–20/mo ⇒ ~$15–30/mo.
+Dodo Payments (see pricing) · Vercel/Supabase $0 tiers · Resend ≤3k/mo free · LLM ~$5–20/mo ⇒ ~$15–30/mo.
 
 ## Notes
 - `integration_credentials` uses Supabase Vault when available (`0003` migration), falling back to a

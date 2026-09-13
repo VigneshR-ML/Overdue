@@ -14,6 +14,14 @@ function getResend() {
   return key ? new Resend(key) : null
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function assertValidEmail(addr: string, field: string) {
+  // Accepts "Name <addr@domain>" or bare addr.
+  const bare = addr.includes("<") ? (addr.match(/<([^>]+)>/)?.[1] ?? "") : addr
+  if (!EMAIL_RE.test(bare.trim())) throw new Error(`${field} is not a valid email: ${addr}`)
+}
+
 export async function sendEmail(payload: EmailPayload) {
   const resend = getResend()
   if (!resend) {
@@ -25,6 +33,10 @@ export async function sendEmail(payload: EmailPayload) {
     console.info("[email] skipped (no RESEND_API_KEY):", payload.subject)
     return { id: null, skipped: true }
   }
+  if (!FROM_EMAIL) throw new Error("RESEND_FROM_EMAIL is not configured")
+  assertValidEmail(FROM_EMAIL, "RESEND_FROM_EMAIL")
+  assertValidEmail(payload.to, "to")
+  if (payload.replyTo) assertValidEmail(payload.replyTo, "replyTo")
   const { data, error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: payload.to,

@@ -8,7 +8,7 @@ import { ProPrice } from "@/components/billing/pro-price"
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Overdue pricing: Free plan to start, Pro at $19/month. 30-day refund, cancel in two clicks.",
+    "Overdue pricing: Free plan to start, Pro at $19/month after a 7-day free trial. 30-day refund, cancel in two clicks.",
   alternates: { canonical: "/pricing" },
 }
 
@@ -52,7 +52,7 @@ export default function PricingPage() {
             </span>
             <div className="font-display text-xl text-ink">Pro</div>
             <div className="mt-3 font-mono text-[15px] text-muted">
-              <ProPrice className="font-display text-3xl text-ink" /> / month
+              <ProPrice className="font-display text-3xl text-ink" /> / month <span className="text-moss">· 7-day free trial</span>
             </div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
               {["Unlimited clients & ladders", "Stripe + PayPal + Xero sync", "Escalation engine on autopilot", "AI drafting, human-voiced", "Reply-detection & pause", "Payment-history scoring"].map((f) => (
@@ -62,14 +62,14 @@ export default function PricingPage() {
               ))}
             </ul>
             <a href="/signup" className="mt-6 block">
-              <Button variant="moss" className="w-full">Go Pro</Button>
+              <Button variant="moss" className="w-full">Start 7-day free trial</Button>
             </a>
           </div>
         </div>
 
         <p className="mt-8 text-center text-sm text-muted">
-          Paddle is our merchant of record and bills Pro subscriptions. 30-day full refund;
-          after that, refunds follow Paddle's reseller policy. See our{" "}
+          Dodo Payments is our merchant of record and bills Pro subscriptions. 30-day full refund;
+          after that, refunds follow Dodo Payments' terms. See our{" "}
           <Link href="/refund" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Refund policy</Link> and{" "}
           <Link href="/terms" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Terms</Link>.
         </p>

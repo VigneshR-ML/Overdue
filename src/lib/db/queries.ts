@@ -90,12 +90,17 @@ export async function getUrgencyQueue(userId: string, limit = 25) {
   })
 }
 
-export async function getClientScore(clientId: string) {
+export async function getClientScore(clientId: string, userId?: string) {
   const supabase = createClient()
-  const { data } = await supabase
+  let q = supabase
     .from("invoices")
     .select("due_date, paid_at, amount_cents")
     .eq("client_id", clientId)
+    .limit(500)
+  // Defense-in-depth: RLS already scopes to auth.uid(), but explicitly filter
+  // when the caller knows the owner so a future service_role reuse can't leak.
+  if (userId) q = q.eq("user_id", userId)
+  const { data } = await q
 
   const rows = data ?? []
   if (rows.length === 0) return { score: 50, avgDays: null, n: 0 }
@@ -142,14 +147,14 @@ export type TemplateRow = {
   user_id: string
 }
 
-export async function getInvoicesWithMeta(userId: string, includePaid = true) {
+export async function getInvoicesWithMeta(userId: string, includePaid = true, limit = 100, offset = 0) {
   const supabase = createClient()
   let q = supabase
     .from("invoices")
     .select("*, clients(name, billing_email)")
     .eq("user_id", userId)
   if (!includePaid) q = q.neq("status", "paid")
-  const { data } = await q.order("created_at", { ascending: false }).limit(100)
+  const { data } = await q.order("created_at", { ascending: false }).range(offset, offset + Math.min(limit, 200) - 1)
   return (data ?? []).map((r) => ({ ...r, client: r.clients }) as unknown as Invoice & { client: Client | null })
 }
 

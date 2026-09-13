@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { verifyResendSignature } from "@/lib/paddle/helpers"
+import { verifyResendSignature } from "@/lib/webhooks/signatures"
 import { alreadyHandled, recordEvent } from "@/lib/integrations/paid-webhooks"
 
 export const dynamic = "force-dynamic"
@@ -12,7 +12,15 @@ export const dynamic = "force-dynamic"
 export async function POST(request: NextRequest) {
   const rawBody = await request.text()
   const signature = request.headers.get("svix-signature") ?? request.headers.get("resend-signature") ?? request.headers.get("webhook-signature") ?? ""
-  if (!signature || !verifyResendSignature(signature, rawBody)) {
+  const svixId = request.headers.get("svix-id") ?? undefined
+  const svixTimestamp = request.headers.get("svix-timestamp") ?? undefined
+  let valid = false
+  try {
+    valid = Boolean(signature) && verifyResendSignature(signature, rawBody, { svixId, svixTimestamp })
+  } catch {
+    valid = false
+  }
+  if (!valid) {
     return NextResponse.json({ ok: false, error: "invalid signature" }, { status: 401 })
   }
 

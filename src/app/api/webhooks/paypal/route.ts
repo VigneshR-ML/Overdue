@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { verifyPaypalWebhook, markInvoicePaid, alreadyHandled, recordEvent } from "@/lib/integrations/paid-webhooks"
+import { verifyPaypalWebhook, markInvoicePaid, alreadyHandled, recordEvent, resolveInvoiceOwner } from "@/lib/integrations/paid-webhooks"
 
 export const dynamic = "force-dynamic"
 
@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
   let flipped = 0
   if (event.event_type === "INVOICING.INVOICE.PAID") {
     const invoiceId = event.resource?.invoice?.id ?? event.resource?.id ?? ""
-    flipped = await markInvoicePaid(supabase, "paypal", invoiceId)
+    const ownerId = await resolveInvoiceOwner(supabase, "paypal", invoiceId)
+    if (ownerId) flipped = await markInvoicePaid(supabase, "paypal", invoiceId, ownerId)
     handled = event.event_type
   }
   await recordEvent(supabase, "paypal", eventId, event)
