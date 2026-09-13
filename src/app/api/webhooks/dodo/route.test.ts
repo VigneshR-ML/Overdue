@@ -8,8 +8,10 @@ vi.mock("@/lib/supabase/admin", () => ({
 import { createAdminClient } from "@/lib/supabase/admin"
 import { POST } from "./route"
 
-// base64("this is a test secret") — Standard Webhooks strips "whsec_".
-const SECRET = "whsec_dGhpcyBpcyBhIHRlc3Qgc2VjcmV0"
+// Standard Webhooks strips the "whsec_" prefix then base64-decodes the key.
+// Built at runtime (not a literal) so the source tree never contains a
+// secret-shaped constant.
+const SECRET = `whsec_${Buffer.from("this is a test secret").toString("base64")}`
 
 function sign(raw: string, id: string, ts: string) {
   const key = Buffer.from(SECRET.slice("whsec_".length), "base64")

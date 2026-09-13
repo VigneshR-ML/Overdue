@@ -30,7 +30,7 @@ afterEach(() => {
 })
 
 describe("verifyStripeSignature", () => {
-  const secret = "whsec_test_stripe"
+  const secret = `whsec_${crypto.randomBytes(24).toString("hex")}`
   const raw = JSON.stringify({ id: "evt_1", type: "invoice.paid" })
   const sign = (ts: string) =>
     `t=${ts},v1=${crypto.createHmac("sha256", secret).update(`${ts}.${raw}`).digest("hex")}`
