@@ -157,7 +157,7 @@ export function SequenceEditor({
   const previewBody = renderTemplate(selected?.body_template ?? "", SAMPLE)
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
       {/* Left column — the ladder + editor */}
       <div className="space-y-6">
         <div className="flex flex-wrap items-end gap-4">

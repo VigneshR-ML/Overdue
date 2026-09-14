@@ -7,13 +7,13 @@ export function AuthNotice() {
   const params = useSearchParams()
   const authError = params.get("auth") === "error"
   const signin = params.get("signin") === "1"
+  // useSearchParams already decodes the value — do NOT decode again here.
   const reason = params.get("reason")
   const [dismissed, setDismissed] = useState(false)
 
   if (dismissed) return null
 
-  const decoded = reason ? decodeURIComponent(reason) : ""
-  const isPkce = /pkce|code.verifier/i.test(decoded)
+  const isPkce = /pkce|code.verifier/i.test(reason ?? "")
 
   if (authError && isPkce) {
     return (
@@ -29,7 +29,7 @@ export function AuthNotice() {
           </a>
           <button
             onClick={() => setDismissed(true)}
-            className="rounded-md border border-hairline px-3 py-1.5 text-[12px] text-muted hover:text-ink"
+            className="rounded-md border border-hairline px-3 py-1.5 text-[12px] text-muted hover:text-ink cursor-pointer"
           >
             Dismiss
           </button>
@@ -39,8 +39,8 @@ export function AuthNotice() {
   }
 
   const message = authError
-    ? decoded
-      ? `Authentication failed: ${decoded}. Please try again.`
+    ? reason
+      ? `Authentication failed: ${reason}. Please try again.`
       : "Authentication failed. Please try again."
     : signin
       ? "Please sign in to continue."
@@ -49,11 +49,21 @@ export function AuthNotice() {
   if (!message) return null
 
   return (
-    <div role="alert" className="mb-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft flex items-center justify-between gap-3">
+    <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft">
       <span>{message}</span>
-      <button onClick={() => setDismissed(true)} className="text-faint hover:text-ink cursor-pointer text-[11px] font-mono uppercase tracking-wider" aria-label="Dismiss">
-        dismiss
-      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        {signin ? (
+          <a
+            href="/login"
+            className="rounded-md bg-moss px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-moss-bright"
+          >
+            Sign in
+          </a>
+        ) : null}
+        <button onClick={() => setDismissed(true)} className="cursor-pointer font-mono text-[11px] uppercase tracking-wider text-faint hover:text-ink" aria-label="Dismiss">
+          dismiss
+        </button>
+      </div>
     </div>
   )
 }

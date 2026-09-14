@@ -1,11 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils/format"
+
+function isConfigured() {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter()
@@ -14,28 +18,48 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [magicSent, setMagicSent] = useState(false)
+  const [showReset, setShowReset] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
+  // Recovery links land on /login with a code/token_hash + type=recovery.
+  const [recovery, setRecovery] = useState(false)
+  const [newPassword, setNewPassword] = useState("")
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("")
+
+  useEffect(() => {
+    if (mode !== "login") return
+    const sp = new URLSearchParams(window.location.search)
+    const type = sp.get("type")
+    if (type === "recovery" && (sp.get("code") || sp.get("token_hash"))) {
+      setRecovery(true)
+    }
+  }, [mode])
 
   async function signInWithGoogle() {
-    const supabase = createClient()
+    if (!isConfigured()) {
+      setError("Supabase isn't configured on this deploy yet.")
+      return
+    }
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (error) setError(error.message)
-    setLoading(false)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      })
+      if (error) setError(error.message)
+    } catch {
+      setError("Couldn't reach the sign-in service. Please try again.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
 
-    const supabase = createClient()
-    const isConfigured =
-      process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!isConfigured) {
+    if (!isConfigured()) {
       setError(
         "Supabase isn't configured on this deploy yet. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
       )
@@ -44,45 +68,104 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
     setError(null)
     setLoading(true)
-
-    if (mode === "signup") {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      })
-      setLoading(false)
-      if (error) return setError(error.message)
-      if (data.session) {
-        router.push("/onboarding")
-        router.refresh()
+    try {
+      const supabase = createClient()
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        })
+        if (error) return setError(error.message)
+        if (data.session) {
+          router.push("/onboarding")
+          router.refresh()
+        } else {
+          setMagicSent(true)
+        }
       } else {
-        setMagicSent(true)
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) return setError(error.message)
+        if (data.session) {
+          router.push("/dashboard")
+          router.refresh()
+        } else {
+          setError("Your email hasn't been confirmed yet. Please check your inbox for the confirmation link, or sign up again.")
+        }
       }
-    } else {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    } catch {
+      setError("Couldn't reach the sign-in service. Please try again.")
+    } finally {
       setLoading(false)
-      if (error) return setError(error.message)
-      if (data.session) {
-        router.push("/dashboard")
-        router.refresh()
-      } else {
-        setError("Your email hasn't been confirmed yet. Please check your inbox for the confirmation link, or sign up again.")
-      }
     }
   }
 
   async function resetPassword() {
-    if (!resetEmail) return
-    const supabase = createClient()
+    if (!resetEmail) {
+      setError("Enter your email first.")
+      return
+    }
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/login`,
-    })
-    setLoading(false)
-    if (error) return setError(error.message)
-    setResetSent(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/login`,
+      })
+      if (error) return setError(error.message)
+      setResetSent(true)
+    } catch {
+      setError("Couldn't send the reset link. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Recovery link → exchange token, then let the session update the password. */
+  async function submitNewPassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.")
+      return
+    }
+    if (newPassword !== newPasswordConfirm) {
+      setError("Passwords don't match.")
+      return
+    }
+    setError(null)
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const sp = new URLSearchParams(window.location.search)
+      const code = sp.get("code")
+      const tokenHash = sp.get("token_hash")
+
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
+        if (error) throw new Error(error.message)
+      } else if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) throw new Error(error.message)
+      } else {
+        throw new Error("Missing reset code — request a new link and follow it in the same browser.")
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw new Error(error.message)
+
+      // Signed in with the fresh password now — drop the code and head in.
+      window.location.replace("/dashboard")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Password reset failed. Please try again.")
+      setLoading(false)
+    }
+  }
+
+  function backToSignIn() {
+    setResetSent(false)
+    setShowReset(false)
+    setResetEmail("")
+    setError(null)
   }
 
   if (resetSent) {
@@ -91,14 +174,52 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <div className="rounded-md border border-moss/40 bg-moss-soft p-4 text-sm text-moss">
           Check your inbox — we sent a password reset link. It can take a minute.
         </div>
-        <Button type="button" variant="outline" className="w-full" onClick={() => { setResetSent(false) }}>
+        <Button type="button" variant="outline" className="w-full" onClick={backToSignIn}>
           Back to sign in
         </Button>
       </div>
     )
   }
 
-  if (mode === "login" && resetEmail) {
+  if (recovery) {
+    return (
+      <form onSubmit={submitNewPassword} className="space-y-4">
+        <p className="text-sm text-muted">Choose a new password for your account.</p>
+        <Field label="New password" hint="min 8 characters">
+          <Input
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+        </Field>
+        <Field label="Confirm password">
+          <Input
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            value={newPasswordConfirm}
+            onChange={(e) => setNewPasswordConfirm(e.target.value)}
+            placeholder="••••••••"
+          />
+        </Field>
+        {error ? (
+          <div className={cn("rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson")} role="alert">
+            {error}
+          </div>
+        ) : null}
+        <Button type="submit" disabled={loading} className="w-full" size="lg">
+          {loading ? "Saving…" : "Set new password"}
+        </Button>
+      </form>
+    )
+  }
+
+  if (mode === "login" && showReset) {
     return (
       <form onSubmit={(e) => { e.preventDefault(); resetPassword() }} className="space-y-4">
         <p className="text-sm text-muted">Enter your email and we&apos;ll send a reset link.</p>
@@ -113,14 +234,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           />
         </Field>
         {error ? (
-          <div className={cn("rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson")}>
+          <div className={cn("rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson")} role="alert">
             {error}
           </div>
         ) : null}
         <Button type="submit" disabled={loading} className="w-full" size="lg">
           {loading ? "Sending…" : "Send reset link"}
         </Button>
-        <Button type="button" variant="ghost" className="w-full" onClick={() => setResetEmail("")}>
+        <Button type="button" variant="ghost" className="w-full" onClick={backToSignIn}>
           Back to sign in
         </Button>
       </form>
@@ -199,7 +320,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       {mode === "login" && (
         <button
           type="button"
-          onClick={() => { setResetEmail(email); setError(null) }}
+          onClick={() => { setShowReset(true); setResetEmail(email); setError(null) }}
           className="block w-full text-center text-sm text-moss hover:text-moss-bright"
         >
           Forgot your password?

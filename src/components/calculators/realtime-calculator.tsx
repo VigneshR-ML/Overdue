@@ -1,7 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import type { CalculatorSpec } from "@/lib/calculators/types"
+import type { CalculatorResult, CalculatorSpec } from "@/lib/calculators/types"
+import { cn } from "@/lib/utils/format"
 
 function seedFrom(spec: CalculatorSpec): Record<string, string> {
   if (spec.example) return { ...spec.example }
@@ -12,19 +13,29 @@ function slugify(s: string) {
   return s.replace(/[^a-z0-9]+/gi, "-").toLowerCase()
 }
 
+function toneClass(tone?: CalculatorResult["tone"]): string {
+  return tone === "rust" ? "text-rust" : tone === "ember" ? "text-ember" : tone === "moss" ? "text-moss" : "text-ink"
+}
+
 /**
  * Realtime calculator — separate from the old marketing leaf. There is no
  * submit button by design: results recompute live on every keystroke via
  * `useMemo`, announced through `aria-live`.
+ *
+ * `layout="split"` renders inputs and results side-by-side in a single compact
+ * card so the whole calculator fits on screen without scrolling (workspace
+ * tool pages). `layout="stacked"` is the stacked card used on the landing teaser.
  */
 export function RealtimeCalculator({
   spec,
   compact = false,
   idPrefix,
+  layout = "stacked",
 }: {
   spec: CalculatorSpec
   compact?: boolean
   idPrefix?: string
+  layout?: "stacked" | "split"
 }) {
   const [values, setValues] = useState<Record<string, string>>(() => seedFrom(spec))
   const [copied, setCopied] = useState(false)
@@ -68,7 +79,109 @@ export function RealtimeCalculator({
   }
 
   const prefix = idPrefix ?? slugify(spec.title)
+  const split = layout === "split"
 
+  const fieldRow = (f: CalculatorSpec["fields"][number], tight: boolean) => {
+    const id = `rtc-${prefix}-${f.key}`
+    return (
+      <label key={f.key} className="block min-w-0" htmlFor={id}>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">{f.label}</span>
+        <input
+          id={id}
+          type={f.type === "money" || f.type === "percent" ? "text" : f.type === "date" ? "date" : "number"}
+          inputMode={f.type === "number" || f.type === "money" || f.type === "percent" ? "decimal" : undefined}
+          step={f.step ?? (f.type === "number" ? "1" : undefined)}
+          min={f.type === "number" ? "0" : undefined}
+          value={values[f.key] ?? ""}
+          placeholder={f.placeholder}
+          onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+          className={cn(
+            "mt-1 w-full border-b border-hairline bg-transparent text-ink outline-none transition-colors focus:border-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss dark:focus:border-moss-bright",
+            tight ? "py-1 font-mono text-[14px]" : "py-1.5 font-mono text-[15px]",
+          )}
+        />
+      </label>
+    )
+  }
+
+  const resetButton = (tight: boolean) => (
+    <button
+      type="button"
+      onClick={reset}
+      className={cn(
+        "shrink-0 rounded-full border border-hairline text-muted transition-colors hover:border-moss hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss",
+        tight
+          ? "px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em]"
+          : "px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em]",
+      )}
+    >
+      Reset
+    </button>
+  )
+
+  const copyButton = (
+    <button
+      type="button"
+      onClick={copyResults}
+      className="font-mono text-[10px] uppercase tracking-[0.14em] text-moss transition-colors hover:text-moss-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
+    >
+      {copied ? "copied ✓" : "copy"}
+    </button>
+  )
+
+  const resultRows =
+    results.length === 0 ? (
+      <div className="flex min-h-16 items-center px-5 py-3 text-[13px] text-muted">
+        Enter values above — results appear here instantly.
+      </div>
+    ) : (
+      results.map((r) => (
+        <div key={r.label} className="flex items-baseline justify-between gap-4 px-4 py-2">
+          <dt className="min-w-0 text-[12px] text-muted">{r.label}</dt>
+          <dd className="text-right">
+            <div className={toneClass(r.tone)}>
+              <span className={split ? "font-display text-lg tracking-tight" : "font-display text-xl tracking-tight"}>
+                {r.value}
+              </span>
+            </div>
+            {r.sub ? <div className="text-[10px] text-faint">{r.sub}</div> : null}
+          </dd>
+        </div>
+      ))
+    )
+
+  // Two-pane compact card: inputs left, results right. Fits on screen.
+  if (split) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-hairline bg-surface shadow-ledger">
+        <div className="grid min-w-0 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="p-5 lg:pr-6">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-moss">{spec.kicker}</span>
+              {resetButton(true)}
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3.5 sm:grid-cols-2">
+              {spec.fields.map((f) => fieldRow(f, true))}
+            </div>
+            <p className="mt-4 font-mono text-[10px] leading-relaxed text-faint">
+              Updates live as you type — nothing is sent anywhere.
+            </p>
+          </div>
+          <div className="border-t border-hairline bg-paper/40 lg:border-l lg:border-t-0">
+            <div className="flex items-center justify-between border-b border-hairline bg-paper/70 px-4 py-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Result · live</span>
+              {copyButton}
+            </div>
+            <dl className="divide-y divide-hairline" aria-live="polite" aria-atomic="true">
+              {resultRows}
+            </dl>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Stacked card (marketing teaser / default).
   return (
     <div className={compact ? "mx-auto max-w-md" : "mx-auto max-w-md"}>
       {!compact ? (
@@ -83,76 +196,20 @@ export function RealtimeCalculator({
         role="group"
         aria-label={`${spec.title} inputs — results update live`}
       >
-        {spec.fields.map((f) => {
-          const id = `rtc-${prefix}-${f.key}`
-          return (
-            <label key={f.key} className="block" htmlFor={id}>
-              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">{f.label}</span>
-              <input
-                id={id}
-                type={f.type === "money" || f.type === "percent" ? "text" : f.type === "date" ? "date" : "number"}
-                inputMode={f.type === "number" || f.type === "money" || f.type === "percent" ? "decimal" : undefined}
-                step={f.step ?? (f.type === "number" ? "1" : undefined)}
-                min={f.type === "number" ? "0" : undefined}
-                value={values[f.key] ?? ""}
-                placeholder={f.placeholder}
-                onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                className="mt-1.5 w-full border-b border-hairline bg-transparent py-1.5 font-mono text-[15px] text-ink outline-none transition-colors focus:border-moss focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss dark:focus:border-moss-bright"
-              />
-            </label>
-          )
-        })}
+        {spec.fields.map((f) => fieldRow(f, false))}
         <div className="flex items-center justify-between gap-2 pt-1">
           <p className="font-mono text-[11px] text-faint">Updates live as you type — nothing is sent anywhere.</p>
-          <button
-            type="button"
-            onClick={reset}
-            className="shrink-0 rounded-full border border-hairline px-3 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted transition-colors hover:border-moss hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
-          >
-            Reset
-          </button>
+          {resetButton(false)}
         </div>
       </div>
 
       <div className="mt-5 overflow-hidden rounded-lg border border-hairline bg-surface shadow-ledger">
         <div className="flex items-center justify-between border-b border-hairline bg-paper/70 px-5 py-2.5">
           <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Result · live</span>
-          <button
-            type="button"
-            onClick={copyResults}
-            className="font-mono text-[11px] uppercase tracking-[0.14em] text-moss transition-colors hover:text-moss-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
-          >
-            {copied ? "copied ✓" : "copy"}
-          </button>
+          {copyButton}
         </div>
         <dl className="divide-y divide-hairline" aria-live="polite" aria-atomic="true">
-          {results.length === 0 ? (
-            <div className="px-5 py-4 text-[13px] text-muted">
-              Enter values above — results appear here instantly.
-            </div>
-          ) : (
-            results.map((r) => (
-              <div key={r.label} className="flex items-baseline justify-between gap-4 px-5 py-3">
-                <dt className="min-w-0 max-w-40 text-[13px] text-muted">{r.label}</dt>
-                <dd className="text-right">
-                  <div
-                    className={
-                      r.tone === "rust"
-                        ? "text-rust"
-                        : r.tone === "ember"
-                          ? "text-ember"
-                          : r.tone === "moss"
-                            ? "text-moss"
-                            : "text-ink"
-                    }
-                  >
-                    <span className="font-display text-xl tracking-tight">{r.value}</span>
-                  </div>
-                  {r.sub ? <div className="text-[11px] text-faint">{r.sub}</div> : null}
-                </dd>
-              </div>
-            ))
-          )}
+          {resultRows}
         </dl>
       </div>
     </div>

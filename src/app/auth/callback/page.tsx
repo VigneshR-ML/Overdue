@@ -24,7 +24,6 @@ export default function AuthCallback() {
     if (started.current) return
     started.current = true
 
-    const supabase = createClient()
     const { searchParams } = new URL(window.location.href)
     const base = window.location.origin
     const toError = (reason?: string) => {
@@ -33,49 +32,65 @@ export default function AuthCallback() {
     }
 
     async function finish() {
-      const authError = searchParams.get("error")
-      if (authError) {
-        toError(authError)
-        return
-      }
-
-      const code = searchParams.get("code")
-      const tokenHash = searchParams.get("token_hash")
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          const isPkce = /pkce|code.verifier/i.test(error.message)
-          toError(isPkce ? "pkce_error" : error.message)
+      try {
+        const authError = searchParams.get("error")
+        if (authError) {
+          toError(authError)
           return
         }
-      } else if (tokenHash) {
-        const type = searchParams.get("type") ?? "email"
-        const valid = ["signup", "email", "recovery", "invite", "magiclink", "email_change"]
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: valid.includes(type) ? (type as "signup") : "email",
-        })
-        if (error) {
-          toError(error.message)
+
+        const supabase = (() => {
+          try {
+            return createClient()
+          } catch {
+            return null
+          }
+        })()
+        if (!supabase) {
+          toError("not_configured")
           return
         }
-      }
 
-      // Let the browser client recover an implicit-hash session, then confirm.
-      const { data, error } = await supabase.auth.getSession()
-      if (error || !data.session) {
+        const code = searchParams.get("code")
+        const tokenHash = searchParams.get("token_hash")
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) {
+            const isPkce = /pkce|code.verifier/i.test(error.message)
+            toError(isPkce ? "pkce_error" : error.message)
+            return
+          }
+        } else if (tokenHash) {
+          const type = searchParams.get("type") ?? "email"
+          const valid = ["signup", "email", "recovery", "invite", "magiclink", "email_change"]
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: valid.includes(type) ? (type as "signup") : "email",
+          })
+          if (error) {
+            toError(error.message)
+            return
+          }
+        }
+
+        // Let the browser client recover an implicit-hash session, then confirm.
+        const { data, error } = await supabase.auth.getSession()
+        if (error || !data.session) {
+          toError()
+          return
+        }
+
+        // Validate `next` is a safe internal path to prevent open redirects.
+        const rawNext = searchParams.get("next")
+        let next = "/onboarding"
+        if (rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")) {
+          next = rawNext
+        }
+
+        window.location.replace(`${base}${next}`)
+      } catch {
         toError()
-        return
       }
-
-      // Validate `next` is a safe internal path to prevent open redirects.
-      const rawNext = searchParams.get("next")
-      let next = "/onboarding"
-      if (rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")) {
-        next = rawNext
-      }
-
-      window.location.replace(`${base}${next}`)
     }
 
     finish()

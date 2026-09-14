@@ -26,6 +26,9 @@ export function AuthCodeHandler() {
     if (!code && !tokenHash && !authError) return
     // The dedicated callback page handles its own path — don't double-exchange.
     if (pathname.startsWith("/auth/callback")) return
+    // Only act when Supabase dropped the callback onto the Site URL (the root).
+    // Running on /login, /signup or app pages would yank users out mid-flow.
+    if (pathname !== "/") return
 
     const supabase = createClient()
     const base = window.location.origin

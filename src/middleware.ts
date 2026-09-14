@@ -20,10 +20,14 @@ export async function middleware(request: NextRequest) {
   if (
     process.env.NODE_ENV !== "development" &&
     !host.startsWith("localhost") &&
+    host !== "127.0.0.1" &&
     host !== CANONICAL_HOST
   ) {
-    if (request.nextUrl.pathname.startsWith("/api/")) {
-      // Don't bounce API calls; only canonicalize browser-facing pages.
+    const path = request.nextUrl.pathname
+    if (path.startsWith("/api/") || path.startsWith("/auth/callback")) {
+      // Don't bounce API calls, and never bounce the OAuth callback: the PKCE
+      // verifier lives on the origin where login started, so the callback must
+      // finish there — only canonicalize browser-facing pages.
       return updateSession(request)
     }
     const url = request.nextUrl.clone()

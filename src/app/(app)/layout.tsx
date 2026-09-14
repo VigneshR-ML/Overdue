@@ -1,31 +1,30 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { getPlan } from "@/lib/billing/plan"
-import { AppSidebar } from "@/components/app-shell/sidebar"
+import { getSessionUserFromCookies } from "@/lib/auth/local-session"
+import { AppTopBar } from "@/components/app-shell/topbar"
+import { AppDock } from "@/components/app-shell/dock"
 
 export const metadata = { title: "App" }
 
 /**
- * Protected shell for all authed routes. Redirects to the landing page when
- * there is no session.
+ * Protected shell for all authed routes. Middleware already verified the
+ * session, so the layout reads the user's id + email from the auth cookie JWT
+ * (no `getUser()` round trip) and only falls back to one cheap plan lookup —
+ * keeping click-to-paint fast on every navigation.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const session = getSessionUserFromCookies()
+  if (!session) redirect("/?signin=1")
 
-  if (!user) redirect("/?signin=1")
-
-  const email = user.email ?? "you@ledger.app"
-  const plan = await getPlan(user.id)
+  const plan = await getPlan(session.id)
 
   return (
-    <div className="flex min-h-screen bg-paper">
-      <AppSidebar email={email} plan={plan} />
+    <div className="flex min-h-screen flex-col bg-paper">
+      <AppTopBar email={session.email} plan={plan} />
       <main className="min-w-0 flex-1">
-        <div className="mx-auto max-w-5xl px-6 py-8 lg:px-10">{children}</div>
+        <div className="mx-auto max-w-6xl px-6 pb-28 pt-6 lg:px-10">{children}</div>
       </main>
+      <AppDock />
     </div>
   )
 }
