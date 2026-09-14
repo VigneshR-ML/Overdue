@@ -16,8 +16,8 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "connect-src 'self' https://*.supabase.co https://*.dodopayments.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
+              "connect-src 'self' https://*.supabase.co https://*.dodopayments.com https://static.cloudflareinsights.com https://cloudflareinsights.com",
               "img-src 'self' data: https:",
               "style-src 'self' 'unsafe-inline'",
               "frame-src 'self' https://*.dodopayments.com",

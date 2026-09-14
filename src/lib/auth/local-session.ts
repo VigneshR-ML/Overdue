@@ -1,18 +1,18 @@
 import { cookies } from "next/headers"
 
+type SessionUser = { id: string; email: string }
+
 /**
- * Reads the signed-in user's id + email straight from the Supabase auth cookie
+ * Decodes the signed-in user's id + email straight from a Supabase auth cookie
  * (a JSON-encoded access token), without a round trip to the auth server.
  *
- * Middleware already verified and refreshed the session fields on the way in,
- * so for display purposes (top bar avatar, plan lookup) decoding the JWT is
- * enough — no network call, no DB query, every navigation stays fast.
+ * Both the app layout and middleware use this — each passes the cookie list
+ * from its own source (next/headers `cookies()` vs `request.cookies`).
  */
-export function getSessionUserFromCookies(): { id: string; email: string } | null {
-  const store = cookies()
-  const authCookie = store
-    .getAll()
-    .find((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"))
+export function decodeSessionUser(cookies: readonly { name: string; value: string }[]): SessionUser | null {
+  const authCookie = cookies.find(
+    (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"),
+  )
   if (!authCookie?.value) return null
 
   try {
@@ -30,8 +30,10 @@ export function getSessionUserFromCookies(): { id: string; email: string } | nul
 
     const payload = JSON.parse(
       Buffer.from(accessToken.split(".")[1] ?? "", "base64url").toString("utf8"),
-    ) as { sub?: unknown; email?: unknown }
+    ) as { sub?: unknown; email?: unknown; exp?: unknown }
     if (typeof payload.sub !== "string" || !payload.sub) return null
+    // Reject stagnant/expired tokens so a stale cookie never looks signed in.
+    if (typeof payload.exp === "number" && payload.exp * 1000 < Date.now()) return null
 
     return {
       id: payload.sub,
@@ -40,4 +42,8 @@ export function getSessionUserFromCookies(): { id: string; email: string } | nul
   } catch {
     return null
   }
+}
+
+export function getSessionUserFromCookies(): SessionUser | null {
+  return decodeSessionUser(cookies().getAll())
 }

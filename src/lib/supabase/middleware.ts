@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import type { CookieOptions } from "@supabase/ssr"
+import { decodeSessionUser } from "@/lib/auth/local-session"
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -24,11 +25,20 @@ export async function updateSession(request: NextRequest) {
     },
   })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Validate the session against the auth server (also refreshes the cookie).
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    user = null
+  }
 
-  const isAuthed = Boolean(user)
+  // If the network round-trip failed (cold function, clock skew, JWKS fetch),
+  // fall back to decoding the access token we already hold in the cookie — the
+  // same signal the app layout trusts. Never bounce a signed-in user over a
+  // transient `getUser()` hiccup.
+  const isAuthed = Boolean(user) || decodeSessionUser(request.cookies.getAll()) !== null
   const path = request.nextUrl.pathname
   const isAppRoute = path.startsWith("/dashboard") || path.startsWith("/invoices") || path.startsWith("/clients") || path.startsWith("/sequences") || path.startsWith("/insights") || path.startsWith("/settings") || path.startsWith("/tools")
   const isAuthPage = path.startsWith("/login") || path.startsWith("/signup")

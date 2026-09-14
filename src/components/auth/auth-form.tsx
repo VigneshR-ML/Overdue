@@ -76,7 +76,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           password,
           options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
         })
-        if (error) return setError(error.message)
+        if (error) {
+          if (/send confirmation email|smtp|email/i.test(error.message) && !/invalid/i.test(error.message)) {
+            return setError("We couldn't send the confirmation email — your Supabase project's email provider isn't configured yet. Please ask support to enable email sending (or turn off email confirmation).")
+          }
+          return setError(error.message)
+        }
         if (data.session) {
           router.push("/onboarding")
           router.refresh()
