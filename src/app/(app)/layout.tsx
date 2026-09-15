@@ -1,19 +1,24 @@
 import { redirect } from "next/navigation"
 import { getPlan } from "@/lib/billing/plan"
-import { getSessionUserFromCookies } from "@/lib/auth/local-session"
+import { getSessionUser } from "@/lib/auth/session"
 import { AppTopBar } from "@/components/app-shell/topbar"
 import { AppDock } from "@/components/app-shell/dock"
 
 export const metadata = { title: "App" }
 
+// Auth-gated shell must never be statically cached — a cached shell would
+// serve one user's ledger frame (or a stale redirect) to the next visitor.
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 /**
- * Protected shell for all authed routes. Middleware already verified the
- * session, so the layout reads the user's id + email from the auth cookie JWT
- * (no `getUser()` round trip) and only falls back to one cheap plan lookup —
- * keeping click-to-paint fast on every navigation.
+ * Protected shell for all authed routes. Uses the same validated session
+ * signal as middleware (`getUser()` first, cookie decode only for transient
+ * network hiccups) so `/login` → `/dashboard` → `/` bounce loops can't
+ * happen from disagreeing auth checks.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = getSessionUserFromCookies()
+  const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
 
   const plan = await getPlan(session.id)

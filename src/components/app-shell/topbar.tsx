@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { LogOut, Settings } from "lucide-react"
 import { cn } from "@/lib/utils/format"
 import { createClient } from "@/lib/supabase/client"
@@ -14,7 +14,6 @@ import { Wordmark } from "@/components/marketing/site"
  */
 export function AppTopBar({ email, plan }: { email: string; plan: string }) {
   const pathname = usePathname()
-  const router = useRouter()
 
   async function signOut() {
     const supabase = createClient()
@@ -23,8 +22,9 @@ export function AppTopBar({ email, plan }: { email: string; plan: string }) {
     } catch {
       // Still navigate home even if the session revoke call fails.
     }
-    router.push("/")
-    router.refresh()
+    // Hard navigation clears the App Router cache — router.push("/") would
+    // keep serving cached /dashboard RSC with the old session.
+    window.location.assign("/")
   }
 
   const settingsActive = pathname.startsWith("/settings")

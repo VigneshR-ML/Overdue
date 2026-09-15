@@ -33,7 +33,10 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.protocol = "https:"
     url.host = CANONICAL_HOST
-    return NextResponse.redirect(url, { status: 308 })
+    // 307 (temporary), never 308 (permanent): browsers cache a 308 forever,
+    // so a single visit via an alternate host would pin "Sign in" to a stale
+    // redirect long after the session expired.
+    return NextResponse.redirect(url, { status: 307 })
   }
 
   return updateSession(request)

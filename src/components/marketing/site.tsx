@@ -43,7 +43,7 @@ export function MarketingNav() {
           <Link className="transition-colors hover:text-ink" href="/#tools">Tools</Link>
         </nav>
         <div className="flex items-center gap-2">
-          <Link href="/login" className="hidden sm:inline">
+          <Link href="/login" prefetch={false} className="hidden sm:inline">
             <Button variant="ghost" size="sm">Sign in</Button>
           </Link>
           <Link href="/signup">

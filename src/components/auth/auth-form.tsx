@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
@@ -12,7 +11,6 @@ function isConfigured() {
 }
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
-  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -83,8 +81,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           return setError(error.message)
         }
         if (data.session) {
-          router.push("/onboarding")
-          router.refresh()
+          // Hard navigation (not router.push): guarantees the fresh session
+          // cookies hit middleware + server components instead of serving a
+          // stale router-cached /dashboard that bounces back to landing.
+          window.location.assign("/onboarding")
         } else {
           setMagicSent(true)
         }
@@ -92,8 +92,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) return setError(error.message)
         if (data.session) {
-          router.push("/dashboard")
-          router.refresh()
+          window.location.assign("/dashboard")
         } else {
           setError("Your email hasn't been confirmed yet. Please check your inbox for the confirmation link, or sign up again.")
         }

@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
+// See /login — auth pages must never be statically cached.
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export default function SignupPage() {
   return (
     <div className="flex min-h-screen flex-col bg-paper">

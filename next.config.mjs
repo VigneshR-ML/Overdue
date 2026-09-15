@@ -30,6 +30,13 @@ const nextConfig = {
         source: "/api/:path*",
         headers: [{ key: "Cache-Control", value: "no-store" }],
       },
+      {
+        // Auth-gated pages must never be cached by the browser or CDN — a
+        // cached /login→/dashboard redirect is exactly the "Sign in goes to
+        // dashboard then bounces to landing" symptom after a session expires.
+        source: "/(login|signup|onboarding|dashboard|invoices|clients|sequences|insights|settings|tools|auth/:path*)",
+        headers: [{ key: "Cache-Control", value: "no-store, no-cache, must-revalidate" }],
+      },
     ]
   },
 }

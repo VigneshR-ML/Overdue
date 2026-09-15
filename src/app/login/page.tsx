@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
+// Auth pages must never be statically cached — a cached `/login` (or its
+// redirect to `/dashboard`) would keep firing after the session expired.
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col bg-paper">

@@ -4,12 +4,18 @@ import { useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 
 /**
- * Global auth-callback safety net. When OAuth/email links come back with
- * `?code=` or `?token_hash=` on a page that isn't `/auth/callback` (Supabase
- * drops them onto the Site URL — typically `/` — when the redirectTo URL isn't
- * in the Auth → URL Configuration allowlist), this completes the exchange and
- * routes into onboarding. The code verifier is in browser storage, so the
- * client-side exchange works no matter where the link lands.
+ * Global auth-callback safety net + stale-session self-healer.
+ *
+ * 1. When OAuth/email links come back with `?code=` or `?token_hash=` on a
+ *    page that isn't `/auth/callback` (Supabase drops them onto the Site URL
+ *    — typically `/` — when the redirectTo URL isn't in the Auth → URL
+ *    Configuration allowlist), this completes the exchange and routes into
+ *    onboarding.
+ * 2. When landing on `/` or `/login` with NO auth params but a leftover
+ *    `sb-*-auth-token` cookie and no real session (expired/revoked/cleared
+ *    elsewhere), it clears the stale cookies locally. Without this, middleware
+ *    could once have read the stale cookie as "signed in" and bounced
+ *    `/login` → `/dashboard` → `/?signin=1`.
  */
 export function AuthCodeHandler() {
   const started = useRef(false)
@@ -23,14 +29,32 @@ export function AuthCodeHandler() {
     const tokenHash = searchParams.get("token_hash")
     const authError = searchParams.get("error")
 
-    if (!code && !tokenHash && !authError) return
+    const supabase = createClient()
+
+    // Self-heal stale cookies when there's no callback to handle.
+    if (!code && !tokenHash && !authError) {
+      // Only run where a stale "looks signed in" cookie causes harm.
+      if (pathname !== "/" && pathname !== "/login" && pathname !== "/signup") return
+      const hasStaleCookie = document.cookie
+        .split(";")
+        .some((c) => /sb-.+-auth-token/.test(c.trim()))
+      if (!hasStaleCookie) return
+      supabase.auth.getSession().then(({ data }) => {
+        if (!data.session) {
+          // Local-only clear: drops the dead cookies without touching a
+          // (nonexistent) server session, so the next click on Sign in
+          // correctly stays on /login instead of bouncing via /dashboard.
+          supabase.auth.signOut({ scope: "local" }).catch(() => {})
+        }
+      })
+      return
+    }
     // The dedicated callback page handles its own path — don't double-exchange.
     if (pathname.startsWith("/auth/callback")) return
     // Only act when Supabase dropped the callback onto the Site URL (the root).
     // Running on /login, /signup or app pages would yank users out mid-flow.
     if (pathname !== "/") return
 
-    const supabase = createClient()
     const base = window.location.origin
     const toError = (reason?: string) => {
       const q = reason ? `&reason=${encodeURIComponent(reason)}` : ""
