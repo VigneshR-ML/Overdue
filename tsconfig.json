@@ -17,5 +17,8 @@
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  // e2e + playwright config need @playwright/test (not an app dependency and
+  // intentionally never committed). Excluding them here keeps `next build`
+  // type-checking green on fresh clones (e.g. Vercel) even if they exist locally.
+  "exclude": ["node_modules", "e2e", "playwright.config.ts"]
 }
