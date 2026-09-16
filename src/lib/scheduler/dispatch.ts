@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { draftEmail } from "@/lib/ai/draft"
 import { classifyReply } from "@/lib/ai/reply"
 import { renderEscalationEmail, sendEmail } from "@/lib/resend/send"
+import { signResolutionToken } from "@/lib/recovery/token"
+import { appUrl } from "@/lib/integrations/oauth"
 import { formatMoney } from "@/lib/utils/format"
 import type { Sequence, SequenceStep, Invoice, Client, Run, ReplyClassification } from "@/types"
 
@@ -286,6 +288,37 @@ async function dispatchOne(
 
   const invoice = invoiceRow as unknown as Invoice
 
+  // Ladder-attached settlement: a live approved/sent/accepted offer rides
+  // along in this reminder as a "Resolve for X" button, so the owner never
+  // has to hand-send the resolution link. Best-effort — the reminder must
+  // never fail because the offer link did.
+  let resolutionUrl: string | null = null
+  let resolutionCents: number | null = null
+  let resolutionOfferId: string | null = null
+  let resolutionOfferStatus: string | null = null
+  try {
+    const { data: liveOffer } = await supabase
+      .from("settlement_offers")
+      .select("id, offer_cents, expires_at, status")
+      .eq("user_id", run.user_id)
+      .eq("invoice_id", invoice.id)
+      .in("status", ["approved", "sent", "accepted"])
+      .gt("expires_at", new Date().toISOString())
+      .order("expires_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    const off = liveOffer as { id: string; offer_cents: number; expires_at: string; status: string } | null
+    if (off?.id) {
+      const token = signResolutionToken(off.id, new Date(off.expires_at).getTime())
+      resolutionUrl = `${appUrl()}/r/${token}`
+      resolutionCents = Number(off.offer_cents) || null
+      resolutionOfferId = off.id
+      resolutionOfferStatus = off.status ?? null
+    }
+  } catch {
+    // No link on this rung — plain reminder still goes out.
+  }
+
   const clientRow = invoice.client_id
     ? await supabase.from("clients").select("*").eq("id", invoice.client_id).eq("user_id", run.user_id).single()
     : { data: null }
@@ -390,6 +423,9 @@ async function dispatchOne(
         companyName: sender.company,
         paymentUrl: invoice.payment_url ?? null,
         amountLabel: formatMoney(amount, invoice.currency),
+        resolutionUrl,
+        resolutionLabel:
+          resolutionCents !== null ? `Resolve for ${formatMoney(resolutionCents, invoice.currency)}` : null,
       }),
       replyTo: process.env.REPLY_TO_EMAIL || sender.email,
     })
@@ -413,6 +449,24 @@ async function dispatchOne(
     })
 
     const messageCount = Number(run.messages_sent ?? 0) + 1
+    // The resolution link just went out inside this reminder — mark the
+    // offer sent so the dashboard strip reflects reality. Best-effort.
+    if (resolutionUrl && resolutionOfferId && resolutionOfferStatus === "approved") {
+      try {
+        await supabase
+          .from("settlement_offers")
+          .update({ status: "sent", updated_at: sentAt })
+          .eq("id", resolutionOfferId)
+        await supabase.from("settlement_events").insert({
+          offer_id: resolutionOfferId,
+          user_id: run.user_id,
+          event: "sent",
+          meta: { via: "reminder", run_id: runId },
+        })
+      } catch {
+        // Non-fatal bookkeeping.
+      }
+    }
     const nextStep = stepIndex + 1
     const dueDate = invoice.due_date ? new Date(invoice.due_date) : new Date()
     const nextRunAtMs = dueDate.getTime() + CUMULATIVE_DAYS(steps, nextStep - 1) * 86400000

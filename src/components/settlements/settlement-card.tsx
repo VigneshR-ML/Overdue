@@ -254,8 +254,9 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
             </a>
           </div>
           <p className="mt-2 text-[12px] text-muted">
-            Send it instead of the next reminder. Payment moves over the invoice&apos;s existing payment link; acceptance
-            and promises are tracked automatically.
+            Attached to this invoice&apos;s ladder automatically — the next reminder carries a
+            &ldquo;Resolve&rdquo; button with this offer. Payment moves over the invoice&apos;s
+            existing payment link; acceptance and promises are tracked automatically.
           </p>
         </div>
       ) : null}

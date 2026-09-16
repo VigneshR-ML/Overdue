@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth/session"
 import { getPlan } from "@/lib/billing/plan"
 import { getInvoicesWithMeta, getReplyThread, getOpenDisputesForInvoice } from "@/lib/db/queries"
 import { InvoiceTable } from "@/components/ledger/invoice-table"
+import { RecoverySteps } from "@/components/ledger/recovery-steps"
 import { AddInvoiceButton } from "@/components/ledger/add-invoice"
 import { ReplyThread } from "@/components/ledger/reply-thread"
 import { SettlementCard } from "@/components/settlements/settlement-card"
@@ -47,6 +48,7 @@ export default async function InvoicesPage({
           </Link>
         </div>
       ) : null}
+      <RecoverySteps />
       <InvoiceTable invoices={invoices} focusId={focus} />
       {focus ? <SettlementCard invoiceId={focus} /> : null}
       {replyThread ? <ReplyThread replies={replyThread} disputes={openDisputes ?? []} /> : null}

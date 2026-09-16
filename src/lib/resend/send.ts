@@ -55,6 +55,9 @@ export function renderEscalationEmail(opts: {
   companyName: string
   paymentUrl?: string | null
   amountLabel?: string | null
+  /** Live settlement offer: rendered as a "Resolve for X" button (ladder-attached). */
+  resolutionUrl?: string | null
+  resolutionLabel?: string | null
 }) {
   const paragraphs = opts.body
     .split(/\n+/)
@@ -67,6 +70,11 @@ export function renderEscalationEmail(opts: {
       ? `<p style="margin:22px 0 6px 0;"><a href="${esc(opts.paymentUrl)}" style="display:inline-block;background:#1D1B17;color:#FFFFFF;text-decoration:none;font-family:monospace;font-size:13px;letter-spacing:0.5px;padding:12px 26px;border-radius:8px;">Pay${opts.amountLabel ? ` ${esc(opts.amountLabel)}` : ""} →</a></p>
          <p style="margin:0 0 14px 0;font-size:12px;color:#6E685D;">Secure payment · takes under a minute</p>`
       : ""
+  const resolutionButton =
+    opts.resolutionUrl && /^https?:\/\//i.test(opts.resolutionUrl)
+      ? `<p style="margin:22px 0 6px 0;"><a href="${esc(opts.resolutionUrl)}" style="display:inline-block;background:#2F5D50;color:#FFFFFF;text-decoration:none;font-family:monospace;font-size:13px;letter-spacing:0.5px;padding:12px 26px;border-radius:8px;">${opts.resolutionLabel ? esc(opts.resolutionLabel) : "Resolve this invoice"} →</a></p>
+         <p style="margin:0 0 14px 0;font-size:12px;color:#6E685D;">Accept the settlement, promise a date, or report an issue — no login needed</p>`
+      : ""
 
   return `<!doctype html>
 <html>
@@ -77,6 +85,7 @@ export function renderEscalationEmail(opts: {
           <div style="font-family:monospace;font-size:12px;letter-spacing:1.5px;color:#A7A091;margin-bottom:24px;">OVERDUE &middot; ${esc(opts.companyName.toUpperCase())}</div>
           ${paragraphs}
           ${payButton}
+          ${resolutionButton}
           <p style="margin:22px 0 0 0;font-size:12px;color:#6E685D;">Sent by Overdue &middot; ${esc(opts.senderName)} &middot; to ${esc(opts.senderName)}'s client</p>
         </td></tr></table>
       </td></tr>
