@@ -28,7 +28,34 @@ export async function POST(request: NextRequest) {
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
 
   const eventType = event?.eventType ?? ""
-  const data = (event?.data ?? {}) as PaddleEventData
+  // The SDK unmarshals webhook JSON into camelCase entity instances
+  // (customData, customerId, currentBillingPeriod…), while our billing code
+  // reads Paddle's snake_case API shape. Normalize at the boundary so both
+  // work — this exact mismatch silently skipped activation (events resolved
+  // to no user) until it was caught from a stored payload.
+  const raw = JSON.parse(JSON.stringify(event?.data ?? {})) as Record<string, any>
+  const periodOf = (snake: unknown, camel: unknown): { ends_at?: string | null; starts_at?: string | null } | null => {
+    if (snake && typeof snake === "object") return snake as { ends_at?: string | null; starts_at?: string | null }
+    if (camel && typeof camel === "object") {
+      const c = camel as Record<string, unknown>
+      return { ends_at: (c.endsAt ?? c.ends_at ?? null) as string | null, starts_at: (c.startsAt ?? c.starts_at ?? null) as string | null }
+    }
+    return null
+  }
+  const data = {
+    id: raw.id ?? null,
+    customer_id: raw.customer_id ?? raw.customerId ?? null,
+    status: raw.status ?? null,
+    custom_data: raw.custom_data ?? raw.customData ?? null,
+    customer: raw.customer ?? null,
+    items: Array.isArray(raw.items)
+      ? raw.items.map((i: { price?: { id?: unknown } | null }) => ({ price: { id: i?.price?.id ?? null } }))
+      : null,
+    current_billing_period: periodOf(raw.current_billing_period, raw.currentBillingPeriod),
+    next_billing_period: periodOf(raw.next_billing_period, raw.nextBillingPeriod),
+    canceled_at: raw.canceled_at ?? raw.canceledAt ?? null,
+    paused_at: raw.paused_at ?? raw.pausedAt ?? null,
+  } as PaddleEventData
   if (!eventType) {
     return NextResponse.json({ ok: true, skipped: "no event" })
   }
