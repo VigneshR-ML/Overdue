@@ -144,7 +144,7 @@ export function PlanManager({
                 <p className="font-mono text-[11px] text-faint">Loading checkout…</p>
               )}
               <p className="font-mono text-[11px] text-faint">
-                Billed by Paddle (merchant of record) · works without a US entity · sales tax handled
+                Billed by Paddle (merchant of record) · price shown in your local currency at checkout · sales tax handled
               </p>
             </div>
           )}

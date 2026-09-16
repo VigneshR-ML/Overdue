@@ -32,6 +32,48 @@ export async function verifyPaddleWebhook(rawBody: string, signature: string): P
   }
 }
 
+/** One-line summary of a Paddle SDK error for server logs (no secrets). */
+function paddleErrorDetails(e: unknown): string {
+  if (e && typeof e === "object") {
+    const err = e as { message?: unknown; code?: unknown; detail?: unknown; errors?: unknown }
+    try {
+      const s = JSON.stringify({ message: err.message, code: err.code, detail: err.detail, errors: err.errors })
+      if (s && s !== "{}") return s.slice(0, 2000)
+    } catch {
+      // fall through to plain message
+    }
+    return String(err.message ?? e).slice(0, 500)
+  }
+  return String(e).slice(0, 500)
+}
+
+/**
+ * Finds the Paddle customer by email, creating one when missing. The
+ * transaction API only accepts an existing `customerId` (no inline
+ * customer), so this must run before creating the checkout transaction.
+ */
+async function resolvePaddleCustomerId(
+  client: Paddle,
+  email: string,
+  name?: string,
+): Promise<string | undefined> {
+  const lower = email.toLowerCase()
+  try {
+    const firstPage = await client.customers.list({ search: email }).next()
+    const match = firstPage.find((c) => c?.email?.toLowerCase() === lower) ?? firstPage[0]
+    if (match?.id) return match.id
+  } catch (e) {
+    console.error("[paddle] customer lookup failed:", paddleErrorDetails(e))
+  }
+  try {
+    const created = await client.customers.create({ email, ...(name ? { name } : {}) })
+    if (created?.id) return created.id
+  } catch (e) {
+    console.error("[paddle] customer create failed:", paddleErrorDetails(e))
+  }
+  return undefined
+}
+
 /** Hosted checkout for Pro, keyed to the session user via custom_data. */
 export async function createPaddleCheckout(opts: {
   userId: string
@@ -43,9 +85,10 @@ export async function createPaddleCheckout(opts: {
   if (!client || !priceId) return null
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")
   try {
+    const customerId = opts.email ? await resolvePaddleCustomerId(client, opts.email, opts.name) : undefined
     const transaction = await client.transactions.create({
       items: [{ priceId, quantity: 1 }],
-      customer: opts.email ? { email: opts.email } : undefined,
+      ...(customerId ? { customerId } : {}),
       customData: { app_user_id: opts.userId },
       ...(appUrl
         ? {
@@ -54,15 +97,18 @@ export async function createPaddleCheckout(opts: {
             },
           }
         : {}),
-    } as never)
-    const tx = transaction as unknown as {
-      id?: string
-      checkout?: { url?: string }
+    })
+    const url = transaction?.checkout?.url ?? null
+    if (!url) {
+      console.error(
+        "[paddle] transaction created without checkout url:",
+        JSON.stringify({ id: transaction?.id, status: (transaction as { status?: unknown })?.status }),
+      )
+      return null
     }
-    if (!tx?.checkout?.url) return null
-    return { url: tx.checkout.url, transactionId: tx.id }
+    return { url, transactionId: transaction.id }
   } catch (e) {
-    console.error("[paddle] createPaddleCheckout failed:", e)
+    console.error("[paddle] createPaddleCheckout failed:", paddleErrorDetails(e))
     return null
   }
 }

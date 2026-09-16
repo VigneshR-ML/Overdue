@@ -5,12 +5,17 @@ import { Analytics } from "@vercel/analytics/next"
 import { AuthCodeHandler } from "@/components/auth/auth-code-handler"
 import "./globals.css"
 
+// Only the body font (Figtree) is preloaded — it renders above-the-fold text
+// on every page. Fraunces (display) and Plex Mono (accents) load on demand
+// via font-display: swap; preloading them triggered "preloaded but not used"
+// console warnings because they aren't applied within the first seconds.
 const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-fraunces",
   style: ["normal", "italic"],
   axes: ["SOFT", "WONK", "opsz"],
   display: "swap",
+  preload: false,
 })
 
 const figtree = Figtree({
@@ -24,6 +29,7 @@ const plexMono = IBM_Plex_Mono({
   weight: ["400", "500"],
   variable: "--font-mono",
   display: "swap",
+  preload: false,
 })
 
 export const metadata: Metadata = {

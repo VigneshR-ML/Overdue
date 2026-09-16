@@ -24,7 +24,11 @@ export async function POST(_request: NextRequest) {
   if (isPaddleBillingConfigured()) {
     const created = await createPaddleCheckout({ userId: user!.id, email: user!.email ?? undefined })
     if (created) return NextResponse.json({ ok: true, url: created.url, provider: "paddle" })
-    return NextResponse.json({ ok: false, error: "Couldn't create checkout — try again." }, { status: 500 })
+    // Paddle is configured but the API call failed (see server logs) — fall
+    // through to Dodo so the user still gets a working checkout.
+    console.error("[billing] Paddle checkout failed, trying Dodo fallback")
+  } else {
+    console.error("[billing] Paddle not configured, trying Dodo fallback")
   }
 
   // Fallback: Dodo Payments (kept for existing subscribers / misconfiguration).
