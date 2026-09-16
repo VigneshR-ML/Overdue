@@ -52,8 +52,9 @@ export async function POST(request: NextRequest) {
         event_id: eventId,
         payload: { event_id: eventId, event_type: eventType, data },
       })
-    } catch {
-      // duplicate — already handled concurrently
+    } catch (e) {
+      // duplicate — already handled concurrently (log anything else)
+      console.error("[paddle] webhook_events insert failed:", e instanceof Error ? e.message.slice(0, 200) : "unknown")
     }
   }
 
@@ -64,11 +65,13 @@ export async function POST(request: NextRequest) {
   const customData = (data.custom_data ?? {}) as Record<string, unknown>
   let resolvedUserId: string | null =
     typeof customData.app_user_id === "string" && customData.app_user_id ? customData.app_user_id : null
+  let resolvedVia = resolvedUserId ? "custom_data" : "none"
   const dataAny = data as unknown as { customer?: { email?: string; id?: string } | null; customer_id?: string }
   const email = dataAny.customer?.email ? String(dataAny.customer.email).toLowerCase() : null
   if (!resolvedUserId && email) {
     const { data: profile } = await supabase.from("profiles").select("id").ilike("email", email).maybeSingle()
     resolvedUserId = (profile as { id?: string } | null)?.id ?? null
+    if (resolvedUserId) resolvedVia = "email"
   }
   const customerId = data.customer_id
     ? String(data.customer_id)
@@ -82,13 +85,28 @@ export async function POST(request: NextRequest) {
       .eq("paddle_customer_id", customerId)
       .maybeSingle()
     resolvedUserId = (sub as { user_id?: string } | null)?.user_id ?? null
+    if (resolvedUserId) resolvedVia = "stored_customer_id"
   }
+  console.error(
+    "[paddle] webhook resolve:",
+    JSON.stringify({
+      eventType,
+      eventId: String(eventId).slice(0, 60),
+      objectId: String(objectId).slice(0, 40),
+      via: resolvedVia,
+      hasCustom: Boolean(customData.app_user_id),
+      emailPresent: Boolean(email),
+      customerId,
+      priceId: data?.items?.[0]?.price?.id ?? null,
+    }),
+  )
   if (!resolvedUserId) {
     await record()
     return NextResponse.json({ ok: true, unresolved: true })
   }
 
   const handled = await applyPaddleEvent(supabase, resolvedUserId, eventType, data)
+  console.error("[paddle] webhook applied:", JSON.stringify({ eventType, eventId: String(eventId).slice(0, 60), handled }))
   await record()
 
   return NextResponse.json({ ok: true, handled })
