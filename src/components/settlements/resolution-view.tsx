@@ -31,6 +31,16 @@ const DISPUTE_CATS = [
   "Other",
 ]
 
+// Promise window must mirror the API (resolve/route.ts): date at noon must be
+// in the future and within 60 days. min = tomorrow (today at noon is already
+// past by afternoon, which the server rejects), max = +60 days. Without
+// these the picker accepts dates the server then refuses after submit.
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+const MIN_PROMISE_DATE = isoDate(new Date(Date.now() + 86400000))
+const MAX_PROMISE_DATE = isoDate(new Date(Date.now() + 60 * 86400000))
+
 export function ResolutionView({ offer }: { offer: PublicOffer }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
@@ -47,6 +57,12 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
     setBusy(action)
     setError(null)
     try {
+      if (action === "promise") {
+        const d = String(extra.promiseDate ?? "")
+        if (d < MIN_PROMISE_DATE || d > MAX_PROMISE_DATE) {
+          throw new Error(`Pick a date between ${MIN_PROMISE_DATE} and ${MAX_PROMISE_DATE}.`)
+        }
+      }
       const res = await fetch(`/api/r/${encodeURIComponent(offer.token)}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -173,6 +189,8 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
               <input
                 type="date"
                 value={promiseDate}
+                min={MIN_PROMISE_DATE}
+                max={MAX_PROMISE_DATE}
                 onChange={(e) => setPromiseDate(e.target.value)}
                 className="ml-2 h-9 rounded-md border border-hairline bg-paper px-2 font-mono text-[13px]"
               />
