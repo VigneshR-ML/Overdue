@@ -19,11 +19,12 @@ export function usePaddleCheckout() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       })
-      const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string }
+      const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string; provider?: string }
       if (!res.ok || !json.url) {
         setError(json.error || "Checkout isn't configured yet. Try again later.")
         return
       }
+      if (json.provider) console.info("[billing] redirecting via", json.provider)
       // Persist identity for the billing-page reconcile in case the redirect
       // races the webhook.
       try {
