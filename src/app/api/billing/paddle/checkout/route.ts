@@ -23,7 +23,11 @@ export async function POST(_request: NextRequest) {
 
   if (isPaddleBillingConfigured()) {
     const created = await createPaddleCheckout({ userId: user!.id, email: user!.email ?? undefined })
-    if (created) return NextResponse.json({ ok: true, url: created.url, provider: "paddle" })
+    // transactionId lets the client open the Paddle.js overlay directly;
+    // url (our page + ?_ptxn=) is the fallback landing that auto-opens it.
+    if (created) {
+      return NextResponse.json({ ok: true, url: created.url, transactionId: created.transactionId ?? null, provider: "paddle" })
+    }
     // Paddle is configured but the API call failed (see server logs) — fall
     // through to Dodo so the user still gets a working checkout.
     console.error("[billing] Paddle checkout failed, trying Dodo fallback")

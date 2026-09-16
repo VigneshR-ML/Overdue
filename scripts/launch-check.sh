@@ -54,6 +54,7 @@ check_required "PADDLE_API_KEY"
 check_required "PADDLE_WEBHOOK_SECRET"
 check_required "PADDLE_ENVIRONMENT"
 check_required "PADDLE_PRICE_PRO_MONTHLY"
+check_required "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN"
 
 echo "--- Dodo Payments billing, FALLBACK (required while fallback kept) ---"
 check_required "DODO_PAYMENTS_API_KEY"
