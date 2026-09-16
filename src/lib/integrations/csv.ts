@@ -1,17 +1,44 @@
 import type { InboundInvoice } from "./provider"
 
-// Expected header order for the CSV importer.
-export const CSV_HEADERS = [
-  "client_name",
-  "client_email",
-  "number",
-  "amount",
-  "currency",
-  "issue_date",
-  "due_date",
-  "status",
-  "payment_url",
-] as const
+// Messy-header tolerant column lookup. Headers are normalized (lowercased,
+// non-alphanumerics stripped: "Balance Owed ($)" -> "balanceowed") and then
+// matched against alias sets, so exports from other tools map without the
+// AI/smart-CSV step. Every previously-supported exact key normalizes to one
+// of these aliases (e.g. "client_name" -> "clientname"), so old files parse
+// exactly as before.
+const HEADER_ALIASES: Record<string, string[]> = {
+  client_name: [
+    "clientname", "client", "customer", "customername", "billto", "billtocompany",
+    "contact", "contactname", "company", "companyname", "name", "soldto",
+  ],
+  client_email: [
+    "clientemail", "email", "contactemail", "emailaddress", "emailid", "mail",
+  ],
+  number: [
+    "number", "invoicenumber", "invoiceno", "invno", "invnum", "invnumber",
+    "invoice", "invoiceref", "invoicereference", "reference", "ref", "refno", "id",
+  ],
+  amount: [
+    "amount", "total", "balance", "balanceowed", "amountowed", "amountdue",
+    "totaldue", "totalamount", "balancedue", "owed", "owing", "sum", "value",
+    "price", "invoicetotal", "grandtotal", "dueamount", "netamount",
+    "outstanding", "openbalance",
+  ],
+  currency: ["currency", "curr", "ccy", "currencycode", "cur"],
+  issue_date: [
+    "issuedate", "issued", "issue", "created", "createdon", "raised",
+    "raisedon", "invoicedate", "dateissued", "orderdate", "date",
+  ],
+  due_date: [
+    "duedate", "due", "payby", "paymentdue", "deadline", "expires", "expiry",
+    "dudate", "paymentdeadline",
+  ],
+  status: ["status", "state", "paymentstatus", "invoicestatus"],
+  payment_url: [
+    "paymenturl", "paylink", "paymentlink", "link", "url", "payurl",
+    "checkouturl", "paynow",
+  ],
+}
 
 export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: string[] } {
   const errors: string[] = []
@@ -23,8 +50,10 @@ export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: str
   let cur = ""
   let inQ = false
   for (const ch of csv) {
-    if (ch === '"') inQ = !inQ
-    else if (ch === "\n") {
+    if (ch === '"') {
+      inQ = !inQ
+      cur += ch // keep quotes: parseRow needs them to honor quoted commas
+    } else if (ch === "\n") {
       if (inQ) cur += ch
       else {
         if (cur.trim()) rows.push(parseRow(cur))
@@ -41,10 +70,25 @@ export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: str
 
   const [header, ...dataRows] = rows
   const cols = header.map((c) => c.trim().toLowerCase())
+  const normCols = header.map((c) => c.toLowerCase().replace(/[^a-z0-9]/g, ""))
+  const colIdx: Record<string, number> = {}
+  for (const key of Object.keys(HEADER_ALIASES)) {
+    colIdx[key] = -1
+    for (const alias of HEADER_ALIASES[key] ?? []) {
+      const i = normCols.indexOf(alias)
+      if (i >= 0) {
+        colIdx[key] = i
+        break
+      }
+    }
+  }
 
   const pick = (row: string[], key: string): string => {
-    const i = cols.indexOf(key)
-    return i >= 0 ? (row[i] ?? "").trim() : ""
+    const i = colIdx[key] ?? -1
+    if (i >= 0) return (row[i] ?? "").trim()
+    // Back-compat: exact legacy keys (e.g. paid_cents) on the raw header.
+    const j = cols.indexOf(key)
+    return j >= 0 ? (row[j] ?? "").trim() : ""
   }
 
   function parseRow(line: string): string[] {
