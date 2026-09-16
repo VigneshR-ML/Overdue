@@ -40,6 +40,19 @@ export async function GET() {
     }
   }
 
+  // Client-side overlay needs NEXT_PUBLIC_PADDLE_CLIENT_TOKEN. Only the
+  // prefix is reported (live_ vs test_ vs missing) — NEXT_PUBLIC_ values ship
+  // in client JS anyway, so this leaks nothing. A test_ token (or missing
+  // token) with a live environment silently falls back to Dodo.
+  const clientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || ""
+  const clientTokenKind = clientToken.startsWith("live_")
+    ? "live"
+    : clientToken.startsWith("test_")
+      ? "test"
+      : clientToken
+        ? "unknown"
+        : "missing"
+
   return NextResponse.json({
     ok: true,
     paddle: {
@@ -48,6 +61,7 @@ export async function GET() {
       priceSet: Boolean(paddlePriceId()),
       reachable: paddleReachable,
       priceStatus: paddlePriceStatus,
+      clientToken: clientTokenKind,
     },
     dodo: {
       configured: isDodoBillingConfigured(),
