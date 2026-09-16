@@ -23,9 +23,12 @@ const PADDLE_JS_URL = "https://cdn.paddle.com/paddle/v2/paddle.js"
 interface PaddleJs {
   Initialize: (opts: {
     token?: string
-    environment?: "sandbox" | "production"
     checkout?: { settings?: Record<string, unknown> }
+    eventCallback?: (data: { name?: string } & Record<string, unknown>) => void
   }) => void
+  Environment?: {
+    set: (env: string) => void
+  }
   Checkout: {
     open: (opts: { transactionId: string; settings?: Record<string, unknown> }) => void
   }
@@ -40,6 +43,44 @@ declare global {
 function paddleEnv(): "sandbox" | "production" {
   const v = (process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT || "sandbox").toLowerCase()
   return v === "live" ? "production" : "sandbox"
+}
+
+/** live_ vs test_ vs missing — safe to log (NEXT_PUBLIC_ ships in client JS). */
+function tokenKind(): string {
+  const t = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || ""
+  if (t.startsWith("live_")) return "live"
+  if (t.startsWith("test_")) return "test"
+  return t ? "unknown" : "missing"
+}
+
+/**
+ * Fire-and-forget beacon so overlay failures land in Vercel server logs
+ * (visible via `vercel logs`) instead of only the buyer's browser console.
+ * Never includes the token itself — kind only.
+ */
+function beaconOverlayFailure(stage: string, message: string, transactionId?: string): void {
+  try {
+    const body = JSON.stringify({
+      stage,
+      message: String(message).slice(0, 500),
+      tokenKind: tokenKind(),
+      env: paddleEnv(),
+      transactionId: transactionId || null,
+    })
+    if (navigator.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" })
+      navigator.sendBeacon("/api/billing/paddle/overlay-error", blob)
+    } else {
+      void fetch("/api/billing/paddle/overlay-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => {})
+    }
+  } catch {
+    // Telemetry must never break checkout.
+  }
 }
 
 function appBaseUrl(): string {
@@ -63,7 +104,27 @@ function ensurePaddle(): Promise<void> {
     const onLoad = () => {
       try {
         if (!window.Paddle) throw new Error("Paddle.js failed to initialize")
-        window.Paddle.Initialize({ token, environment: paddleEnv() })
+        // Script-tag build: environment goes through Paddle.Environment.set
+        // (default is production, so live needs no call). Passing an
+        // `environment` key to Initialize() is not a documented param for
+        // the CDN build, so keep Initialize to token + eventCallback only.
+        if (paddleEnv() === "sandbox" && window.Paddle.Environment) {
+          window.Paddle.Environment.set("sandbox")
+        }
+        window.Paddle.Initialize({
+          token,
+          eventCallback: (data) => {
+            try {
+              const name = String(data?.name || "")
+              if (name === "checkout.error" || name === "checkout.warning") {
+                console.error("[paddle] checkout event:", name, data)
+                beaconOverlayFailure(`event:${name}`, JSON.stringify(data).slice(0, 500))
+              }
+            } catch {
+              // Never let telemetry break checkout.
+            }
+          },
+        })
         resolve()
       } catch (e) {
         reject(e instanceof Error ? e : new Error("Paddle.js failed to initialize"))
@@ -120,7 +181,14 @@ export function usePaddleCheckout() {
       const txn = new URLSearchParams(window.location.search).get("_ptxn")
       if (!txn) return
       openTransaction(txn).catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Couldn't open checkout.")
+        const msg = e instanceof Error ? e.message : "Couldn't open checkout."
+        if (!cancelled) setError(msg)
+        console.error("[paddle] landing overlay failed:", msg, {
+          tokenKind: tokenKind(),
+          env: paddleEnv(),
+          transactionId: txn,
+        })
+        beaconOverlayFailure("landing", msg, txn)
       })
     } catch {
       // No window (SSR) — nothing to do.
@@ -161,10 +229,25 @@ export function usePaddleCheckout() {
       try {
         localStorage.setItem("overdue:paddle_checkout", "1")
       } catch {}
-      // Overlay failed (Paddle.js blocked or no client token): throw so the
-      // caller falls back to Dodo's hosted page, which needs no client JS.
-      await openTransaction(json.transactionId)
+      // Overlay failed (bad token, blocked CDN, slow script): record the
+      // exact stage server-side, then throw so the caller falls back to
+      // Dodo's hosted page, which needs no client JS.
+      try {
+        await openTransaction(json.transactionId)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Couldn't open checkout."
+        console.error("[paddle] overlay open failed:", msg, {
+          tokenKind: tokenKind(),
+          env: paddleEnv(),
+          transactionId: json.transactionId,
+        })
+        beaconOverlayFailure("open", msg, json.transactionId ?? undefined)
+        throw e
+      }
     } catch (e) {
+      if (e instanceof Error && /^Checkout isn't configured/i.test(e.message)) {
+        beaconOverlayFailure("server", e.message)
+      }
       console.error("[paddle] checkout failed:", e)
       if (e instanceof Error && /Paddle\.js|client token|timed out/i.test(e.message)) {
         const msg = "Couldn't load the Paddle checkout. Trying the backup…"
