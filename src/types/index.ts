@@ -152,6 +152,9 @@ export interface Subscription {
   user_id: string
   dodo_subscription_id: string | null
   dodo_customer_id: string | null
+  paddle_subscription_id: string | null
+  paddle_customer_id: string | null
+  billing_provider: "dodo" | "paddle" | null
   product_id: string | null
   plan: "free" | "pro"
   status: "active" | "on_hold" | "paused" | "past_due" | "cancelled" | "failed" | "expired"
@@ -166,6 +169,27 @@ export interface IntegrationRow {
   display_name: string | null
   last_synced_at: string | null
   connected_at: string
+}
+
+export type SettlementBasis = "discount" | "fee_waiver"
+export type SettlementStatus = "approved" | "sent" | "accepted" | "expired" | "paid" | "cancelled"
+
+export interface SettlementOffer {
+  id: string
+  user_id: string
+  invoice_id: string
+  outstanding_cents: number
+  offer_cents: number
+  incentive_cents: number
+  basis: SettlementBasis
+  min_acceptable_cents: number | null
+  max_incentive_bps: number | null
+  fee_basis_confirmed: boolean
+  expires_at: string
+  status: SettlementStatus
+  recommend_meta: Record<string, unknown>
+  created_at: string
+  updated_at: string
 }
 
 export interface UserProfile {

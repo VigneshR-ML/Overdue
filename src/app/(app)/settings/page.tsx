@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth/session"
 import { getProfile } from "@/lib/db/queries"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { AccountDataControls } from "@/components/settings/account-data-controls"
+import { PageHeader } from "@/components/app-shell/page-header"
 
 export const metadata = { title: "Settings" }
 
@@ -15,14 +16,15 @@ export default async function SettingsPage() {
   const profile = await getProfile(session.id)
 
   return (
-    <div className="space-y-5">
-      <header>
-        <h1 className="font-display text-3xl tracking-tight text-ink">Settings</h1>
-        <p className="mt-1 text-sm text-muted">Your account, your integrations, your billing.</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        kicker="Workspace"
+        title="Settings"
+        description="Your account, your integrations, your billing."
+      />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+<Card className="h-full">
           <CardHeader><span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Account</span></CardHeader>
           <CardBody className="space-y-3">
             <div>
@@ -42,7 +44,7 @@ export default async function SettingsPage() {
               <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Invoice sources</span>
             </CardHeader>
             <CardBody className="space-y-3">
-              <p className="text-sm text-muted">Stripe · PayPal · Xero · CSV. Every source shows up in one ledger.</p>
+              <p className="text-sm text-muted">PayPal · Xero · CSV. Every source shows up in one ledger.</p>
               <span className="font-mono text-[12px] text-moss">Configure →</span>
             </CardBody>
           </Card>
@@ -54,7 +56,7 @@ export default async function SettingsPage() {
               <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Billing</span>
             </CardHeader>
             <CardBody className="space-y-3">
-              <p className="text-sm text-muted">Free or Pro. Your plan, your payment history — via Dodo Payments.</p>
+              <p className="text-sm text-muted">Free or Pro. Your plan, your payment history — via Paddle.</p>
               <span className="font-mono text-[12px] text-moss">Manage →</span>
             </CardBody>
           </Card>

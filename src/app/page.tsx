@@ -35,11 +35,11 @@ const FAQS = [
   },
   {
     q: "Which invoice tools do you connect to?",
-    a: "Stripe, PayPal and Xero sync automatically. If you bill from anywhere else, the CSV import maps your invoices in under a minute. A manual catch-all still works.",
+    a: "PayPal and Xero sync automatically. If you bill from anywhere else, the CSV import maps your invoices in under a minute. A manual catch-all still works.",
   },
   {
     q: "Who pays and where does the money go?",
-    a: "Overdue bills you through Dodo Payments, a merchant of record that works for solo founders worldwide (including India — no separate entity needed) and handles sales tax everywhere. Your client payments still land exactly where they do today.",
+    a: "Overdue bills you through Paddle, a merchant of record that works for solo founders worldwide (including India — no separate entity needed) and handles sales tax everywhere. Your client payments still land exactly where they do today.",
   },
   {
     q: "Can I cancel anytime?",
@@ -82,7 +82,6 @@ export default function LandingPage() {
               </a>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[12px] uppercase tracking-[0.12em] text-muted">
-              <span>Stripe</span><span className="text-hairline">/</span>
               <span>PayPal</span><span className="text-hairline">/</span>
               <span>Xero</span><span className="text-hairline">/</span>
               <span>any CSV</span>
@@ -129,7 +128,7 @@ export default function LandingPage() {
             {
               n: "01",
               title: "Connect your numbers",
-              body: "Stripe, PayPal, Xero — or drop in a CSV. Your unpaid invoices appear in the ledger automatically.",
+              body: "PayPal, Xero — or drop in a CSV. Your unpaid invoices appear in the ledger automatically.",
             },
             {
               n: "02",
@@ -255,7 +254,7 @@ export default function LandingPage() {
             <div className="font-display text-xl text-ink">Pro</div>
             <div className="mt-3 font-mono text-[15px] text-muted"><ProPrice className="font-display text-3xl text-ink" /> / month</div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["Unlimited clients & ladders", "Stripe + PayPal + Xero sync", "Escalation engine on autopilot", "AI drafting, human-voiced", "Reply-detection & pause", "Payment-history scoring"].map((f) => (
+              {["Unlimited clients & ladders", "PayPal + Xero sync", "Escalation engine on autopilot", "AI drafting, human-voiced", "Reply-detection & pause", "Payment-history scoring"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>

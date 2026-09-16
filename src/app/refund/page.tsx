@@ -18,11 +18,11 @@ const SECTIONS = [
   },
   {
     h: "3. How refunds are handled",
-    b: "Dodo Payments is our merchant of record, so payments, refunds, sales tax, and payment disputes are handled by Dodo Payments. Within the first 30 days we authorize a full refund in the amount you paid. After that, refunds for automatic renewals are handled under Dodo Payments' terms.",
+    b: "Paddle is our merchant of record, so payments, refunds, sales tax, and payment disputes are handled by Paddle. Within the first 30 days we authorize a full refund in the amount you paid. After that, refunds for automatic renewals are handled under Paddle's terms.",
   },
   {
     h: "4. Chargebacks & disputes",
-    b: "If you open a dispute with your bank, we receive it via Dodo Payments. We will always try to resolve it with you directly first — email us before opening a chargeback and we'll work it out. Free plan users never pay anything, so refunds don't apply there.",
+    b: "If you open a dispute with your bank, we receive it via Paddle. We will always try to resolve it with you directly first — email us before opening a chargeback and we'll work it out. Free plan users never pay anything, so refunds don't apply there.",
   },
   {
     h: "5. Contact",

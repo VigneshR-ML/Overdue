@@ -4,6 +4,7 @@ import { computeClientPaymentScores, getUrgencyQueue, getInsights, getRecoveryQu
 import { formatMoney, formatDate } from "@/lib/utils/format"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/app-shell/page-header"
 import { cn } from "@/lib/utils/format"
 
 export const metadata = { title: "Insights" }
@@ -49,14 +50,12 @@ export default async function InsightsPage() {
   const riskTotal = Math.max(1, recovery.length)
 
   return (
-    <div className="space-y-5">
-      <header>
-        <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Under the hood</div>
-        <h1 className="mt-1 font-display text-3xl tracking-tight text-ink">Insights</h1>
-        <p className="mt-1 text-sm text-muted">
-          Who pays on time, who doesn't, what that costs you — and what the ledger says is coming next.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        kicker="Under the hood"
+        title="Insights"
+        description="Who pays on time, who doesn't, what that costs you — and what the ledger says is coming next."
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

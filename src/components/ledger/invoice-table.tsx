@@ -142,7 +142,7 @@ export function InvoiceTable({
     return (
       <EmptyState
         title="No invoices yet"
-        description="Sync from Stripe, PayPal or Xero, or import a CSV from the settings."
+        description="Sync from PayPal or Xero, or import a CSV from the settings."
         icon={null}
         action={
           <Link href="/settings/integrations">
@@ -243,6 +243,13 @@ export function InvoiceTable({
                       <Button variant="ghost" size="sm" onClick={(e) => markPaid(e, inv.id)}>
                         Mark paid
                       </Button>
+                      <Link
+                        href={`/invoices?focus=${encodeURIComponent(inv.id)}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium text-moss hover:bg-hairline/60"
+                      >
+                        Settle
+                      </Link>
                     </span>
                   )}
                 </td>

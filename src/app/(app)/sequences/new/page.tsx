@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { getTemplates } from "@/lib/db/queries"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/app-shell/page-header"
 import { ArrowLeft } from "lucide-react"
 import { TonePill } from "@/components/ledger/escalation-ladder"
 import type { SequenceStep } from "@/types"
@@ -93,15 +94,15 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Link href="/sequences" className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted hover:text-ink">
         <ArrowLeft className="h-3.5 w-3.5" /> Ladders
       </Link>
 
-      <header>
-        <h1 className="font-display text-3xl tracking-tight text-ink">New ladder</h1>
-        <p className="mt-1 text-sm text-muted">Start from a proven template — tweak the rungs after.</p>
-      </header>
+      <PageHeader
+        title="New ladder"
+        description="Start from a proven template — tweak the rungs after."
+      />
 
       {preset ? (
         <form action={createFromTemplate} className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">

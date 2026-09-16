@@ -24,7 +24,7 @@ const SECTIONS = [
   },
   {
     h: "4. Invoice integrations (OAuth scopes)",
-    b: "Stripe connects via Stripe Connect OAuth (read access to invoices). Xero uses OAuth2 requesting only accounting.transactions.read, accounting.contacts.read and offline_access (token refresh). PayPal uses your own API credentials, stored per-user. We request the minimum scopes needed to sync invoices — never payouts, never bank access.",
+    b: "Xero uses OAuth2 requesting only accounting.transactions.read, accounting.contacts.read and offline_access (token refresh). PayPal uses your own API credentials, stored per-user. We request the minimum scopes needed to sync invoices — never payouts, never bank access.",
   },
   {
     h: "5. Credentials at rest",
@@ -36,7 +36,7 @@ const SECTIONS = [
   },
   {
     h: "7. Webhooks are signed",
-    b: "Every inbound webhook (Dodo Payments, Resend, Stripe, PayPal, Xero, reply detection, cron dispatch) is verified by HMAC signature or shared secret before anything happens. Unsigned or replayed requests are rejected with 401, and processed events are deduplicated in an idempotency ledger.",
+    b: "Every inbound webhook (Paddle, Resend, PayPal, Xero, reply detection, cron dispatch) is verified by HMAC signature or shared secret before anything happens. Unsigned or replayed requests are rejected with 401, and processed events are deduplicated in an idempotency ledger.",
   },
   {
     h: "8. AI drafting",
@@ -44,7 +44,7 @@ const SECTIONS = [
   },
   {
     h: "9. Payments",
-    b: "Dodo Payments is our merchant of record: card numbers, tax handling and refunds run through Dodo Payments, never our servers. We store only your plan, status and subscription ids.",
+    b: "Paddle is our merchant of record: card numbers, tax handling and refunds run through Paddle, never our servers. We store only your plan, status and subscription ids.",
   },
   {
     h: "10. Retention & deletion",

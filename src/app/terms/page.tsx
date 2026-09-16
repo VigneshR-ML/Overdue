@@ -18,11 +18,11 @@ const SECTIONS = [
   },
   {
     h: "3. Merchant of record",
-    b: "Dodo Payments is our merchant of record. When you buy Pro, your payment contract is with Dodo Payments, which handles charges, refunds, sales tax, and payment disputes. Pro is billed monthly and renews automatically until cancelled. You can cancel at any time from the billing page; access continues until the paid period ends.",
+    b: "Paddle is our merchant of record. When you buy Pro, your payment contract is with Paddle, which handles charges, refunds, sales tax, and payment disputes. Pro is billed monthly and renews automatically until cancelled. You can cancel at any time from the billing page; access continues until the paid period ends.",
   },
   {
     h: "4. 30-day refund",
-    b: "If Pro does not work out within the first 30 days, contact us and we will refund it in full. After that, refunds are handled under Dodo Payments' terms.",
+    b: "If Pro does not work out within the first 30 days, contact us and we will refund it in full. After that, refunds are handled under Paddle's terms.",
   },
   {
     h: "5. Fair use",
@@ -38,7 +38,7 @@ const SECTIONS = [
   },
   {
     h: "8. Contact",
-    b: "Questions about these terms: hello@getoverdue.online. This service is operated from India with customers worldwide; e-commerce is facilitated by Dodo Payments as merchant of record.",
+    b: "Questions about these terms: hello@getoverdue.online. This service is operated from India with customers worldwide; e-commerce is facilitated by Paddle as merchant of record.",
   },
 ]
 

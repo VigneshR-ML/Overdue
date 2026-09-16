@@ -3,6 +3,38 @@ import { cookies } from "next/headers"
 type SessionUser = { id: string; email: string }
 
 /**
+ * Replaces the Supabase session cookie's storage key with a regex-compatible
+ * marker so we can match both the whole cookie (`sb-<ref>-auth-token`) and its
+ * chunked variants (`sb-<ref>-auth-token.0`, `.1`, …).
+ */
+const CHUNK_COOKIE_RE = /^sb-.+-auth-token(?:\.\d+)?$/
+
+/**
+ * Joins a possibly chunked session cookie back into a single value, mirroring
+ * @supabase/ssr's `combineChunks` (a session payload >3180 bytes is split
+ * across `sb-<ref>-auth-token.{0,1,…}`, each holding a slice of the value).
+ */
+function combineCookieChunks(cookies: readonly { name: string; value: string }[]): {
+  baseKey: string
+  value: string
+} | null {
+  const found = cookies.filter((c) => CHUNK_COOKIE_RE.test(c.name))
+  if (!found.length) return null
+
+  const baseKey = found[0].name.replace(/\.\d+$/, "")
+  const direct = found.find((c) => c.name === baseKey)
+  if (direct) return { baseKey, value: direct.value }
+
+  let value = ""
+  for (let i = 0; ; i++) {
+    const chunk = found.find((c) => c.name === `${baseKey}.${i}`)
+    if (!chunk) break
+    value += chunk.value
+  }
+  return value ? { baseKey, value } : null
+}
+
+/**
  * Decodes the signed-in user's id + email straight from a Supabase auth cookie
  * (a JSON-encoded access token), without a round trip to the auth server.
  *
@@ -10,9 +42,7 @@ type SessionUser = { id: string; email: string }
  * from its own source (next/headers `cookies()` vs `request.cookies`).
  */
 export function decodeSessionUser(cookies: readonly { name: string; value: string }[]): SessionUser | null {
-  const authCookie = cookies.find(
-    (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"),
-  )
+  const authCookie = combineCookieChunks(cookies)
   if (!authCookie?.value) return null
 
   try {

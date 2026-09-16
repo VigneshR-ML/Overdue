@@ -89,7 +89,7 @@ async function refreshStripeIfNeeded(userId: string) {
           refresh_token: token.refresh_token ?? fresh.refresh_token,
         })
       } else {
-        console.error("[sync] Stripe token refresh failed:", res.status, token)
+        console.error("[sync] Stripe token refresh failed:", res.status)
       }
     } catch (e) {
       console.error("[sync] Stripe token refresh error:", e)

@@ -11,6 +11,7 @@
  */
 
 import { detectPromise, detectPromiseHeuristic, resolvePromiseDate } from "@/lib/ai/promise"
+import { chatJsonWithFallback } from "@/lib/ai/providers"
 import type { ReplyClassification } from "@/types"
 
 export interface ReplyClassificationResult {
@@ -234,64 +235,53 @@ function disputeReason(lower: string): string {
 }
 
 async function classifyLlm(text: string): Promise<ReplyClassificationResult | null> {
-  const apiKey = process.env.LLM_API_KEY
-  if (!apiKey) return null
   const today = new Date().toISOString().slice(0, 10)
-  try {
-    const res = await fetch(
-      `${(process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: process.env.LLM_MODEL ?? "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: [
-                "You classify replies to invoice payment reminders.",
-                `Today is ${today}.`,
-                "Classes: paid (says payment was just submitted/processed), already_paid (claims it was paid earlier — needs verification), promise (commits to pay on a specific day → put the resolved YYYY-MM-DD in date), dispute (challenges amount/receipt/PO/quote → put a short reason), payment_plan (proposes installments/partial), question, wrong_recipient (says it is not for them), angry (tense/escalating), needs_human (legal/collections/threats), other.",
-                "Reply ONLY as JSON: {\"classification\":\"...\",\"confidence\":0-100,\"date\":\"YYYY-MM-DD\"|null,\"amount_cents\":number|null,\"reason\":string|null,\"note\":string|null}.",
-                "For disputes, set amount_cents to the challenged dollar figure if one appears. Never invent amounts or dates not in the reply.",
-              ].join("\n"),
-            },
-            { role: "user", content: text.slice(0, 2000) },
-          ],
-          temperature: 0,
-          max_tokens: 250,
-          response_format: { type: "json_object" },
-        }),
-        next: { revalidate: 0 },
-      },
-    )
-    if (!res.ok) return null
-    const json = await res.json()
-    const parsed = JSON.parse(json?.choices?.[0]?.message?.content ?? "{}")
-    const classification = String(parsed.classification ?? "")
-    const valid = [
-      "paid", "promise", "dispute", "question", "payment_plan",
-      "already_paid", "wrong_recipient", "angry", "needs_human", "other",
-    ]
-    if (!valid.includes(classification)) return null
-    const confidence = Math.max(0, Math.min(100, Math.round(Number(parsed.confidence ?? 50))))
-    const date = typeof parsed.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ? parsed.date : null
-    const amountCents =
-      typeof parsed.amount_cents === "number" && Number.isFinite(parsed.amount_cents)
-        ? Math.round(parsed.amount_cents)
-        : null
-    return {
-      classification: classification as ReplyClassification,
-      confidence,
-      source: "llm",
-      date,
-      amountCents,
-      reason: typeof parsed.reason === "string" ? parsed.reason.slice(0, 160) || null : null,
-      note: typeof parsed.note === "string" ? parsed.note.slice(0, 160) || null : clip(text),
-    }
-  } catch {
-    return null
-  }
+  const { value } = await chatJsonWithFallback(
+    {
+      messages: [
+        {
+          role: "system",
+          content: [
+            "You classify replies to invoice payment reminders.",
+            `Today is ${today}.`,
+            "Classes: paid (says payment was just submitted/processed), already_paid (claims it was paid earlier — needs verification), promise (commits to pay on a specific day → put the resolved YYYY-MM-DD in date), dispute (challenges amount/receipt/PO/quote → put a short reason), payment_plan (proposes installments/partial), question, wrong_recipient (says it is not for them), angry (tense/escalating), needs_human (legal/collections/threats), other.",
+            "Reply ONLY as JSON: {\"classification\":\"...\",\"confidence\":0-100,\"date\":\"YYYY-MM-DD\"|null,\"amount_cents\":number|null,\"reason\":string|null,\"note\":string|null}.",
+            "For disputes, set amount_cents to the challenged dollar figure if one appears. Never invent amounts or dates not in the reply.",
+          ].join("\n"),
+        },
+        { role: "user", content: text.slice(0, 2000) },
+      ],
+      temperature: 0,
+      maxTokens: 250,
+    },
+    (parsed: unknown) => {
+      const p = parsed as Record<string, unknown>
+      const classification = String(p?.classification ?? "")
+      const valid = [
+        "paid", "promise", "dispute", "question", "payment_plan",
+        "already_paid", "wrong_recipient", "angry", "needs_human", "other",
+      ]
+      if (!valid.includes(classification)) return null
+      const confidence = Math.max(0, Math.min(100, Math.round(Number(p?.confidence ?? 50))))
+      const date = typeof p?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.date) ? p.date : null
+      const amountCents =
+        typeof p?.amount_cents === "number" && Number.isFinite(p.amount_cents)
+          ? Math.round(p.amount_cents)
+          : null
+      const reason = typeof p?.reason === "string" ? p.reason.slice(0, 160) || null : null
+      const note = typeof p?.note === "string" ? p.note.slice(0, 160) || null : clip(text)
+      return {
+        classification: classification as ReplyClassification,
+        confidence,
+        source: "llm" as const,
+        date,
+        amountCents,
+        reason,
+        note,
+      }
+    },
+  )
+  return value
 }
 
 /**

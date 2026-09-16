@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { verifyStripeSignature, markInvoicePaid, alreadyHandled, recordEvent, resolveInvoiceOwner } from "@/lib/integrations/paid-webhooks"
+import { STRIPE_ENABLED } from "@/lib/integrations/stripe-flag"
 
 export const dynamic = "force-dynamic"
 
@@ -14,6 +15,10 @@ const PAID_TYPES = new Set(["invoice.paid", "invoice.payment_succeeded"])
  * events invoice.paid (and invoice.payment_succeeded for legacy).
  */
 export async function POST(request: NextRequest) {
+  if (!STRIPE_ENABLED) {
+    return NextResponse.json({ ok: false, error: "Stripe is not enabled" }, { status: 404 })
+  }
+
   const rawBody = await request.text()
   const signature = request.headers.get("stripe-signature") ?? ""
   if (!verifyStripeSignature(signature, rawBody)) {

@@ -3,5 +3,18 @@
   "plugin": ["@dodopayments/opencode-plugin"],
   "skills": {
     "paths": ["node_modules/@dodopayments/opencode-plugin/skills"]
+  },
+  "mcp": {
+    "stripe": {
+      "type": "local",
+      "command": ["npx", "-y", "@stripe/mcp@latest"],
+      "enabled": true,
+      "environment": {}
+    },
+    "paddle-live": {
+      "type": "remote",
+      "url": "https://mcp.paddle.com/mcp",
+      "enabled": true
+    }
   }
 }

@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getDodoClient } from "@/lib/dodo/server"
 import { proProductId } from "@/lib/dodo/helpers"
+import { getPaddleClient } from "@/lib/paddle/server"
+import { paddlePriceId, isPaddleBillingConfigured } from "@/lib/paddle/helpers"
 
 /**
  * Server-side reconciliation between Dodo Payments (source of truth) and the
@@ -174,4 +176,188 @@ export async function attachDodoCustomerId(userId: string, customerId: string) {
     .update({ dodo_customer_id: String(customerId) })
     .eq("user_id", userId)
     .is("dodo_customer_id", null)
+}
+
+// ---------------------------------------------------------------------------
+// Paddle reconciliation (primary merchant of record; Dodo above is the fallback).
+// ---------------------------------------------------------------------------
+
+export interface PaddleCustomer {
+  id: string
+  email: string
+  name?: string | null
+}
+
+export interface PaddleSubscription {
+  id: string
+  customerId?: string | null
+  status?: string | null
+  customData?: Record<string, unknown> | null
+  items?: Array<{ price?: { id?: string } }> | null
+  currentBillingPeriod?: { endsAt?: string | null } | null
+  nextBillingPeriod?: { startsAt?: string | null } | null
+}
+
+const PADDLE_PREFERRED = new Set(["active", "trialing", "past_due", "paused", "on_hold"])
+
+export function mapPaddleStatus(raw?: string | null): string {
+  const s = (raw ?? "active").toLowerCase()
+  if (s === "trialing") return "active"
+  if (s === "on_hold") return "on_hold"
+  if (s === "paused") return "paused"
+  if (s === "past_due") return "past_due"
+  if (s === "canceled" || s === "cancelled") return "cancelled"
+  if (s === "expired") return "expired"
+  return "active"
+}
+
+function planForPaddleSub(sub: PaddleSubscription): "free" | "pro" {
+  const want = paddlePriceId()
+  const got = sub?.items?.[0]?.price?.id
+  if (!want || got === undefined || got === null) return "free"
+  return String(got) === String(want) ? "pro" : "free"
+}
+
+export async function findPaddleCustomerByEmail(email: string): Promise<{ id: string } | null> {
+  const client = getPaddleClient()
+  if (!client || !email) return null
+  try {
+    const page = await client.customers.list({ search: email } as never) as unknown as {
+      data?: PaddleCustomer[]
+    }
+    const match = (page?.data ?? []).find((c) => c.email?.toLowerCase() === email.toLowerCase()) ?? page?.data?.[0]
+    return match?.id ? { id: match.id } : null
+  } catch (e) {
+    console.error("[paddle] findPaddleCustomerByEmail failed:", e)
+    return null
+  }
+}
+
+export async function findPaddleSubscriptions(customerId: string): Promise<PaddleSubscription[]> {
+  const client = getPaddleClient()
+  if (!client || !customerId) return []
+  try {
+    const page = (await client.subscriptions.list({ customerId } as never)) as unknown as {
+      data?: Array<Record<string, unknown>>
+    }
+    return ((page?.data ?? []) as Array<Record<string, unknown>>).map((s) => ({
+      id: String(s.id ?? ""),
+      customerId: (s.customerId as string | undefined) ?? customerId,
+      status: (s.status as string | undefined) ?? null,
+      customData: (s.customData as Record<string, unknown> | undefined) ?? null,
+      items: (s.items as PaddleSubscription["items"]) ?? null,
+      currentBillingPeriod: (s.currentBillingPeriod as PaddleSubscription["currentBillingPeriod"]) ?? null,
+      nextBillingPeriod: (s.nextBillingPeriod as PaddleSubscription["nextBillingPeriod"]) ?? null,
+    })).filter((s) => s.id)
+  } catch (e) {
+    console.error("[paddle] findPaddleSubscriptions failed:", e)
+    return []
+  }
+}
+
+export function pickCurrentPaddleSubscription(subs: PaddleSubscription[]): PaddleSubscription | null {
+  if (subs.length === 0) return null
+  const usable = subs.filter((s) => PADDLE_PREFERRED.has((s.status ?? "").toLowerCase()))
+  return (usable[0] ?? subs[0]) ?? null
+}
+
+/** Writes (or at least attaches ids to) a Paddle subscription row. */
+export async function upsertPaddleSubscription(userId: string, sub: PaddleSubscription) {
+  const supabase = createAdminClient()
+  if (!supabase || !sub?.id) return
+  const customerId = sub.customerId ? String(sub.customerId) : null
+  const priceId = sub.items?.[0]?.price?.id !== undefined && sub.items?.[0]?.price?.id !== null
+    ? String(sub.items[0].price!.id)
+    : null
+  const periodEnd = sub?.currentBillingPeriod?.endsAt ?? sub?.nextBillingPeriod?.startsAt ?? null
+
+  const patch: Record<string, string> = {
+    paddle_subscription_id: String(sub.id),
+    billing_provider: "paddle",
+  }
+  if (customerId) patch.paddle_customer_id = customerId
+  if (priceId) patch.product_id = priceId
+  await supabase
+    .from("subscriptions")
+    .update(patch)
+    .eq("user_id", userId)
+    .is("paddle_subscription_id", null)
+
+  await supabase.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      paddle_subscription_id: String(sub.id),
+      paddle_customer_id: customerId,
+      product_id: priceId,
+      billing_provider: "paddle",
+      plan: planForPaddleSub(sub),
+      status: mapPaddleStatus(sub?.status),
+      current_period_end: periodEnd,
+    },
+    { onConflict: "paddle_subscription_id" },
+  )
+
+  // Keep a single row per user: drop sibling rows (previous Paddle sub ids or
+  // the free placeholder that never got a Paddle id). getPlan() assumes one
+  // row/user.
+  await supabase
+    .from("subscriptions")
+    .delete()
+    .eq("user_id", userId)
+    .or(`paddle_subscription_id.is.null,paddle_subscription_id.neq.${sub.id}`)
+}
+
+/**
+ * Reconciles a user's local subscription row against Paddle (source of
+ * truth). Prefers the customer_id we already know, then falls back to looking
+ * the customer up by email. Returns true when we found and applied a
+ * subscription.
+ */
+export async function reconcilePaddleSubscription(
+  userId: string,
+  email: string,
+): Promise<{ applied: boolean; subscriptionId?: string; customerId?: string }> {
+  if (!isPaddleBillingConfigured()) return { applied: false }
+  const supabase = createAdminClient()
+  if (!supabase) return { applied: false }
+
+  const { data: row } = await supabase
+    .from("subscriptions")
+    .select("paddle_customer_id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  let customerId: string | null =
+    (row as { paddle_customer_id?: string } | null)?.paddle_customer_id ?? null
+  if (!customerId) {
+    const customer = await findPaddleCustomerByEmail(email)
+    customerId = customer?.id ?? null
+  }
+  if (!customerId) return { applied: false }
+
+  await supabase
+    .from("subscriptions")
+    .update({ paddle_customer_id: customerId })
+    .eq("user_id", userId)
+    .is("paddle_customer_id", null)
+
+  const subs = await findPaddleSubscriptions(customerId)
+  const current = pickCurrentPaddleSubscription(subs)
+  if (!current) return { applied: false, customerId }
+
+  await upsertPaddleSubscription(userId, current)
+  return { applied: true, subscriptionId: current.id, customerId }
+}
+
+/** Safe re-export so callers can reset a stale customer binding in one call. */
+export async function attachPaddleCustomerId(userId: string, customerId: string) {
+  const supabase = createAdminClient()
+  if (!supabase || !customerId) return
+  await supabase
+    .from("subscriptions")
+    .update({ paddle_customer_id: String(customerId) })
+    .eq("user_id", userId)
+    .is("paddle_customer_id", null)
 }

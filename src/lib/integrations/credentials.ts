@@ -134,6 +134,9 @@ export function getOAuthConfig(provider: CredProvider) {
 }
 
 export function isProviderConfigured(provider: CredProvider) {
+  // Stripe hidden until available in India — see stripe-flag.ts. Forcing
+  // false here keeps the Connect button hidden even if keys are present.
+  if (provider === "stripe" && process.env.NEXT_PUBLIC_STRIPE_ENABLED !== "true") return false
   const cfg = getOAuthConfig(provider)
   return Boolean(cfg.clientId && cfg.clientSecret)
 }

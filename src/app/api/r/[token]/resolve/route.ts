@@ -1,0 +1,138 @@
+import { NextResponse, type NextRequest } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
+import { verifyResolutionToken } from "@/lib/recovery/token"
+
+export const dynamic = "force-dynamic"
+
+type Action = "accept" | "promise" | "plan_request" | "dispute"
+
+async function loadOffer(offerId: string) {
+  const supabase = createAdminClient()
+  if (!supabase) return { supabase: null, offer: null as unknown }
+  const { data } = await supabase
+    .from("settlement_offers")
+    .select("id, user_id, invoice_id, outstanding_cents, offer_cents, incentive_cents, basis, expires_at, status")
+    .eq("id", offerId)
+    .single()
+  return { supabase, offer: data as Record<string, unknown> | null }
+}
+
+/**
+ * Public debtor resolution — no login. Token is HMAC-signed; offer must be
+ * live and unexpired. Promise actions reuse the existing runs.promise_*
+ * hold so the dispatcher pauses ladder sends until the date (and escalates
+ * as promise-broken after it passes).
+ */
+export async function POST(request: NextRequest, { params }: { params: { token: string } }) {
+  const rl = rateLimit(
+    `resolve:${request.headers.get("x-forwarded-for") ?? "anon"}`,
+    RATE_LIMITS.api.limit,
+    RATE_LIMITS.api.windowMs,
+  )
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
+  }
+
+  const verified = verifyResolutionToken(params.token)
+  if (!verified) return NextResponse.json({ ok: false, error: "invalid link" }, { status: 404 })
+
+  let body: { action?: unknown; promiseDate?: unknown; note?: unknown; category?: unknown }
+  try {
+    body = (await request.json()) as typeof body
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 })
+  }
+  const action = body.action as Action
+  if (!["accept", "promise", "plan_request", "dispute"].includes(action)) {
+    return NextResponse.json({ ok: false, error: "unknown action" }, { status: 400 })
+  }
+
+  const { supabase, offer } = await loadOffer(verified.offerId)
+  if (!supabase || !offer) return NextResponse.json({ ok: false, error: "offer not found" }, { status: 404 })
+
+  const userId = offer.user_id as string
+  const expired = new Date(offer.expires_at as string).getTime() <= Date.now()
+  if (expired && offer.status !== "paid") {
+    await supabase
+      .from("settlement_offers")
+      .update({ status: "expired", updated_at: new Date().toISOString() })
+      .eq("id", offer.id)
+    await supabase.from("settlement_events").insert({ offer_id: offer.id, user_id: userId, event: "expired", meta: {} })
+    return NextResponse.json({ ok: false, error: "offer expired — the full balance applies" }, { status: 410 })
+  }
+  if (!["approved", "sent", "accepted"].includes(offer.status as string)) {
+    return NextResponse.json({ ok: false, error: "offer is no longer active" }, { status: 410 })
+  }
+
+  const note = typeof body.note === "string" ? body.note.slice(0, 500) : null
+
+  if (action === "accept") {
+    await supabase
+      .from("settlement_offers")
+      .update({ status: "accepted", updated_at: new Date().toISOString() })
+      .eq("id", offer.id)
+    await supabase.from("settlement_events").insert({ offer_id: offer.id, user_id: userId, event: "accepted", meta: {} })
+    return NextResponse.json({ ok: true, status: "accepted" })
+  }
+
+  if (action === "promise") {
+    if (typeof body.promiseDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.promiseDate)) {
+      return NextResponse.json({ ok: false, error: "promiseDate (YYYY-MM-DD) required" }, { status: 400 })
+    }
+    const at = new Date(body.promiseDate + "T12:00:00")
+    if (Number.isNaN(at.getTime()) || at.getTime() <= Date.now() || at.getTime() - Date.now() > 60 * 86400000) {
+      return NextResponse.json({ ok: false, error: "promise date must be within the next 60 days" }, { status: 400 })
+    }
+    // Hold open runs for this invoice until the promise date (dispatcher pattern).
+    await supabase
+      .from("runs")
+      .update({
+        status: "queued",
+        next_run_at: at.toISOString(),
+        promise_date: at.toISOString(),
+        promise_note: note ?? "promise via resolution link",
+        promise_amount_cents: (offer.offer_cents as number) ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("invoice_id", offer.invoice_id as string)
+      .in("status", ["queued", "processing", "paused", "sent"])
+    await supabase.from("settlement_events").insert({
+      offer_id: offer.id,
+      user_id: userId,
+      event: "promise",
+      meta: { promise_date: body.promiseDate, note },
+    })
+    return NextResponse.json({ ok: true, status: "promise", promiseDate: body.promiseDate })
+  }
+
+  if (action === "plan_request") {
+    await supabase.from("settlement_events").insert({
+      offer_id: offer.id,
+      user_id: userId,
+      event: "plan_request",
+      meta: { note },
+    })
+    return NextResponse.json({ ok: true, status: "plan_request" })
+  }
+
+  // dispute → open a dispute row (blocks automated chasing until resolved)
+  // and record the event.
+  const category = typeof body.category === "string" ? body.category.slice(0, 60) : "other"
+  await supabase.from("disputes").insert({
+    user_id: userId,
+    invoice_id: offer.invoice_id as string,
+    category,
+    amount_cents: (offer.outstanding_cents as number) ?? null,
+    reason: note,
+    status: "open",
+  })
+  await supabase.from("settlement_events").insert({
+    offer_id: offer.id,
+    user_id: userId,
+    event: "dispute",
+    meta: { category, note },
+  })
+  return NextResponse.json({ ok: true, status: "dispute" })
+}

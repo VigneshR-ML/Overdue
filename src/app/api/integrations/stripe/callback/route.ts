@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { setCredentials, getOAuthConfig } from "@/lib/integrations/credentials"
+import { STRIPE_ENABLED } from "@/lib/integrations/stripe-flag"
 import { verifyState, appUrl } from "@/lib/integrations/oauth"
 import { getPlan } from "@/lib/billing/plan"
 import { syncUserProvider } from "@/lib/integrations/sync"
@@ -8,6 +9,10 @@ import { syncUserProvider } from "@/lib/integrations/sync"
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
+  // Hidden while Stripe is unavailable in India — keep logic intact for later.
+  if (!STRIPE_ENABLED) {
+    return NextResponse.redirect(`${appUrl()}/settings/integrations`)
+  }
   const code = request.nextUrl.searchParams.get("code")
   const errorParam = request.nextUrl.searchParams.get("error")
   const state = request.nextUrl.searchParams.get("state") ?? ""

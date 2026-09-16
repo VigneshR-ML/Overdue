@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { SequenceEditor } from "@/components/ledger/sequence-editor"
+import { PageHeader } from "@/components/app-shell/page-header"
 import { ArrowLeft } from "lucide-react"
 
 export const metadata = { title: "Ladder" }
@@ -32,16 +33,14 @@ export default async function SequenceDetailPage({ params }: { params: { id: str
   if (!seq || (seq.user_id !== session.id && !seq.is_template)) notFound()
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Link href="/sequences" className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted hover:text-ink">
         <ArrowLeft className="h-3.5 w-3.5" /> Ladders
       </Link>
-      <header>
-        <h1 className="font-display text-3xl tracking-tight text-ink">{seq.name}</h1>
-        <p className="mt-1 text-sm text-muted">
-          Edit the rungs, preview the messages, and the scheduler takes it from here.
-        </p>
-      </header>
+      <PageHeader
+        title={seq.name}
+        description="Edit the rungs, preview the messages, and the scheduler takes it from here."
+      />
 
       {seq.is_template ? (
         <div className="rounded-lg border border-ember/40 bg-ember/10 p-4 text-sm text-ink-soft">

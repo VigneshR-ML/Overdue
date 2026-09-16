@@ -77,7 +77,7 @@ export function AddClientButton({ onAdded }: { onAdded?: () => void }) {
           <div>
             <div className="font-display text-lg text-ink">Add a client</div>
             <p className="mt-1 text-[13px] text-muted">
-              Clients are also created automatically when invoices sync from Stripe, PayPal or Xero.
+              Clients are also created automatically when invoices sync from PayPal or Xero.
             </p>
           </div>
 

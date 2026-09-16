@@ -8,12 +8,14 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
     "launch-check": "bash scripts/launch-check.sh"
   },
   "dependencies": {
+    "@paddle/paddle-node-sdk": "^3.10.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
     "@vercel/analytics": "^2.0.1",

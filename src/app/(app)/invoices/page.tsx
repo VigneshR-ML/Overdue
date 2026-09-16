@@ -6,6 +6,8 @@ import { getInvoicesWithMeta, getReplyThread, getOpenDisputesForInvoice } from "
 import { InvoiceTable } from "@/components/ledger/invoice-table"
 import { AddInvoiceButton } from "@/components/ledger/add-invoice"
 import { ReplyThread } from "@/components/ledger/reply-thread"
+import { SettlementCard } from "@/components/settlements/settlement-card"
+import { PageHeader } from "@/components/app-shell/page-header"
 
 export const metadata = { title: "Invoices" }
 
@@ -28,17 +30,13 @@ export default async function InvoicesPage({
     : [null, null]
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">The ledger</div>
-          <h1 className="mt-1 font-display text-3xl tracking-tight text-ink">Invoices</h1>
-          <p className="mt-1 text-sm text-muted">
-            Every invoice from every source, one table. Nothing weird — just the numbers.
-          </p>
-        </div>
-        <AddInvoiceButton />
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        kicker="The ledger"
+        title="Invoices"
+        description="Every invoice from every source, one table. Nothing weird — just the numbers."
+        action={<AddInvoiceButton />}
+      />
       {plan === "free" && openCount > 0 ? (
         <div className="rounded-lg border border-hairline bg-surface p-4 text-sm text-ink-soft shadow-ledger">
           <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Free plan · </span>
@@ -50,6 +48,7 @@ export default async function InvoicesPage({
         </div>
       ) : null}
       <InvoiceTable invoices={invoices} focusId={focus} />
+      {focus ? <SettlementCard invoiceId={focus} /> : null}
       {replyThread ? <ReplyThread replies={replyThread} disputes={openDisputes ?? []} /> : null}
     </div>
   )

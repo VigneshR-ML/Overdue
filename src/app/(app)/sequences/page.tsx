@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth/session"
 import { getSequencesWithRuns, getTemplates } from "@/lib/db/queries"
 import { TonePill } from "@/components/ledger/escalation-ladder"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/app-shell/page-header"
 import { Plus } from "lucide-react"
 import type { SequenceStep } from "@/types"
 
@@ -35,20 +36,18 @@ export default async function SequencesPage({ searchParams }: { searchParams?: {
         </div>
       ) : null}
 
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Escalation</div>
-          <h1 className="mt-1 font-display text-3xl tracking-tight text-ink">Ladders</h1>
-          <p className="mt-1 text-sm text-muted">
-            Four rungs. Gentle to final. The flame only gets warmer when it has to.
-          </p>
-        </div>
-        <a href="/sequences/new">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> New ladder
-          </Button>
-        </a>
-      </header>
+      <PageHeader
+        kicker="Escalation"
+        title="Ladders"
+        description="Four rungs. Gentle to final. The flame only gets warmer when it has to."
+        action={
+          <a href="/sequences/new">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" /> New ladder
+            </Button>
+          </a>
+        }
+      />
 
       {mine.length === 0 && (
         <div className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
@@ -62,7 +61,7 @@ export default async function SequencesPage({ searchParams }: { searchParams?: {
 
       <section>
         <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">Your ladders</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div className="mt-3 grid gap-4">
           {mine.length === 0
             ? (templates ?? []).filter((t) => t.name === "Standard Ladder").map((t) => (
                 <SequenceCard key={t.id} name={t.name} description={t.description} steps={t.steps as unknown as SequenceStep[]} href={`/sequences/new?from=${t.id}`} meta="start here · make it yours" active={false} />

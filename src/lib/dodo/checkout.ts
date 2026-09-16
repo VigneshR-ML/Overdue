@@ -7,7 +7,7 @@ import { useCallback, useState } from "react"
  * server-side (POST /api/billing/dodo/checkout) so the API key never touches
  * the browser and the user is bound via metadata.app_user_id.
  */
-export function useDodoCheckout(props: { email?: string; userId?: string }) {
+export function useDodoCheckout() {
   const [ready] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,6 +35,5 @@ export function useDodoCheckout(props: { email?: string; userId?: string }) {
     }
   }, [])
 
-  void props
   return { ready, error, openCheckout }
 }

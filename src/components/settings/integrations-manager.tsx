@@ -7,6 +7,7 @@ import type { IntegrationRow } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Badge, StatusDot } from "@/components/ui/badge"
 import { RefreshCw, Unplug, Upload } from "lucide-react"
+import { STRIPE_ENABLED } from "@/lib/integrations/stripe-flag"
 
 type ProviderName = "stripe" | "paypal" | "xero" | "csv"
 
@@ -93,7 +94,14 @@ export function IntegrationsManager({
     }
   }
 
-  const providers: (ProviderName & keyof typeof PROVIDER_META)[] = ["stripe", "paypal", "xero", "csv"]
+  const providers: (ProviderName & keyof typeof PROVIDER_META)[] = (
+    ["stripe", "paypal", "xero", "csv"] as const
+  ).filter((p) => p !== "stripe" || STRIPE_ENABLED) as (
+    | "stripe"
+    | "paypal"
+    | "xero"
+    | "csv"
+  )[]
 
   return (
     <div className="space-y-4">
@@ -155,7 +163,11 @@ export function IntegrationsManager({
             </div>
 
             {p === "csv" && (
-              <label className="mt-4 flex items-center justify-between gap-3 rounded-md border border-dashed border-hairline p-3">
+              <>
+                <a href="/tools/smart-csv" className="mt-4 block rounded-md border border-moss/40 bg-moss-soft/40 p-3 text-[13px] text-moss hover:bg-moss-soft">
+                  <span className="font-medium">New: Smart CSV import →</span> messy headers? AI maps any columns + extracts insights before importing.
+                </a>
+                <label className="mt-2 flex items-center justify-between gap-3 rounded-md border border-dashed border-hairline p-3">
                 <div className="flex items-center gap-2 text-sm text-muted">
                   <Upload className="h-4 w-4 text-faint" />
                   {csvFile ? <span className="font-mono text-[13px] text-ink">{csvFile.name}</span> : "client_name, client_email, number, amount, currency, due_date…"}
@@ -169,7 +181,8 @@ export function IntegrationsManager({
                 <Button type="button" size="sm" variant={csvFile ? "ink" : "outline"} disabled={!csvFile || busy === "csv"} onClick={importCsv}>
                   Import
                 </Button>
-              </label>
+                </label>
+              </>
             )}
             {csvError ? <p className="mt-2 font-mono text-[12px] text-crimson">{csvError}</p> : null}
           </div>

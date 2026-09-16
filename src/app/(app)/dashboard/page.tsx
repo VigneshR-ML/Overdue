@@ -7,6 +7,8 @@ import { UrgencyQueue } from "@/components/ledger/urgency-queue"
 import { RecoveryQueue } from "@/components/ledger/recovery-queue"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/app-shell/page-header"
+import { SettlementStrip } from "@/components/settlements/settlement-strip"
 import { CheckCircle2, ArrowRight } from "lucide-react"
 import { formatDate } from "@/lib/utils/format"
 
@@ -28,21 +30,18 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
-            {formatDate(new Date().toISOString())}
-          </div>
-          <h1 className="mt-1 font-display text-3xl tracking-tight text-ink">
-            {needsOnboarding ? "Welcome to the ledger." : "Good day. Here's the money."}
-          </h1>
-        </div>
-        <Link href="/sequences/new">
-          <Button variant="outline" size="sm">
-            New ladder <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </Link>
-      </header>
+      <PageHeader
+        kicker={formatDate(new Date().toISOString())}
+        title={needsOnboarding ? "Welcome to the ledger." : "Good day. Here's the money."}
+        description="Who owes you, what's overdue, and when the money lands."
+        action={
+          <Link href="/sequences/new">
+            <Button variant="outline" size="sm">
+              New ladder <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        }
+      />
 
       {needsOnboarding && (
         <div className="rounded-lg border border-moss/40 bg-moss-soft p-5">
@@ -61,6 +60,8 @@ export default async function DashboardPage() {
       )}
 
       <AgingStrip totals={totals} />
+
+      <SettlementStrip />
 
       {recovery.length > 0 && (
         <section className="space-y-2">
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
           icon={<ReceiptIcon />}
           action={
             <Link href="/settings/integrations">
-              <Button>Connect Stripe / PayPal / CSV</Button>
+              <Button>Connect PayPal / Xero / CSV</Button>
             </Link>
           }
         />

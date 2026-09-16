@@ -49,7 +49,13 @@ echo "--- App (required) ---"
 check_required "NEXT_PUBLIC_APP_URL"
 check_required "APP_ENV"
 
-echo "--- Dodo Payments billing (required for launch) ---"
+echo "--- Paddle billing, PRIMARY (required for launch) ---"
+check_required "PADDLE_API_KEY"
+check_required "PADDLE_WEBHOOK_SECRET"
+check_required "PADDLE_ENVIRONMENT"
+check_required "PADDLE_PRICE_PRO_MONTHLY"
+
+echo "--- Dodo Payments billing, FALLBACK (required while fallback kept) ---"
 check_required "DODO_PAYMENTS_API_KEY"
 check_required "DODO_PAYMENTS_WEBHOOK_KEY"
 check_required "DODO_PAYMENTS_ENVIRONMENT"
@@ -67,6 +73,9 @@ check_required "CRON_SECRET"
 
 echo "--- AI / integrations (optional at launch) ---"
 check_optional "LLM_API_KEY"
+check_optional "LLM_API_GROQ"
+check_optional "LLM_FALLBACK_API_KEY"
+check_optional "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
 check_optional "STRIPE_CLIENT_ID"
 check_optional "STRIPE_CLIENT_SECRET"
 check_optional "STRIPE_WEBHOOK_SECRET"
@@ -79,7 +88,7 @@ check_optional "XERO_WEBHOOK_KEY"
 
 echo "--- Repo wiring ---"
 [ -f ".github/workflows/dispatch.yml" ] && echo "✓ .github/workflows/dispatch.yml exists (needs DISPATCH_URL + CRON_SECRET secrets)" || { echo "✗ dispatch.yml missing"; fail=1; }
-for m in 0001_init.sql 0002_credentials.sql 0003_vault_credentials.sql 0004_dispatch_states.sql 0005_indexes_and_constraints.sql 0006_delivery_tracking.sql 0007_vault_wrappers.sql 0008_provider_account.sql 0009_payment_url.sql 0010_promise_to_pay.sql 0011_ai_usage.sql 0012_credentials_rls.sql 0013_reply_intel.sql 0014_lemon_billing.sql 0015_dodo_billing.sql; do
+for m in 0001_init.sql 0002_credentials.sql 0003_vault_credentials.sql 0004_dispatch_states.sql 0005_indexes_and_constraints.sql 0006_delivery_tracking.sql 0007_vault_wrappers.sql 0008_provider_account.sql 0009_payment_url.sql 0010_promise_to_pay.sql 0011_ai_usage.sql 0012_credentials_rls.sql 0013_reply_intel.sql 0014_lemon_billing.sql 0015_dodo_billing.sql 0016_settlements.sql 0017_paddle_billing.sql; do
   [ -f "supabase/migrations/$m" ] && echo "✓ supabase/migrations/$m" || { echo "✗ supabase/migrations/$m missing"; fail=1; }
 done
 if grep -q '"crons": \[\]' vercel.json 2>/dev/null; then

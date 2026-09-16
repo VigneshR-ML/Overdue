@@ -14,7 +14,7 @@ const SECTIONS = [
   },
   {
     h: "What we collect",
-    b: "Account details so you can sign in; the invoices, clients and ladders you add; email events (sent, opened, replied) so the ladder can stop when a client answers; and billing data handled by Dodo Payments, our merchant of record, which processes payments and holds no card data on our servers.",
+    b: "Account details so you can sign in; the invoices, clients and ladders you add; email events (sent, opened, replied) so the ladder can stop when a client answers; and billing data handled by Paddle, our merchant of record, which processes payments and holds no card data on our servers.",
   },
   {
     h: "What we don't do",
@@ -26,7 +26,7 @@ const SECTIONS = [
   },
   {
     h: "Subprocessors",
-    b: "Your data moves through a small number of subprocessors, and nothing more: Vercel (hosting the app), Supabase (authentication, database and row-level security), Resend (sending and receiving reminder emails), Dodo Payments (billing, as merchant of record), the AI provider you enable for drafting reminders, and the invoice providers you connect yourself (Stripe, PayPal or Xero). Each is bound to a written data-processing agreement.",
+    b: "Your data moves through a small number of subprocessors, and nothing more: Vercel (hosting the app), Supabase (authentication, database and row-level security), Resend (sending and receiving reminder emails), Paddle (billing, as merchant of record), the AI provider you enable for drafting reminders, and the invoice providers you connect yourself (PayPal or Xero). Each is bound to a written data-processing agreement.",
   },
   {
     h: "Your clients' data",
@@ -38,7 +38,7 @@ const SECTIONS = [
   },
   {
     h: "Retention & deletion",
-    b: "You can export or delete your account at any time and we will remove your invoices, clients, sequences and messages within 30 days, or sooner on request. Billing records are retained by Dodo Payments as required by law. International transfers are covered by standard contractual clauses when they occur across borders.",
+    b: "You can export or delete your account at any time and we will remove your invoices, clients, sequences and messages within 30 days, or sooner on request. Billing records are retained by Paddle as required by law. International transfers are covered by standard contractual clauses when they occur across borders.",
   },
 ]
 

@@ -1,6 +1,7 @@
 import { formatMoney, formatDate } from "@/lib/utils/format"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { FREE_AI_DRAFTS_PER_MONTH } from "@/lib/billing/limits"
+import { chatJsonWithFallback, llmProviders } from "./providers"
 import type { Invoice, Client } from "@/types"
 
 export interface SenderContext {
@@ -71,8 +72,7 @@ export function draftLocally(input: DraftInput): DraftOutput {  const vars = tem
 export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
   const local = draftLocally(input)
 
-  const apiKey = process.env.LLM_API_KEY
-  if (!input.aiEnabled || !apiKey) return local
+  if (!input.aiEnabled || llmProviders().length === 0) return local
 
   // Free plan: 5 AI drafts per calendar month, then graceful fallback to the
   // local template (never a hard failure mid-ladder). Pro is unlimited.
@@ -111,41 +111,29 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
     "REWRITE the subject and body following the rules. Reply ONLY as JSON: {\"subject\":\"...\",\"body\":\"...\"}",
   ].join("\n")
 
-  try {
-    const res = await fetch(
-      `${(process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: process.env.LLM_MODEL ?? "gpt-4o-mini",
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-          temperature: 0.7,
-          max_tokens: 600,
-          response_format: { type: "json_object" },
-        }),
-        next: { revalidate: 0 },
-      },
-    )
-    if (!res.ok) throw new Error(`LLM ${res.status}`)
-    const json = await res.json()
-    const parsed = JSON.parse(json?.choices?.[0]?.message?.content ?? "{}")
-    const body = String(parsed.body ?? "").trim()
-    const subject = String(parsed.subject ?? "").trim()
-    if (!body) return local
-    // Only charge the quota once the LLM produced a usable draft.
+  const { value } = await chatJsonWithFallback(
+    {
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.7,
+      maxTokens: 600,
+    },
+    (parsed: unknown) => {
+      const p = parsed as Record<string, unknown>
+      const body = String(p?.body ?? "").trim()
+      if (!body) return null
+      const subject = String(p?.subject ?? "").trim()
+      return { subject: subject || local.subject, body }
+    },
+  )
+
+  if (value) {
     await markAiQuotaUsed(input.invoice.user_id)
-    return { subject: subject || local.subject, body, aiUsed: true }
-  } catch (e) {
-    console.error("[draft] LLM call failed:", e)
-    return local
+    return { subject: value.subject, body: value.body, aiUsed: true }
   }
+  return local
 }
 
 /**

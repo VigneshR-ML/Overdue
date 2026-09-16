@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { syncUserProvider } from "@/lib/integrations/sync"
 import { deleteCredentials } from "@/lib/integrations/credentials"
+import { STRIPE_ENABLED } from "@/lib/integrations/stripe-flag"
 import { createClient } from "@/lib/supabase/server"
 import { getPlan } from "@/lib/billing/plan"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
@@ -27,6 +28,12 @@ export async function POST(_req: NextRequest, { params }: { params: { provider: 
 
   const provider = asProvider(params.provider)
   if (!provider) return NextResponse.json({ ok: false, error: "unknown provider" }, { status: 400 })
+
+  // Hidden while Stripe is unavailable in India — disconnect stays enabled so
+  // existing connections can still be removed.
+  if (provider === "stripe" && !STRIPE_ENABLED) {
+    return NextResponse.json({ ok: false, error: "Stripe is temporarily unavailable." }, { status: 503 })
+  }
 
   const plan = await getPlan(user!.id)
   if (plan === "free") {

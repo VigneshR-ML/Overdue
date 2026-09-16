@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth/session"
 import { computeClientPaymentScores, getClientHealthRows } from "@/lib/db/queries"
 import { AddClientButton } from "@/components/ledger/add-client"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/app-shell/page-header"
 import { cn } from "@/lib/utils/format"
 import type { ClientHealth } from "@/lib/analysis/health"
 
@@ -48,14 +49,13 @@ export default async function ClientsPage() {
   const healthByClient = new Map(healthRows.map((h) => [h.id, h]))
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Who owes what</div>
-          <h1 className="mt-1 font-display text-3xl tracking-tight text-ink">Clients</h1>
-        </div>
-        <AddClientButton />
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        kicker="Who owes what"
+        title="Clients"
+        description="Payment scores, time to pay, and risk — one table, sorted by how warm the fire has to be."
+        action={<AddClientButton />}
+      />
 
       {clients.length ? (
         <div className="overflow-hidden rounded-lg border border-hairline bg-surface shadow-ledger">

@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePaddleCheckout } from "@/lib/paddle/checkout"
 import { useDodoCheckout } from "@/lib/dodo/checkout"
 import { Button } from "@/components/ui/button"
 import { Badge, StatusDot } from "@/components/ui/badge"
 
 const FEATURES = [
   "Unlimited clients & ladders",
-  "Stripe + PayPal + Xero sync",
+  "PayPal + Xero sync",
   "Escalation engine on autopilot",
   "AI drafting, human-voiced",
   "Reply-detection & pause",
@@ -31,7 +32,11 @@ export function PlanManager({
   renewalDate?: string | null
   justUpgraded?: boolean
 }) {
-  const { ready, error, openCheckout } = useDodoCheckout({ email, userId })
+  const paddle = usePaddleCheckout()
+  const dodo = useDodoCheckout()
+  // Paddle is primary; Dodo is the fallback for existing subscribers.
+  const ready = paddle.ready && dodo.ready
+  const error = paddle.error ?? dodo.error
   const [checkingOut, setCheckingOut] = useState(false)
   const isPro = plan === "pro" && status === "active"
 
@@ -42,10 +47,11 @@ export function PlanManager({
     if (isPro) return
     let marker: string | null = null
     try {
-      marker = localStorage.getItem("overdue:dodo_checkout")
+      marker = localStorage.getItem("overdue:paddle_checkout") ?? localStorage.getItem("overdue:dodo_checkout")
     } catch {}
     if (!marker) return
     try {
+      localStorage.removeItem("overdue:paddle_checkout")
       localStorage.removeItem("overdue:dodo_checkout")
     } catch {}
     window.location.reload()
@@ -54,9 +60,16 @@ export function PlanManager({
   async function handleCheckout() {
     setCheckingOut(true)
     try {
-      await openCheckout()
+      // Try Paddle first; the server route falls back to Dodo automatically
+      // when Paddle isn't configured, so a single call covers both.
+      await paddle.openCheckout()
     } catch (e) {
       console.error("[billing] checkout failed:", e)
+      try {
+        await dodo.openCheckout()
+      } catch (e2) {
+        console.error("[billing] fallback checkout failed:", e2)
+      }
     } finally {
       setCheckingOut(false)
     }
@@ -102,7 +115,7 @@ export function PlanManager({
           <div className="font-display text-lg text-ink">{isPro ? "Manage Pro" : "Go Pro"}</div>
           <p className="mt-1 text-sm text-muted">
             {isPro
-              ? "Manage payments and cancellation through the Dodo Payments customer portal."
+              ? "Manage payments and cancellation through the Paddle customer portal."
               : "7-day free trial, then $19/month — cancel in two clicks, 30-day refund. One recovered invoice usually pays for the year."}
           </p>
           {error ? (
@@ -131,7 +144,7 @@ export function PlanManager({
                 <p className="font-mono text-[11px] text-faint">Loading checkout…</p>
               )}
               <p className="font-mono text-[11px] text-faint">
-                Billed by Dodo Payments (merchant of record) · works without a US entity · sales tax handled
+                Billed by Paddle (merchant of record) · works without a US entity · sales tax handled
               </p>
             </div>
           )}

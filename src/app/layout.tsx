@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: "%s · Overdue",
   },
   description:
-    "Overdue follows up on unpaid invoices automatically — gentle day 1, firm by day 21 — pauses when clients reply and stops when you're paid. Works with Stripe, Xero, PayPal and CSV.",
+    "Overdue follows up on unpaid invoices automatically — gentle day 1, firm by day 21 — pauses when clients reply and stops when you're paid. Works with Xero, PayPal and CSV.",
   alternates: { canonical: "/" },
   openGraph: {
     title: "Overdue — Get paid without chasing clients",

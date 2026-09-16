@@ -55,7 +55,7 @@ export default function PricingPage() {
               <ProPrice className="font-display text-3xl text-ink" /> / month <span className="text-moss">· 7-day free trial</span>
             </div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["Unlimited clients & ladders", "Stripe + PayPal + Xero sync", "Escalation engine on autopilot", "AI drafting, human-voiced", "Reply-detection & pause", "Payment-history scoring"].map((f) => (
+              {["Unlimited clients & ladders", "PayPal + Xero sync", "Escalation engine on autopilot", "AI drafting, human-voiced", "Reply-detection & pause", "Payment-history scoring"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>
@@ -68,8 +68,8 @@ export default function PricingPage() {
         </div>
 
         <p className="mt-8 text-center text-sm text-muted">
-          Dodo Payments is our merchant of record and bills Pro subscriptions. 30-day full refund;
-          after that, refunds follow Dodo Payments' terms. See our{" "}
+          Paddle is our merchant of record and bills Pro subscriptions. 30-day full refund;
+          after that, refunds follow Paddle's terms. See our{" "}
           <Link href="/refund" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Refund policy</Link> and{" "}
           <Link href="/terms" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Terms</Link>.
         </p>

@@ -25,18 +25,19 @@ const openai = (k: string) => {
   return map[k as Tone]
 }
 
+// renderTemplate() matches brace-wrapped keys (same shape templateVars emits).
 const SAMPLE = {
-  client_name: "Arbor Studio",
-  client_email: "billing@arbor.studio",
-  invoice_number: "2026-0952",
-  amount: "$1,120.50",
-  due_date: formatDate("2026-08-12"),
-  issue_date: formatDate("2026-07-28"),
-  days_overdue: "8",
-  sender_name: "You",
-  company: "Overdue",
-  paid_cents: "$0.00",
-  balance: "$1,120.50",
+  "{client_name}": "Arbor Studio",
+  "{client_email}": "billing@arbor.studio",
+  "{invoice_number}": "2026-0952",
+  "{amount}": "$1,120.50",
+  "{due_date}": formatDate("2026-08-12"),
+  "{issue_date}": formatDate("2026-07-28"),
+  "{days_overdue}": "8",
+  "{sender_name}": "You",
+  "{company}": "Overdue",
+  "{paid_cents}": "$0.00",
+  "{balance}": "$1,120.50",
 }
 
 export function SequenceEditor({
@@ -157,136 +158,187 @@ export function SequenceEditor({
   const previewBody = renderTemplate(selected?.body_template ?? "", SAMPLE)
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-      {/* Left column — the ladder + editor */}
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[220px] flex-1">
-            <Field label="Ladder name">
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Standard Ladder" />
-            </Field>
+    <div className="space-y-6">
+      {error ? (
+        <div className="rounded-md border border-rust/40 bg-rust/10 p-3 font-sans text-[13px] text-crimson">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+        {/* Left rail — the ladder, pinned while you edit */}
+        <div className="order-2 space-y-5 lg:order-1 lg:sticky lg:top-20">
+          <div className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-baseline gap-2">
+                <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">The ladder</div>
+                <div className="font-mono text-[11px] text-faint">
+                  {steps.length} / 6 rungs
+                </div>
+              </div>
+              {!readOnly && (
+                <Button size="sm" variant="outline" onClick={addStep} disabled={steps.length >= 6} className="gap-1.5">
+                  <Plus className="h-3.5 w-3.5" /> Add rung
+                </Button>
+              )}
+            </div>
+            <EscalationLadder steps={renumbered} selectedId={selected?.id} onStepClick={(s) => setSelectedId(s.id)} />
           </div>
-          {!readOnly && <ToggleRow title="Active" description="Attaching this ladder auto-runs it" checked={isActive} onChange={toggleActive} />}
+
           {!readOnly && (
-            <Button onClick={save} disabled={saving} variant="moss" className="gap-2">
-              {saving ? "Saving…" : saved ? "Saved ✓" : "Save ladder"}
-            </Button>
+            <div className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
+              <div className="mb-4 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Settings</div>
+              <div className="space-y-4">
+                <Field label="Ladder name">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Standard Ladder" />
+                </Field>
+                <ToggleRow
+                  title="Active"
+                  description="Attaching this ladder auto-runs it"
+                  checked={isActive}
+                  onChange={toggleActive}
+                />
+                <Button onClick={save} disabled={saving} variant="moss" className="w-full">
+                  {saving ? "Saving…" : saved ? "Saved ✓" : "Save ladder"}
+                </Button>
+              </div>
+            </div>
           )}
         </div>
 
-        {error ? <div className="rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson">{error}</div> : null}
+        {/* Right pane — step editor + preview */}
+        {selected ? (
+          <div className="order-1 min-w-0 space-y-5 lg:order-2">
+            <section className="overflow-hidden rounded-lg border border-hairline bg-surface shadow-ledger">
+              <header className="flex items-center justify-between border-b border-hairline px-5 py-3.5">
+                <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+                  Edit rung {selected.step_order}
+                </span>
+                {!readOnly && (
+                  <div className="flex items-center gap-1">
+                    <IconBtn onClick={() => move(selected.step_order - 1, -1)} disabled={selected.step_order === 1} label="Move up"><ArrowUp className="h-3.5 w-3.5" /></IconBtn>
+                    <IconBtn onClick={() => move(selected.step_order - 1, 1)} disabled={selected.step_order === steps.length} label="Move down"><ArrowDown className="h-3.5 w-3.5" /></IconBtn>
+                    <IconBtn onClick={() => removeStep(selected.step_order - 1)} disabled={steps.length <= 1} label="Delete rung"><Trash2 className="h-3.5 w-3.5" /></IconBtn>
+                  </div>
+                )}
+              </header>
 
-        <div className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
-          <div className="mb-5 flex items-center justify-between">
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">The ladder</div>
+              <div className="space-y-5 p-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Tone">
+                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                      {TONES.map((t) => {
+                        const activeTone = selected.tone === t
+                        const meta = TONE_META[t]
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            aria-pressed={activeTone}
+                            disabled={readOnly}
+                            onClick={() => patchSelected({ tone: t })}
+                            className={cn(
+                              "rounded-md border px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-all duration-150 cursor-pointer",
+                              "disabled:cursor-not-allowed disabled:opacity-60",
+                              activeTone ? "text-white" : "text-muted hover:text-ink",
+                            )}
+                            style={{ borderColor: meta.border, background: activeTone ? meta.color : "transparent" }}
+                          >
+                            {meta.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </Field>
+                  <Field label="Delay" hint="days after the last touch">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={90}
+                      disabled={readOnly}
+                      value={selected.delay_days}
+                      onChange={(e) => patchSelected({ delay_days: Math.max(0, Number(e.target.value)) })}
+                    />
+                  </Field>
+                </div>
+
+                <ToggleRow
+                  title="AI draft"
+                  description="Ask the model to rewrite this rung in your voice, facts kept exact"
+                  checked={selected.ai_enabled}
+                  disabled={readOnly}
+                  onChange={(v) => patchSelected({ ai_enabled: v })}
+                />
+
+                <Field label="Subject" hint="{invoice_number} {client_name}…">
+                  <Input
+                    disabled={readOnly}
+                    value={selected.subject_template}
+                    onChange={(e) => patchSelected({ subject_template: e.target.value })}
+                    placeholder="Just checking in on invoice {invoice_number}"
+                    className="font-mono text-[13px]"
+                  />
+                </Field>
+                <Field label="Message body" hint="{amount} {due_date}">
+                  <Textarea
+                    disabled={readOnly}
+                    value={selected.body_template}
+                    onChange={(e) => patchSelected({ body_template: e.target.value })}
+                    className="font-sans text-[13px] leading-relaxed"
+                    rows={8}
+                  />
+                </Field>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-lg border border-hairline bg-surface shadow-ledger">
+              <header className="flex items-center justify-between border-b border-hairline px-5 py-3.5">
+                <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+                  <Wand2 className="h-3.5 w-3.5" /> Preview
+                </span>
+                <span className="font-mono text-[10px] text-faint">sample invoice #{SAMPLE["{invoice_number}"]}</span>
+              </header>
+              <div className="p-5">
+                <div className="overflow-hidden rounded-lg border border-hairline bg-paper">
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-hairline px-4 py-2.5 font-mono text-[11px] text-muted">
+                    <span>From: <span className="text-ink">{SAMPLE["{company}"]}</span></span>
+                    <span>To: <span className="text-ink">{SAMPLE["{client_email}"]}</span></span>
+                    <span className="ml-auto hidden sm:inline">due {SAMPLE["{due_date}"]}</span>
+                  </div>
+                  <div className="px-4 py-4">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Subject</div>
+                    <div className="mt-1 text-[14px] font-medium leading-snug text-ink">
+                      {renderTemplate(selected?.subject_template ?? "", SAMPLE)}
+                    </div>
+                    <div className="mt-3 whitespace-pre-wrap border-t border-hairline pt-3 font-sans text-[13px] leading-relaxed text-ink-soft">
+                      {previewBody}
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 font-mono text-[10px] leading-relaxed text-faint">
+                  Merge chips: {`{amount}`} {`{due_date}`} {`{client_name}`} {`{invoice_number}`} {`{days_overdue}`} {`{sender_name}`} — filled with exact facts at send time. AI keeps them honest.
+                </p>
+              </div>
+            </section>
+          </div>
+        ) : (
+          <div className="order-1 rounded-lg border border-dashed border-hairline p-10 text-center lg:order-2">
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">No rungs yet</div>
             {!readOnly && (
-              <Button size="sm" variant="outline" onClick={addStep} disabled={steps.length >= 6} className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" /> Add rung
-              </Button>
+              <>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+                  Add a first rung and the ladder starts warm from gentle.
+                </p>
+                <div className="mt-5">
+                  <Button variant="moss" onClick={addStep} className="gap-1.5">
+                    <Plus className="h-4 w-4" /> Add first rung
+                  </Button>
+                </div>
+              </>
             )}
           </div>
-          <EscalationLadder steps={renumbered} onStepClick={(s) => setSelectedId(s.id)} />
-        </div>
+        )}
       </div>
-
-      {/* Right column — step editor + preview */}
-      {selected ? (
-        <div className="space-y-5">
-          <div className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
-                Edit rung {selected.step_order}
-              </span>
-              <div className="flex items-center gap-1">
-                <IconBtn onClick={() => move(selected.step_order - 1, -1)} disabled={selected.step_order === 1} label="Move up"><ArrowUp className="h-3.5 w-3.5" /></IconBtn>
-                <IconBtn onClick={() => move(selected.step_order - 1, 1)} disabled={selected.step_order === steps.length} label="Move down"><ArrowDown className="h-3.5 w-3.5" /></IconBtn>
-                <IconBtn onClick={() => removeStep(selected.step_order - 1)} disabled={steps.length <= 1} label="Delete rung"><Trash2 className="h-3.5 w-3.5" /></IconBtn>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Tone">
-                <div className="grid grid-cols-2 gap-1.5">
-                  {TONES.map((t) => {
-                    const activeTone = selected.tone === t
-                    const meta = TONE_META[t]
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        aria-pressed={activeTone}
-                        onClick={() => patchSelected({ tone: t })}
-                        className={cn(
-                          "rounded-md border px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-all duration-150 cursor-pointer",
-                          activeTone ? "text-white" : "text-muted hover:text-ink",
-                        )}
-                        style={{ borderColor: meta.border, background: activeTone ? meta.color : "transparent" }}
-                      >
-                        {meta.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </Field>
-              <Field label="Delay" hint="days">
-                <Input
-                  type="number"
-                  min={0}
-                  max={90}
-                  value={selected.delay_days}
-                  onChange={(e) => patchSelected({ delay_days: Math.max(0, Number(e.target.value)) })}
-                />
-              </Field>
-            </div>
-
-            <div className="mt-4 space-y-4">
-              <ToggleRow
-                title="AI draft"
-                description="Ask the model to rewrite this rung in your voice, facts kept exact"
-                checked={selected.ai_enabled}
-                onChange={(v) => patchSelected({ ai_enabled: v })}
-              />
-              <Field label="Subject">
-                <Input
-                  value={selected.subject_template}
-                  onChange={(e) => patchSelected({ subject_template: e.target.value })}
-                  placeholder="Just checking in on invoice {invoice_number}"
-                  className="font-mono text-[13px]"
-                />
-              </Field>
-              <Field label="Message body" hint="{amount} {due_date} {client_name}…">
-                <Textarea
-                  value={selected.body_template}
-                  onChange={(e) => patchSelected({ body_template: e.target.value })}
-                  className="font-sans text-[13px] leading-relaxed"
-                  rows={9}
-                />
-              </Field>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
-                <Wand2 className="h-3.5 w-3.5" /> Preview
-              </span>
-              <span className="font-mono text-[10px] text-faint">sample client · Arbors</span>
-            </div>
-            <div className="rounded-md border border-hairline bg-paper p-4">
-              <div className="font-mono text-[11px] text-faint">subject</div>
-              <div className="mt-0.5 text-[13px] font-medium text-ink">{renderTemplate(selected?.subject_template ?? "", SAMPLE)}</div>
-              <div className="mt-3 whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-ink-soft">{previewBody}</div>
-            </div>
-            <p className="mt-3 font-mono text-[10px] leading-relaxed text-faint">
-              Merge chips: {`{amount}`} {`{due_date}`} {`{client_name}`} {`{invoice_number}`} {`{days_overdue}`} {`{sender_name}`} — filled with exact facts at send time. AI keeps them honest.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-hairline p-5 text-sm text-muted">
-          Add a rung to start building.
-        </div>
-      )}
     </div>
   )
 }

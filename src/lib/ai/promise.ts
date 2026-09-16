@@ -7,6 +7,8 @@
  * works on Free with no key.
  */
 
+import { chatJsonWithFallback } from "./providers"
+
 export interface PromiseDetection {
   isPromise: boolean
   /** ISO date (YYYY-MM-DD) the client named, if any. */
@@ -92,51 +94,38 @@ export function detectPromiseHeuristic(text: string, now: Date = new Date()): Pr
 }
 
 async function detectPromiseLlm(text: string): Promise<PromiseDetection | null> {
-  const apiKey = process.env.LLM_API_KEY
-  if (!apiKey) return null
   const today = new Date().toISOString().slice(0, 10)
-  try {
-    const res = await fetch(
-      `${(process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: process.env.LLM_MODEL ?? "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: [
-                "You detect payment promises in client replies to invoice reminders.",
-                `Today is ${today}.`,
-                "Reply ONLY as JSON: {\"is_promise\":true|false,\"date\":\"YYYY-MM-DD\"|null,\"amount_cents\":number|null,\"note\":\"short quote\"|null}.",
-                "is_promise is true only when the client commits to pay on a specific day/date (weekday names count — resolve to the upcoming date).",
-                "Disputes, questions, and vague 'soon' with no day are NOT promises.",
-              ].join("\n"),
-            },
-            { role: "user", content: text.slice(0, 2000) },
-          ],
-          temperature: 0,
-          max_tokens: 200,
-          response_format: { type: "json_object" },
-        }),
-        next: { revalidate: 0 },
-      },
-    )
-    if (!res.ok) return null
-    const json = await res.json()
-    const parsed = JSON.parse(json?.choices?.[0]?.message?.content ?? "{}")
-    if (!parsed.is_promise || !parsed.date) return NO_PROMISE
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(parsed.date))) return NO_PROMISE
-    return {
-      isPromise: true,
-      date: String(parsed.date),
-      amountCents: typeof parsed.amount_cents === "number" ? Math.round(parsed.amount_cents) : null,
-      note: typeof parsed.note === "string" ? parsed.note.slice(0, 160) : null,
-    }
-  } catch {
-    return null
-  }
+  const { value } = await chatJsonWithFallback(
+    {
+      messages: [
+        {
+          role: "system",
+          content: [
+            "You detect payment promises in client replies to invoice reminders.",
+            `Today is ${today}.`,
+            "Reply ONLY as JSON: {\"is_promise\":true|false,\"date\":\"YYYY-MM-DD\"|null,\"amount_cents\":number|null,\"note\":\"short quote\"|null}.",
+            "is_promise is true only when the client commits to pay on a specific day/date (weekday names count — resolve to the upcoming date).",
+            "Disputes, questions, and vague 'soon' with no day are NOT promises.",
+          ].join("\n"),
+        },
+        { role: "user", content: text.slice(0, 2000) },
+      ],
+      temperature: 0,
+      maxTokens: 200,
+    },
+    (parsed: unknown) => {
+      const p = parsed as Record<string, unknown>
+      if (p?.is_promise !== true) return null
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.date ?? ""))) return null
+      return {
+        isPromise: true,
+        date: String(p.date),
+        amountCents: typeof p.amount_cents === "number" && Number.isFinite(p.amount_cents) ? Math.round(p.amount_cents) : null,
+        note: typeof p.note === "string" ? p.note.slice(0, 160) : null,
+      }
+    },
+  )
+  return value
 }
 
 /**

@@ -10,7 +10,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       className={cn(
         "h-10 w-full rounded-md border border-hairline bg-surface px-3 text-sm text-ink placeholder:text-faint",
         "focus:border-ink-soft focus:outline-none focus:ring-2 focus:ring-ink/10",
-        "transition-colors duration-150",
+        "transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55",
         className,
       )}
       {...props}
@@ -28,7 +28,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       className={cn(
         "w-full rounded-md border border-hairline bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint",
         "focus:border-ink-soft focus:outline-none focus:ring-2 focus:ring-ink/10",
-        "transition-colors duration-150 min-h-[120px]",
+        "transition-colors duration-150 min-h-[120px] disabled:cursor-not-allowed disabled:opacity-55",
         className,
       )}
       {...props}

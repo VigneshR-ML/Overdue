@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { getPlan } from "@/lib/billing/plan"
 import { getOAuthConfig } from "@/lib/integrations/credentials"
+import { STRIPE_ENABLED } from "@/lib/integrations/stripe-flag"
 import { signState, appUrl } from "@/lib/integrations/oauth"
 
 export const dynamic = "force-dynamic"
@@ -9,8 +10,12 @@ export const dynamic = "force-dynamic"
 /**
  * Starts Stripe Connect OAuth. Redirects to Stripe's authorize screen; the
  * callback stores the token and runs the first sync.
+ * Hidden while Stripe is unavailable in India (STRIPE_ENABLED=false).
  */
 export async function GET() {
+  if (!STRIPE_ENABLED) {
+    return NextResponse.redirect(`${appUrl()}/settings/integrations`)
+  }
   const { user, error } = await requireUser()
   if (error) return error
 

@@ -29,6 +29,32 @@ body {
   font-feature-settings: "ss01" on, "ss02" on;
 }
 
+/* Browser surfaces belong to the design: thin hairline scrollbars,
+   and an ink-moss caret wherever text is typed. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
+  background-clip: padding-box;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  caret-color: var(--moss);
+}
+
 ::selection {
   background: var(--moss);
   color: var(--surface);
