@@ -5,6 +5,8 @@ import { renderEscalationEmail, sendEmail } from "@/lib/resend/send"
 import { signResolutionToken } from "@/lib/recovery/token"
 import { appUrl } from "@/lib/integrations/oauth"
 import { formatMoney } from "@/lib/utils/format"
+import { planForSubscription } from "@/lib/billing/entitlement"
+import { extractMessageIdTokens } from "@/lib/scheduler/thread-ids"
 import type { Sequence, SequenceStep, Invoice, Client, Run, ReplyClassification } from "@/types"
 
 const CUMULATIVE_DAYS = (steps: SequenceStep[], throughIndex: number) =>
@@ -40,6 +42,10 @@ export async function runDispatcher() {
   if (!supabase) {
     return { ok: true, skipped: true, reason: "missing SUPABASE_SERVICE_ROLE_KEY", dispatched: 0 }
   }
+
+  // Recover stranded 'processing' runs BEFORE the batch selection so a crashed
+  // batch never waits for new due work to exist before healing itself.
+  await requeueStaleProcessing(supabase)
 
   const batchSize = Number(process.env.DISPATCH_BATCH_SIZE ?? 200)
   const before = new Date().toISOString()
@@ -91,13 +97,7 @@ export async function runDispatcher() {
         .select("user_id, plan, status, current_period_end")
         .in("user_id", userIds)
       for (const s of (subs ?? []) as any[]) {
-        if (s.plan !== "pro") continue
-        if (s.status === "expired" || s.status === "unpaid") continue
-        // Cancelled keeps autopilot through the paid grace period.
-        if (s.status === "cancelled") {
-          if (!s.current_period_end || new Date(s.current_period_end).getTime() <= Date.now()) continue
-        }
-        proUsers.add(s.user_id)
+        if (planForSubscription(s) === "pro") proUsers.add(s.user_id)
       }
     }
     const manualIds = new Set(autopilotIds.filter((id) => !proUsers.has(byId.get(id) ?? "")))
@@ -115,9 +115,8 @@ export async function runDispatcher() {
     return { ok: true, dispatched: 0, failed: 0, reason: "plan lookup failed, batch reverted" }
   }
 
-  // Recover any runs that were claimed but never finished (crashed batch): bring
-  // stale 'processing' runs older than a few minutes back to 'queued'.
-  await requeueStaleProcessing(supabase)
+  // Recovery for stale 'processing' runs happens at the top of the batch so a
+  // crashed cron tick is healed even when no new work is due.
 
   // Automation safety: runs carrying a reply that needs a person (open dispute,
   // unverified payment claim, angry/needs-human) are paused instead of auto
@@ -388,6 +387,55 @@ async function dispatchOne(
     return "paused"
   }
 
+  // (D05/D24) A client-declared dispute or payment-plan request must never be
+  // auto-chased. These are raised from the token resolution flow (and from
+  // classified replies); while open, the run stays paused for human review.
+  const gateAt = new Date().toISOString()
+  const { data: openDispute } = await supabase
+    .from("disputes")
+    .select("id")
+    .eq("user_id", run.user_id)
+    .eq("invoice_id", invoice.id)
+    .eq("status", "open")
+    .limit(1)
+    .maybeSingle()
+  if (openDispute?.id) {
+    await supabase
+      .from("runs")
+      .update({
+        status: "paused",
+        automation_confidence: 10,
+        reply_classification: "dispute",
+        last_reply_at: gateAt,
+        error: "paused: open dispute — resolve before chasing again",
+        updated_at: gateAt,
+      })
+      .eq("id", runId)
+    return "paused"
+  }
+  const { data: openPlanRequest } = await supabase
+    .from("payment_plan_requests")
+    .select("id")
+    .eq("user_id", run.user_id)
+    .eq("invoice_id", invoice.id)
+    .eq("status", "open")
+    .limit(1)
+    .maybeSingle()
+  if (openPlanRequest?.id) {
+    await supabase
+      .from("runs")
+      .update({
+        status: "paused",
+        automation_confidence: 10,
+        reply_classification: "payment_plan",
+        last_reply_at: gateAt,
+        error: "paused: open payment-plan request — respond before chasing again",
+        updated_at: gateAt,
+      })
+      .eq("id", runId)
+    return "paused"
+  }
+
   const sender = await getSender(profile, profile.email ?? "")
 
   const draft = await draftEmail({
@@ -411,6 +459,98 @@ async function dispatchOne(
   }
 
   const sentAt = new Date().toISOString()
+  const nextStep = stepIndex + 1
+  const messageCount = Number(run.messages_sent ?? 0) + 1
+
+  // (D09) Schedule the NEXT rung relative to the due date by the CUMULATIVE
+  // delays through the rung AFTER the one we're sending. The old code used
+  // nextStep - 1, which for late invoices put the next rung in the past and
+  // clamped it onto "now" — collapsing the ladder. delay_days is days after the
+  // previous rung, so the cumulative window through `nextStep` is correct.
+  const dueDate = invoice.due_date ? new Date(invoice.due_date) : new Date()
+  const nextRunAtMs = dueDate.getTime() + CUMULATIVE_DAYS(steps, nextStep) * 86400000
+  const nextRunAt = new Date(Math.max(nextRunAtMs, Date.now()))
+
+  // Advances the ladder after the current step goes out (exactly once), whether
+  // the step was just sent or recovered from a crash that already sent it.
+  async function advanceLadder() {
+    // The resolution link went out inside this reminder — mark the offer sent
+    // (status + delivered_at) so the dashboard strip reflects reality.
+    if (resolutionUrl && resolutionOfferId && resolutionOfferStatus === "approved") {
+      try {
+        await supabase
+          .from("settlement_offers")
+          .update({ status: "sent", delivered_at: sentAt, updated_at: sentAt })
+          .eq("id", resolutionOfferId)
+        await supabase.from("settlement_events").insert({
+          offer_id: resolutionOfferId,
+          user_id: run.user_id,
+          event: "sent",
+          meta: { via: "reminder", run_id: runId },
+        })
+      } catch {
+        // Non-fatal bookkeeping.
+      }
+    }
+    if (nextStep >= steps.length) {
+      await supabase
+        .from("runs")
+        .update({ status: "completed", current_step: nextStep, last_sent_at: sentAt, messages_sent: messageCount, next_run_at: null, updated_at: sentAt })
+        .eq("id", runId)
+    } else {
+      await supabase
+        .from("runs")
+        .update({
+          status: "queued",
+          current_step: nextStep,
+          last_sent_at: sentAt,
+          messages_sent: messageCount,
+          next_run_at: nextRunAt.toISOString(),
+          updated_at: sentAt,
+        })
+        .eq("id", runId)
+    }
+  }
+
+  // (D10) Idempotency: a 'sending'/'sent' row for this (run, step) means the
+  // step already went out (crash recovery / duplicated cron). Re-sending would
+  // double-chase the debtor, so skip the provider call and just advance. A
+  // 'failed' row means the send never landed — retrying is allowed.
+  const { data: alreadySent } = await supabase
+    .from("messages")
+    .select("id")
+    .eq("run_id", runId)
+    .eq("step", step.step_order)
+    .neq("status", "failed")
+    .limit(1)
+    .maybeSingle()
+  if (alreadySent?.id) {
+    await advanceLadder()
+    return "sent"
+  }
+
+  // (D10) Write-ahead: log the message BEFORE calling the provider. If we crash
+  // between send and update, the row is left 'sending' and the next tick skips
+  // this step instead of double-sending.
+  const { data: msgRow, error: preErr } = await supabase
+    .from("messages")
+    .insert({
+      user_id: run.user_id,
+      run_id: runId,
+      invoice_id: run.invoice_id,
+      to_email: toEmail,
+      subject: draft.subject,
+      body: draft.body,
+      step: step.step_order,
+      tone: step.tone,
+      status: "sending",
+    })
+    .select("id")
+    .single()
+  if (preErr || !msgRow?.id) {
+    await requeueOnError(supabase, runId, new Error(`message write-ahead failed: ${preErr?.message ?? "no row"}`))
+    return "failed"
+  }
 
   try {
     const sent = await sendEmail({
@@ -432,89 +572,22 @@ async function dispatchOne(
 
     if (sent.skipped) {
       // No mail backend (dev) — don't count as delivered or advance the ladder.
+      await supabase.from("messages").update({ status: "failed" }).eq("id", msgRow.id)
       await requeueOnError(supabase, runId, new Error("mail backend unavailable"))
       return "failed"
     }
 
-    const { error: msgErr } = await supabase.from("messages").insert({
-      user_id: run.user_id,
-      run_id: runId,
-      invoice_id: run.invoice_id,
-      to_email: toEmail,
-      subject: draft.subject,
-      body: draft.body,
-      step: step.step_order,
-      tone: step.tone,
-      resend_message_id: sent.id,
-    })
-
-    const messageCount = Number(run.messages_sent ?? 0) + 1
-    // The resolution link just went out inside this reminder — mark the
-    // offer sent so the dashboard strip reflects reality. Best-effort.
-    if (resolutionUrl && resolutionOfferId && resolutionOfferStatus === "approved") {
-      try {
-        await supabase
-          .from("settlement_offers")
-          .update({ status: "sent", updated_at: sentAt })
-          .eq("id", resolutionOfferId)
-        await supabase.from("settlement_events").insert({
-          offer_id: resolutionOfferId,
-          user_id: run.user_id,
-          event: "sent",
-          meta: { via: "reminder", run_id: runId },
-        })
-      } catch {
-        // Non-fatal bookkeeping.
-      }
-    }
-    const nextStep = stepIndex + 1
-    const dueDate = invoice.due_date ? new Date(invoice.due_date) : new Date()
-    const nextRunAtMs = dueDate.getTime() + CUMULATIVE_DAYS(steps, nextStep - 1) * 86400000
-    // Clamp to now if the computed time is in the past (late invoice + short delay)
-    const nextRunAt = new Date(Math.max(nextRunAtMs, Date.now()))
-
-    if (nextStep >= steps.length) {
-      await supabase
-        .from("runs")
-        .update({ status: "completed", current_step: nextStep, last_sent_at: sentAt, messages_sent: messageCount, next_run_at: null, updated_at: sentAt })
-        .eq("id", runId)
-    } else {
-      await supabase
-        .from("runs")
-        .update({
-          status: "queued",
-          current_step: nextStep,
-          last_sent_at: sentAt,
-          messages_sent: messageCount,
-          next_run_at: nextRunAt.toISOString(),
-          updated_at: sentAt,
-        })
-        .eq("id", runId)
-    }
-
-    if (msgErr) {
-      console.error("[dispatch] message insert failed:", msgErr.message)
-      // Email was sent but the log insert failed. Do NOT complete the ladder
-      // (that would silently drop remaining rungs). Requeue so the next tick
-      // retries; dedupe via resend_message_id prevents double-send confusion
-      // and the error is visible for ops.
-      await supabase
-        .from("runs")
-        .update({
-          status: "queued",
-          next_run_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-          error: `message insert failed (email sent): ${msgErr.message}`,
-        })
-        .eq("id", runId)
-      return "sent"
-    }
-    return "sent"
+    await supabase.from("messages").update({ status: "sent", resend_message_id: sent.id, sent_at: sentAt }).eq("id", msgRow.id)
   } catch (err) {
-    // Send failure: requeue with backoff (handled by the caller) and report.
+    // Send failure: mark the write-ahead row failed so a retry may re-send,
+    // then requeue with backoff.
+    await supabase.from("messages").update({ status: "failed" }).eq("id", msgRow.id)
     await requeueOnError(supabase, runId, err)
     return "failed"
   }
+
+  await advanceLadder()
+  return "sent"
 }
 
 /**
@@ -562,32 +635,45 @@ export async function startRun(opts: {
     dueDate.getTime() + CUMULATIVE_DAYS(steps, startStep) * 86400000,
   ).toISOString()
 
-  // Never overwrite an existing completed/processing run — only (re)create
-  // runs that don't exist or are in a recoverable paused/queued state.
+  // (D07) A ladder save / invoice attach must never clobber a run that is
+  // already in flight. Select-first; only create when nothing exists.
+  // Completed runs stay completed; paused/failed/queued runs are kept exactly
+  // as they are (the ledger's resume / Send now handles retries).
   const { data: existingRun } = await supabase
     .from("runs")
     .select("id, status")
     .eq("sequence_id", opts.sequenceId)
     .eq("invoice_id", opts.invoiceId)
     .maybeSingle()
-  if (existingRun && (existingRun as { status: string }).status === "completed") {
-    return { ok: false, error: "run already completed" }
+  if (existingRun) {
+    const status = (existingRun as { status: string }).status
+    if (status === "completed") return { ok: false, error: "run already completed" }
+    return { ok: true, already: true, runId: (existingRun as { id: string }).id }
   }
 
-  const { error } = await supabase.from("runs").upsert(
-    {
+  const { data: inserted, error } = await supabase
+    .from("runs")
+    .insert({
       user_id: opts.userId,
       sequence_id: opts.sequenceId,
       invoice_id: opts.invoiceId,
       current_step: startStep,
       status: "queued",
       next_run_at: nextRunAt,
-    },
-    { onConflict: "sequence_id,invoice_id" },
-  )
+    })
+    .select("id")
+    .single()
 
-  if (error) return { ok: false, error: error.message }
-  return { ok: true }
+  if (error) {
+    // (D08) One active run per invoice is enforced by a partial unique index.
+    // A second ladder on the same invoice violates it — surface a friendly
+    // error instead of a raw PGRST/23505 blob.
+    if (error.code === "23505" || /duplicate key|runs_one_active/.test(error.message)) {
+      return { ok: false, error: "invoice already has an active ladder run" }
+    }
+    return { ok: false, error: error.message }
+  }
+  return { ok: true, runId: inserted?.id as string | undefined }
 }
 
 /** What an inbound reply should do to a run — mirrors the classifier outputs. */
@@ -639,6 +725,7 @@ export interface ReplyOutcome {
 export async function handleInboundReply(
   clientAddress: string,
   text?: string,
+  opts?: { inReplyTo?: string | null; references?: string | null },
 ): Promise<ReplyOutcome | null> {
   const supabase = createAdminClient()
   if (!supabase) return null
@@ -646,16 +733,31 @@ export async function handleInboundReply(
   // the addresses we previously messaged. Any reply pauses that run's ladder.
   const { data: messages, error } = await supabase
     .from("messages")
-    .select("run_id, user_id, invoice_id")
+    .select("run_id, user_id, invoice_id, resend_message_id")
     .eq("to_email", clientAddress)
     .order("sent_at", { ascending: false })
     .limit(10)
   if (error || !messages) return null
 
+  // (D06) Thread-first matching: when the reply carries In-Reply-To/References
+  // naming one of our own sent emails, scope to that exact exchange instead of
+  // whatever the address fallback happened to find. Prevents a spoofed From
+  // from pausing a whole ladder history.
+  const threadTokens = extractMessageIdTokens(opts?.inReplyTo, opts?.references)
+  let matched = messages
+  if (threadTokens.length > 0) {
+    const scoped = messages.filter(
+      (m) =>
+        (m as { resend_message_id?: string | null }).resend_message_id &&
+        threadTokens.includes(String((m as { resend_message_id?: string | null }).resend_message_id)),
+    )
+    if (scoped.length > 0) matched = scoped
+  }
+
   // Group run IDs by user to scope pause operations; keep invoice_id per run so
   // reply_intel + disputes can attach the right invoice.
   const byUser = new Map<string, { runs: Set<string>; invoiceId: string | null }>()
-  for (const m of messages) {
+  for (const m of matched) {
     if (!m.run_id || !m.user_id) continue
     let entry = byUser.get(m.user_id)
     if (!entry) {
@@ -781,8 +883,22 @@ export async function sendRunNow(
   if (row.status === "completed" || row.status === "processing") {
     return { ok: false, error: row.status === "completed" ? "already completed" : "currently being processed" }
   }
+  if (row.status === "failed") {
+    await supabase
+      .from("runs")
+      .update({ attempt: 0, error: null, updated_at: new Date().toISOString() })
+      .eq("id", runId)
+  }
   const res = await dispatchOne(runId, supabase)
-  if (res === "failed" || res === "skipped") return { ok: false, error: res }
+  if (res === "failed" || res === "skipped") {
+    let detail: string = res
+    if (res === "failed") {
+      const { data: after } = await supabase.from("runs").select("error").eq("id", runId).single()
+      const msg = (after as { error?: string | null } | null)?.error?.trim()
+      if (msg) detail = `send failed: ${msg}`
+    }
+    return { ok: false, error: detail }
+  }
   return { ok: true, result: res }
 }
 

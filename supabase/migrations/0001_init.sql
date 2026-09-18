@@ -249,10 +249,10 @@ security definer set search_path = public
 as $$
 begin
   insert into public.sequences (user_id, name, description, is_default, steps) values
-  (new.id, 'Standard Ladder', 'The default: gentle to final, one day of silence between each touch.', true,
+  (new.id, 'Standard Ladder', 'The default: gentle to final, six days of silence between each touch.', true,
    '[
      {"step_order":1,"delay_days":1,"tone":"gentle","ai_enabled":true,"subject_template":"Just checking in on invoice {invoice_number}","body_template":"Hi {client_name},\n\nQuick note that invoice {invoice_number} for {amount} was due on {due_date} — no rush, but wanted to make sure it didn''t slip through.\n\nWhenever you''re able, great. Happy to answer anything.\n\nBest,\n{sender_name}"},
-     {"step_order":2,"delay_days":7,"tone":"nudge","ai_enabled":true,"subject_template":"Friendly reminder: invoice {invoice_number}","body_template":"Hi {client_name},\n\nJust a friendly ping on invoice {invoice_number} ({amount}), due {due_date}.\n\nIf anything looks off, reply here and I''ll sort it out today.\n\nThanks,\n{sender_name}"},
+     {"step_order":2,"delay_days":6,"tone":"nudge","ai_enabled":true,"subject_template":"Friendly reminder: invoice {invoice_number}","body_template":"Hi {client_name},\n\nJust a friendly ping on invoice {invoice_number} ({amount}), due {due_date}.\n\nIf anything looks off, reply here and I''ll sort it out today.\n\nThanks,\n{sender_name}"},
      {"step_order":3,"delay_days":7,"tone":"firm","ai_enabled":true,"subject_template":"Invoice {invoice_number} — can you confirm receipt?","body_template":"Hi {client_name},\n\nInvoice {invoice_number} for {amount} is now {days_overdue} days past due. I need to keep my own books clean, so could you confirm a payment date?\n\nIf the invoice is disputed or needs changes, tell me now and we''ll fix it.\n\nBest,\n{sender_name}"},
      {"step_order":4,"delay_days":7,"tone":"final","ai_enabled":true,"subject_template":"Final notice: invoice {invoice_number}","body_template":"Hi {client_name},\n\nThis is the final reminder for invoice {invoice_number} ({amount}), now {days_overdue} days overdue.\n\nUnless payment is scheduled within 5 days, I''ll need to pause work and hand this to a collections process. I''d rather not — please let me know the plan.\n\nThanks,\n{sender_name}"}
    ]'::jsonb)
@@ -278,7 +278,7 @@ insert into public.sequences (id, user_id, name, description, is_template, steps
 ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000000', 'Standard Ladder', 'Gentle to final. The default most freelancers start with.', true,
  '[
    {"step_order":1,"delay_days":1,"tone":"gentle","ai_enabled":true,"subject_template":"Just checking in on invoice {invoice_number}","body_template":"Hi {client_name},\n\nQuick note that invoice {invoice_number} for {amount} was due on {due_date} — no rush, but wanted to make sure it didn''t slip through.\n\nBest,\n{sender_name}"},
-   {"step_order":2,"delay_days":7,"tone":"nudge","ai_enabled":true,"subject_template":"Friendly reminder: invoice {invoice_number}","body_template":"Hi {client_name},\n\nFriendly ping on invoice {invoice_number} ({amount}), due {due_date}. If anything looks off, reply here and I''ll fix it today.\n\nThanks,\n{sender_name}"},
+   {"step_order":2,"delay_days":6,"tone":"nudge","ai_enabled":true,"subject_template":"Friendly reminder: invoice {invoice_number}","body_template":"Hi {client_name},\n\nFriendly ping on invoice {invoice_number} ({amount}), due {due_date}. If anything looks off, reply here and I''ll fix it today.\n\nThanks,\n{sender_name}"},
    {"step_order":3,"delay_days":7,"tone":"firm","ai_enabled":true,"subject_template":"Invoice {invoice_number} — could you confirm receipt?","body_template":"Hi {client_name},\n\nInvoice {invoice_number} for {amount} is now {days_overdue} days past due. Could you confirm a payment date? If it''s in dispute, tell me now and we''ll fix it.\n\nBest,\n{sender_name}"},
    {"step_order":4,"delay_days":7,"tone":"final","ai_enabled":true,"subject_template":"Final notice: invoice {invoice_number}","body_template":"Hi {client_name},\n\nFinal reminder for invoice {invoice_number} ({amount}), now {days_overdue} days overdue. Unless payment is scheduled within 5 days I''ll pause work and escalate.\n\nThanks,\n{sender_name}"}
  ]'::jsonb)

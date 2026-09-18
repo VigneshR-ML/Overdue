@@ -22,7 +22,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   const { data: invoice, error: fetchErr } = await supabase
     .from("invoices")
-    .select("id")
+    .select("id, amount_cents, paid_cents")
     .eq("id", params.id)
     .eq("user_id", user!.id)
     .single()
@@ -54,12 +54,18 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   if (body.mark_paid === true) {
     patch.status = "paid"
+    // (D19) A manual "mark paid" without an explicit partial amount means the
+    // whole balance cleared — that's what the invoices table shows the owner.
+    // Partial values stay exactly as provided.
+    const amountCents = Number(invoice?.amount_cents ?? 0)
     if (body.paid_cents !== undefined) {
       const paidCents = Number(body.paid_cents)
       if (!Number.isFinite(paidCents) || paidCents < 0) {
         return NextResponse.json({ ok: false, error: "paid_cents must be a non-negative number" }, { status: 400 })
       }
-      patch.paid_cents = Math.round(paidCents)
+      patch.paid_cents = Math.min(Math.round(paidCents), amountCents)
+    } else {
+      patch.paid_cents = amountCents
     }
     patch.paid_at = new Date().toISOString()
   } else if (body.status) {
@@ -80,6 +86,47 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     .eq("id", params.id)
     .eq("user_id", user!.id)
   if (updErr) return NextResponse.json({ ok: false, error: updErr.message }, { status: 400 })
+
+  // (D19) Reconciliation: marking paid stops the chase and settles anything
+  // that was pending resolution for this invoice, so the ledger, the ladder,
+  // the settlement offer and any open dispute all agree.
+  if (body.mark_paid === true) {
+    const now = new Date().toISOString()
+    await supabase
+      .from("runs")
+      .update({ status: "cancelled", updated_at: now })
+      .eq("invoice_id", params.id)
+      .eq("user_id", user!.id)
+      .in("status", ["queued", "processing", "sent", "paused"])
+    await supabase
+      .from("disputes")
+      .update({ status: "resolved", resolved_at: now })
+      .eq("invoice_id", params.id)
+      .eq("user_id", user!.id)
+      .eq("status", "open")
+    const { data: openOffers } = await supabase
+      .from("settlement_offers")
+      .select("id")
+      .eq("invoice_id", params.id)
+      .eq("user_id", user!.id)
+      .in("status", ["approved", "sent", "accepted"])
+    if (openOffers?.length) {
+      await supabase
+        .from("settlement_offers")
+        .update({ status: "paid", updated_at: now })
+        .eq("invoice_id", params.id)
+        .eq("user_id", user!.id)
+        .in("status", ["approved", "sent", "accepted"])
+      await supabase.from("settlement_events").insert(
+        openOffers.map((o) => ({
+          offer_id: o.id,
+          user_id: user!.id,
+          event: "paid",
+          meta: { source: "manual_mark_paid" },
+        })),
+      )
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }

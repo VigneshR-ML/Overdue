@@ -151,11 +151,18 @@ export async function getInvoicesWithMeta(userId: string, includePaid = true, li
   const supabase = createClient()
   let q = supabase
     .from("invoices")
-    .select("*, clients(name, billing_email)")
+    .select("*, clients(name, billing_email), runs(status)")
     .eq("user_id", userId)
   if (!includePaid) q = q.neq("status", "paid")
   const { data } = await q.order("created_at", { ascending: false }).range(offset, offset + Math.min(limit, 200) - 1)
-  return (data ?? []).map((r) => ({ ...r, client: r.clients }) as unknown as Invoice & { client: Client | null })
+  return (data ?? []).map((r) => {
+    const runs = (r as unknown as { runs?: { status: string }[] }).runs ?? []
+    // (D20) Pause state is a fact server-side (a paused run), so the table can
+    // seed its toggle from the real run instead of guessing from local state.
+    const paused = runs.some((run) => run.status === "paused")
+    const { runs: _runs, ...rest } = r as unknown as Record<string, unknown>
+    return { ...rest, client: rest.clients, paused } as unknown as Invoice & { client: Client | null; paused?: boolean }
+  })
 }
 
 export async function computeClientPaymentScores(userId: string) {

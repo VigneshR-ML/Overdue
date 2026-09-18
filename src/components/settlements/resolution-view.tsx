@@ -3,6 +3,47 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 
+function PayButton({ offer }: { offer: PublicOffer }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function pay() {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/r/${encodeURIComponent(offer.token)}/pay`, { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) {
+        if (json?.no_payment_url) {
+          // (D03) Discounted intent recorded; no link yet — never treat the
+          // full-price page as the amount due.
+          setError(
+            `You owe ${money(json.offer_cents ?? offer.offerCents, offer.currency)}. The business has been notified and will send a payment link for exactly that amount.`,
+          )
+          return
+        }
+        throw new Error(json?.error ?? "request failed")
+      }
+      window.location.href = json.payUrl as string
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-4">
+      <Button size="lg" variant="moss" className="w-full" disabled={busy} onClick={pay}>
+        {busy ? "Preparing payment…" : `Pay ${money(offer.offerCents, offer.currency)} now`}
+      </Button>
+      <p className="mt-2 font-mono text-[11px] text-faint">
+        Paying the discounted offer, not the original balance.
+      </p>
+    </div>
+  )
+}
+
 export interface PublicOffer {
   token: string
   invoiceNumber: string | null
@@ -88,19 +129,16 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
         <p className="mt-2 text-sm text-ink-soft">
           {money(offer.offerCents, offer.currency)} resolves invoice {offer.invoiceNumber ?? ""}.{" "}
           {offer.paymentUrl ? (
-            <>
-              Complete payment through the secure payment link below — the business is notified automatically.
-            </>
+            <>Complete payment through the secure payment link below — the business is notified automatically.</>
           ) : (
             <>The business has been notified and will confirm payment.</>
           )}
         </p>
-        {offer.paymentUrl ? (
-          <a href={offer.paymentUrl} className="mt-4 block">
-            <Button size="lg" variant="moss" className="w-full">
-              Pay {money(offer.offerCents, offer.currency)} now
-            </Button>
-          </a>
+        <PayButton offer={offer} />
+        {error ? (
+          <div role="alert" className="mt-3 rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson">
+            {error}
+          </div>
         ) : null}
       </div>
     )

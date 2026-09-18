@@ -27,7 +27,7 @@ export function EscalationLadder({
     : TONE_ORDER.map((tone, i) => ({
         id: tone,
         step_order: i + 1,
-        delay_days: [1, 7, 7, 7][i] ?? 7,
+        delay_days: [1, 6, 7, 7][i] ?? 7,
         tone,
         ai_enabled: true,
         subject_template: "",

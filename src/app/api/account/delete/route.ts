@@ -30,23 +30,51 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "admin client not configured" }, { status: 500 })
   }
 
-  // Cancel any live Dodo Payments subscription BEFORE deleting the auth user,
-  // so we don't leave ghost charges behind.
+  // (D16) Cancel ANY live billing subscription (Paddle AND Dodo) BEFORE
+  // deleting the auth user, so we never leave ghost charges behind. If a
+  // subscription exists but the provider is configured and the cancel call
+  // fails, deletion is blocked with a clear error — silently deleting an
+  // account with a live charge is worse than asking the user to retry.
   try {
-    const { data: sub } = await admin
+    const { data: subscriptions } = await admin
       .from("subscriptions")
-      .select("dodo_subscription_id, plan, status")
+      .select("dodo_subscription_id, paddle_subscription_id, plan, status")
       .eq("user_id", user!.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    const dodoSubId = (sub as { dodo_subscription_id?: string | null } | null)?.dodo_subscription_id
+    const subs = subscriptions ?? []
+
+    const paddleSubId = subs.find((s) => s.paddle_subscription_id)?.paddle_subscription_id as string | undefined
+    if (paddleSubId) {
+      const { cancelPaddleSubscription } = await import("@/lib/paddle/server")
+      const { isPaddleBillingConfigured } = await import("@/lib/paddle/helpers")
+      if (!isPaddleBillingConfigured()) {
+        console.warn("[account-delete] paddle sub not cancelled: provider not configured")
+      } else if (!(await cancelPaddleSubscription(paddleSubId))) {
+        return NextResponse.json(
+          { ok: false, error: "Couldn't cancel your Paddle subscription — please try again or contact support." },
+          { status: 500 },
+        )
+      }
+    }
+
+    const dodoSubId = subs.find((s) => s.dodo_subscription_id)?.dodo_subscription_id as string | undefined
     if (dodoSubId) {
       const { cancelSubscription } = await import("@/lib/dodo/server")
-      await cancelSubscription(dodoSubId)
+      const { isBillingConfigured } = await import("@/lib/dodo/helpers")
+      if (!isBillingConfigured()) {
+        console.warn("[account-delete] dodo sub not cancelled: provider not configured")
+      } else if (!(await cancelSubscription(dodoSubId))) {
+        return NextResponse.json(
+          { ok: false, error: "Couldn't cancel your subscription — please try again or contact support." },
+          { status: 500 },
+        )
+      }
     }
   } catch (e) {
-    console.error("[account-delete] dodo cancel failed (continuing):", e)
+    console.error("[account-delete] billing cancel failed (blocking):", e)
+    return NextResponse.json(
+      { ok: false, error: "Couldn't cancel your subscription — please try again or contact support." },
+      { status: 500 },
+    )
   }
 
   // Delete auth user first — cascades to profiles, clients, invoices, runs,

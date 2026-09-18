@@ -1,5 +1,6 @@
 import { formatMoney, formatDate } from "@/lib/utils/format"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { planForSubscription } from "@/lib/billing/entitlement"
 import { FREE_AI_DRAFTS_PER_MONTH } from "@/lib/billing/limits"
 import { chatJsonWithFallback, llmProviders } from "./providers"
 import type { Invoice, Client } from "@/types"
@@ -151,8 +152,7 @@ async function checkAiQuota(userId: string): Promise<{ allowed: boolean }> {
       .select("plan, status")
       .eq("user_id", userId)
       .maybeSingle()
-    const plan =
-      sub && sub.status !== "cancelled" && sub.status !== "past_due" && sub.plan === "pro" ? "pro" : "free"
+    const plan = planForSubscription(sub as Parameters<typeof planForSubscription>[0] | null)
     if (plan === "pro") return { allowed: true }
 
     const month = new Date().toISOString().slice(0, 7)
@@ -180,8 +180,7 @@ async function markAiQuotaUsed(userId: string): Promise<void> {
       .select("plan, status")
       .eq("user_id", userId)
       .maybeSingle()
-    const plan =
-      sub && sub.status !== "cancelled" && sub.status !== "past_due" && sub.plan === "pro" ? "pro" : "free"
+    const plan = planForSubscription(sub as Parameters<typeof planForSubscription>[0] | null)
     if (plan === "pro") return
 
     const month = new Date().toISOString().slice(0, 7)

@@ -58,7 +58,7 @@ afterEach(() => {
 })
 
 describe("applyDodoEvent", () => {
-  it("upserts dodo ids on subscription.active with pro plan", async () => {
+  it("upserts the single per-user row on subscription.active with pro plan", async () => {
     vi.stubEnv("DODO_PRODUCT_PRO_MONTHLY", PRO_PRODUCT)
     const { supabase, calls } = fakeSupabase()
     await applyDodoEvent(supabase, "u1", "subscription.active", subPayload())
@@ -70,22 +70,14 @@ describe("applyDodoEvent", () => {
       dodo_subscription_id: "sub_111",
       dodo_customer_id: "cus_42",
       product_id: PRO_PRODUCT,
+      billing_provider: "dodo",
       plan: "pro",
       status: "active",
     })
-    expect(upserts[0]?.opts).toEqual({ onConflict: "dodo_subscription_id" })
-  })
-
-  it("attaches dodo ids to the user's existing null-dodo row first", async () => {
-    vi.stubEnv("DODO_PRODUCT_PRO_MONTHLY", PRO_PRODUCT)
-    const { supabase, calls } = fakeSupabase()
-    await applyDodoEvent(supabase, "u1", "subscription.updated", subPayload({ status: "active" }))
-
-    const attachUpdate = calls.find(
-      (c) => c.op === "update" && (c.payload as any)?.dodo_subscription_id === "sub_111",
-    )
-    expect(attachUpdate).toBeDefined()
-    expect((attachUpdate as any).payload.dodo_customer_id).toBe("cus_42")
+    // One row per user: the upsert keys on user_id, never on the sub id.
+    expect(upserts[0]?.opts).toEqual({ onConflict: "user_id" })
+    // No attach-update / sibling-delete dance anymore.
+    expect(calls.find((c) => c.op === "update")).toBeUndefined()
   })
 
   it("preserves plan when the product is unknown (no silent downgrade)", async () => {
@@ -142,7 +134,7 @@ describe("applyDodoEvent", () => {
     expect(expired.calls.find((c) => c.op === "update")?.payload).toMatchObject({ plan: "free", status: "expired" })
   })
 
-  it("never downgrades on renewal without a product", async () => {
+  it("never downgrades on renewal without a product (existing grant kept)", async () => {
     vi.stubEnv("DODO_PRODUCT_PRO_MONTHLY", PRO_PRODUCT)
     const { supabase, calls } = fakeSupabase({ plan: "pro" })
     await applyDodoEvent(supabase, "u1", "subscription.renewed", {
@@ -152,8 +144,21 @@ describe("applyDodoEvent", () => {
       status: "active",
     })
 
-    const update = calls.find((c) => c.op === "update" && (c.payload as any)?.plan !== undefined)
-    expect((update as any).payload).toMatchObject({ plan: "pro", status: "active" })
+    const upsert = calls.find((c) => c.op === "upsert")
+    expect(upsert?.payload).toMatchObject({ plan: "pro", status: "active", billing_provider: "dodo" })
+  })
+
+  it("defaults to free on renewal with unknown product and no grant", async () => {
+    vi.stubEnv("DODO_PRODUCT_PRO_MONTHLY", PRO_PRODUCT)
+    const { supabase, calls } = fakeSupabase()
+    await applyDodoEvent(supabase, "u1", "subscription.renewed", {
+      subscription_id: "sub_222",
+      customer: { customer_id: "cus_42" },
+      product_id: null,
+      status: "active",
+    })
+    const upsert = calls.find((c) => c.op === "upsert")
+    expect(upsert?.payload).toMatchObject({ plan: "free", status: "active" })
   })
 
   it("marks past_due on payment failure without touching plan", async () => {

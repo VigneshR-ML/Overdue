@@ -23,25 +23,24 @@ export interface DodoEventData {
 
 async function currentRow(supabase: any, userId: string): Promise<{ plan: string } | null> {
   if (!userId) return null
-  const { data } = await supabase.from("subscriptions").select("plan").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle()
+  const { data } = await supabase.from("subscriptions").select("plan").eq("user_id", userId).maybeSingle()
   return (data as { plan?: string } | null) as { plan: string } | null
 }
 
-async function attachIds(
+/**
+ * Writes the single subscription row for this user (one row per user, unique
+ * index on user_id from migration 0018). Every Dodo lifecycle event upserts
+ * that row instead of the attach-then-delete-siblings dance, so re-subscribes
+ * can never leave a stale placeholder row behind.
+ */
+async function upsertRow(
   supabase: any,
   userId: string,
-  ids: { dodo_subscription_id?: string | null; dodo_customer_id?: string | null; product_id?: string | null },
+  patch: Record<string, unknown>,
 ) {
-  const patch: Record<string, string> = {}
-  if (ids.dodo_subscription_id) patch.dodo_subscription_id = ids.dodo_subscription_id
-  if (ids.dodo_customer_id) patch.dodo_customer_id = ids.dodo_customer_id
-  if (ids.product_id) patch.product_id = ids.product_id
-  if (Object.keys(patch).length === 0) return
   await supabase
     .from("subscriptions")
-    .update(patch)
-    .eq("user_id", userId)
-    .is("dodo_subscription_id", null)
+    .upsert({ user_id: userId, ...patch, billing_provider: "dodo" }, { onConflict: "user_id" })
 }
 
 export async function applyDodoEvent(
@@ -69,36 +68,14 @@ export async function applyDodoEvent(
         verdict === null ? ((await currentRow(supabase, userId))?.plan ?? "free") : verdict ? "pro" : "free"
       const status = mapDodoStatus(String(data?.status ?? "active"))
 
-      if (subId) {
-        await attachIds(supabase, userId, { dodo_subscription_id: subId, dodo_customer_id: customerId, product_id: productId })
-        await supabase.from("subscriptions").upsert(
-          {
-            user_id: userId,
-            dodo_subscription_id: subId || null,
-            dodo_customer_id: customerId,
-            product_id: productId,
-            plan,
-            status,
-            current_period_end: periodEnd,
-          },
-          { onConflict: "dodo_subscription_id" },
-        )
-        // Re-subscribing after a previous Dodo sub would otherwise insert a
-        // second row (new dodo_subscription_id ≠ the old row's id), which
-        // breaks plan gating (getPlan assumes a single row per user). Keep the
-        // current subscription's row and drop any sibling rows (old sub ids,
-        // or the free trigger placeholder that never got a Dodo id).
-        await supabase
-          .from("subscriptions")
-          .delete()
-          .eq("user_id", userId)
-          .or(`dodo_subscription_id.is.null,dodo_subscription_id.neq.${subId}`)
-      } else {
-        await supabase
-          .from("subscriptions")
-          .update({ plan, status, dodo_customer_id: customerId ?? undefined, current_period_end: periodEnd })
-          .eq("user_id", userId)
-      }
+      await upsertRow(supabase, userId, {
+        dodo_subscription_id: subId || null,
+        dodo_customer_id: customerId,
+        product_id: productId,
+        plan,
+        status,
+        current_period_end: periodEnd,
+      })
       return eventType
     }
 
@@ -159,15 +136,20 @@ export async function applyDodoEvent(
 
     case "subscription.renewed":
     case "payment.succeeded": {
-      // Renewal paid: never downgrade. Upgrade to pro when the product matches.
+      // Renewal paid: never downgrade. Upgrade to pro when the product matches;
+      // an unknown/missing product with no existing grant defaults to FREE —
+      // never invent pro access from an unrelated payment.
       const verdict = isProProductId(productId)
       const existing = await currentRow(supabase, userId)
-      const plan = verdict === true ? "pro" : (existing?.plan ?? "pro")
-      if (subId) await attachIds(supabase, userId, { dodo_subscription_id: subId, dodo_customer_id: customerId, product_id: productId })
-      await supabase
-        .from("subscriptions")
-        .update({ plan, status: "active", dodo_customer_id: customerId ?? undefined, current_period_end: periodEnd })
-        .eq("user_id", userId)
+      const plan = verdict === true ? "pro" : (existing?.plan ?? "free")
+      await upsertRow(supabase, userId, {
+        dodo_subscription_id: subId || null,
+        dodo_customer_id: customerId,
+        product_id: productId,
+        plan,
+        status: "active",
+        current_period_end: periodEnd,
+      })
       return eventType
     }
 

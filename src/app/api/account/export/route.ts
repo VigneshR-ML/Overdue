@@ -20,9 +20,11 @@ export async function GET() {
   }
 
   const PAGE = 1000
-  // Export user data. Strip sensitive credential fields before returning.
-  // Paginate so PostgREST's default row cap can't silently truncate large exports.
-  const tables = ["profiles", "subscriptions", "clients", "invoices", "sequences", "runs", "messages", "integrations"] as const
+  // (D17) profiles references auth.users by its PRIMARY KEY (id), not by a
+  // user_id column — query it by id. All other tables are keyed by user_id.
+  const tables = ["subscriptions", "clients", "invoices", "sequences", "runs", "messages", "integrations",
+    // Settlement + reply intelligence data (was missing entirely).
+    "settlement_offers", "settlement_events", "reply_intel", "disputes", "payment_plan_requests"] as const
   const out: Record<string, unknown[]> = {}
 
   for (const table of tables) {
@@ -44,6 +46,25 @@ export async function GET() {
     }
     out[table] = rows
   }
+
+  // profiles: filtered on its primary key (id), not user_id.
+  const profileRows: unknown[] = []
+  for (let page = 0; ; page++) {
+    const from = page * PAGE
+    const to = from + PAGE - 1
+    const { data, error } = await admin
+      .from("profiles")
+      .select("*")
+      .eq("id", user!.id)
+      .range(from, to)
+      .order("id", { ascending: true })
+    if (error) {
+      return NextResponse.json({ ok: false, error: `export failed on profiles: ${error.message}` }, { status: 500 })
+    }
+    profileRows.push(...(data ?? []))
+    if (!data || data.length < PAGE) break
+  }
+  out["profiles"] = profileRows
 
   // integration_credentials: export structure but strip secrets (paginated too)
   const credRows: unknown[] = []

@@ -94,35 +94,22 @@ export async function upsertDodoSubscription(userId: string, sub: DodoSubscripti
     : null
   const productId = sub.product_id !== undefined && sub.product_id !== null ? String(sub.product_id) : null
 
-  const patch: Record<string, string> = { dodo_subscription_id: String(sub.subscription_id) }
-  if (customerId) patch.dodo_customer_id = customerId
-  if (productId) patch.product_id = productId
-  await supabase
-    .from("subscriptions")
-    .update(patch)
-    .eq("user_id", userId)
-    .is("dodo_subscription_id", null)
-
+  // One row per user (unique index on user_id, migration 0018): upsert replaces
+  // the single row instead of attaching ids then deleting "sibling" rows, so a
+  // cross-provider re-subscribe can never clobber or orphan another row.
   await supabase.from("subscriptions").upsert(
     {
       user_id: userId,
       dodo_subscription_id: String(sub.subscription_id),
       dodo_customer_id: customerId,
       product_id: productId,
+      billing_provider: "dodo",
       plan: planForSub(sub),
       status: mapStatus(sub?.status),
       current_period_end: sub?.next_billing_date ?? sub?.expires_at ?? null,
     },
-    { onConflict: "dodo_subscription_id" },
+    { onConflict: "user_id" },
   )
-
-  // Keep a single row per user: drop sibling rows (previous Dodo sub ids or the
-  // free placeholder that never got a Dodo id). getPlan() assumes one row/user.
-  await supabase
-    .from("subscriptions")
-    .delete()
-    .eq("user_id", userId)
-    .or(`dodo_subscription_id.is.null,dodo_subscription_id.neq.${sub.subscription_id}`)
 }
 
 /**
@@ -173,9 +160,8 @@ export async function attachDodoCustomerId(userId: string, customerId: string) {
   if (!supabase || !customerId) return
   await supabase
     .from("subscriptions")
-    .update({ dodo_customer_id: String(customerId) })
+    .update({ dodo_customer_id: String(customerId), billing_provider: "dodo" })
     .eq("user_id", userId)
-    .is("dodo_customer_id", null)
 }
 
 // ---------------------------------------------------------------------------
@@ -271,18 +257,7 @@ export async function upsertPaddleSubscription(userId: string, sub: PaddleSubscr
     : null
   const periodEnd = sub?.currentBillingPeriod?.endsAt ?? sub?.nextBillingPeriod?.startsAt ?? null
 
-  const patch: Record<string, string> = {
-    paddle_subscription_id: String(sub.id),
-    billing_provider: "paddle",
-  }
-  if (customerId) patch.paddle_customer_id = customerId
-  if (priceId) patch.product_id = priceId
-  await supabase
-    .from("subscriptions")
-    .update(patch)
-    .eq("user_id", userId)
-    .is("paddle_subscription_id", null)
-
+  // One row per user (unique index on user_id, migration 0018).
   await supabase.from("subscriptions").upsert(
     {
       user_id: userId,
@@ -294,17 +269,8 @@ export async function upsertPaddleSubscription(userId: string, sub: PaddleSubscr
       status: mapPaddleStatus(sub?.status),
       current_period_end: periodEnd,
     },
-    { onConflict: "paddle_subscription_id" },
+    { onConflict: "user_id" },
   )
-
-  // Keep a single row per user: drop sibling rows (previous Paddle sub ids or
-  // the free placeholder that never got a Paddle id). getPlan() assumes one
-  // row/user.
-  await supabase
-    .from("subscriptions")
-    .delete()
-    .eq("user_id", userId)
-    .or(`paddle_subscription_id.is.null,paddle_subscription_id.neq.${sub.id}`)
 }
 
 /**
@@ -357,7 +323,6 @@ export async function attachPaddleCustomerId(userId: string, customerId: string)
   if (!supabase || !customerId) return
   await supabase
     .from("subscriptions")
-    .update({ paddle_customer_id: String(customerId) })
+    .update({ paddle_customer_id: String(customerId), billing_provider: "paddle" })
     .eq("user_id", userId)
-    .is("paddle_customer_id", null)
 }

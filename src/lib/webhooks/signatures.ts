@@ -88,14 +88,16 @@ export function verifyResendSignature(
 
 /**
  * Verifies the inbound (reply-detection) email webhook. Accepts either a Svix
- * signature header (Resend inbound) signed with INBOUND_WEBHOOK_SECRET, or a
- * plain `Authorization: Bearer <secret>` (simpler providers). Either path must
- * match the same shared secret.
+ * signature header set (svix-id/timestamp/signature — Resend inbound) signed
+ * with INBOUND_WEBHOOK_SECRET, the legacy `t=,v1=` HMAC form, or a plain
+ * `Authorization: Bearer <secret>`. All paths use the same shared secret.
  */
 export function verifyInboundReplySignature(opts: {
   signature: string
   bearer: string
   rawBody: string
+  svixId?: string
+  svixTimestamp?: string
 }): boolean {
   const secret = process.env.INBOUND_WEBHOOK_SECRET
   if (!secret || !opts.rawBody) return false
@@ -115,6 +117,34 @@ export function verifyInboundReplySignature(opts: {
   }
 
   if (opts.signature) {
+    // Svix path (Resend inbound): svix-id + svix-timestamp present.
+    const svixId = opts.svixId
+    const svixTs = opts.svixTimestamp
+    if (svixId && svixTs) {
+      const ts = Number(svixTs)
+      if (!Number.isFinite(ts)) return false
+      if (Math.abs(Date.now() / 1000 - ts) > 300) return false
+      const keyB64 = secret.startsWith("whsec_") ? secret.slice("whsec_".length) : secret
+      let key: Buffer
+      try {
+        key = Buffer.from(keyB64, "base64")
+        if (!key.length) key = Buffer.from(secret)
+      } catch {
+        key = Buffer.from(secret)
+      }
+      const signed = crypto
+        .createHmac("sha256", key)
+        .update(`${svixId}.${svixTs}.${opts.rawBody}`)
+        .digest("base64")
+      const candidates = opts.signature.split(" ").map((s) => s.trim()).filter(Boolean)
+      for (const c of candidates) {
+        const v = c.startsWith("v1,") ? c.slice(3) : c.startsWith("v1=") ? c.slice(3) : c
+        if (v && safeEqualBase64(signed, v)) return true
+      }
+      return false
+    }
+
+    // Legacy t=,v1= hex path.
     const [tsPart, sigPart] = opts.signature.split(",")
     const ts = tsPart?.replace("t=", "")?.trim()
     const sig = sigPart?.replace("v1=", "")?.trim()

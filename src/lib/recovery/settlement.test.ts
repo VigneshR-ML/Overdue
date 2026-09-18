@@ -70,6 +70,27 @@ describe("recommendSettlement", () => {
     })
     expect(r.recommended.kind).toBe("wait")
   })
+
+  it("sweeps the full allowed range and never exceeds maxBps", () => {
+    // (D04) maxBps that falls between grid points must still be honoured
+    // exactly, and the wait baseline must appear exactly once.
+    const r = recommendSettlement({
+      outstandingCents: 500000,
+      daysOverdue: 34,
+      history: { avgLateDays: 12, openRate: 0.7, disputeRate: 0 },
+      maxIncentiveBps: 700,
+    })
+    const bps = r.options.map((o) => o.incentiveBps)
+    expect(bps).toContain(700)
+    expect(Math.max(...bps)).toBeLessThanOrEqual(700)
+    // Exactly one 0-incentive entry (the wait baseline).
+    expect(bps.filter((b) => b === 0)).toHaveLength(1)
+    const waitRows = r.options.filter((o) => o.kind === "wait")
+    expect(waitRows).toHaveLength(1)
+    // Option list is ordered ascending by incentive.
+    const sorted = bps.every((b, i) => i === 0 || b >= bps[i - 1]!)
+    expect(sorted).toBe(true)
+  })
 })
 
 describe("defaultExpiry", () => {

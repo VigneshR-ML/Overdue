@@ -36,13 +36,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .select("id")
     .eq("invoice_id", params.id)
     .eq("user_id", user!.id)
-    .in("status", ["queued", "paused"])
+    .in("status", ["queued", "paused", "failed"])
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle()
   if (!run) {
     return NextResponse.json(
-      { ok: false, error: "no scheduled follow-up — attach a ladder first" },
+      { ok: false, error: "no active follow-up — attach a ladder to this invoice first" },
       { status: 400 },
     )
   }

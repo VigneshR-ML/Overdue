@@ -59,7 +59,7 @@ afterEach(() => {
 })
 
 describe("applyPaddleEvent", () => {
-  it("upserts paddle ids on subscription.created with pro plan", async () => {
+  it("upserts the single per-user row on subscription.created with pro plan", async () => {
     vi.stubEnv("PADDLE_PRICE_PRO_MONTHLY", PRO_PRICE)
     const { supabase, calls } = fakeSupabase()
     await applyPaddleEvent(supabase, "u1", "subscription.created", subPayload())
@@ -75,20 +75,10 @@ describe("applyPaddleEvent", () => {
       plan: "pro",
       status: "active",
     })
-    expect(upserts[0]?.opts).toEqual({ onConflict: "paddle_subscription_id" })
-  })
-
-  it("attaches paddle ids to the user's existing null-paddle row first", async () => {
-    vi.stubEnv("PADDLE_PRICE_PRO_MONTHLY", PRO_PRICE)
-    const { supabase, calls } = fakeSupabase()
-    await applyPaddleEvent(supabase, "u1", "subscription.updated", subPayload({ status: "active" }))
-
-    const attachUpdate = calls.find(
-      (c) => c.op === "update" && (c.payload as any)?.paddle_subscription_id === "sub_111",
-    )
-    expect(attachUpdate).toBeDefined()
-    expect((attachUpdate as any).payload.paddle_customer_id).toBe("ctm_42")
-    expect((attachUpdate as any).payload.billing_provider).toBe("paddle")
+    // One row per user: the upsert keys on user_id, never on the sub id.
+    expect(upserts[0]?.opts).toEqual({ onConflict: "user_id" })
+    // No attach-update / sibling-delete dance anymore.
+    expect(calls.find((c) => c.op === "update")).toBeUndefined()
   })
 
   it("preserves plan when the price is unknown (no silent downgrade)", async () => {
@@ -133,18 +123,53 @@ describe("applyPaddleEvent", () => {
     expect(cancelledNow.calls.find((c) => c.op === "update")?.payload).toMatchObject({ plan: "free", status: "cancelled" })
   })
 
-  it("never downgrades on transaction.completed without a price", async () => {
+  it("uses subscription_id (not the transaction id) as the sub id on renewal", async () => {
+    // (D15) transaction.completed carries data.subscription_id for the
+    // subscription being renewed; data.id is the TRANSACTION id and must never
+    // be written into paddle_subscription_id.
     vi.stubEnv("PADDLE_PRICE_PRO_MONTHLY", PRO_PRICE)
     const { supabase, calls } = fakeSupabase({ plan: "pro" })
-    await applyPaddleEvent(supabase, "u1", "transaction.completed", {
-      id: "txn_111",
-      customer_id: "ctm_42",
-      items: [{ price: { id: null } }],
-      status: "completed",
-    } as never)
+    await applyPaddleEvent(
+      supabase,
+      "u1",
+      "transaction.completed",
+      {
+        id: "txn_222",
+        subscription_id: "sub_999",
+        customer_id: "ctm_42",
+        items: [{ price: { id: PRO_PRICE } }],
+        status: "completed",
+      } as never,
+    )
 
-    const update = calls.find((c) => c.op === "update" && (c.payload as any)?.plan !== undefined)
-    expect((update as any).payload).toMatchObject({ plan: "pro", status: "active" })
+    const upsert = calls.find((c) => c.op === "upsert")
+    expect(upsert?.payload).toMatchObject({
+      paddle_subscription_id: "sub_999",
+      plan: "pro",
+      status: "active",
+    })
+    expect(upsert?.payload.paddle_subscription_id).not.toBe("txn_222")
+  })
+
+  it("defaults to free on transaction.completed with unknown price and no grant", async () => {
+    // (D15) An unrelated/unknown transaction must never invent pro access.
+    vi.stubEnv("PADDLE_PRICE_PRO_MONTHLY", PRO_PRICE)
+    const { supabase, calls } = fakeSupabase()
+    await applyPaddleEvent(
+      supabase,
+      "u1",
+      "transaction.completed",
+      {
+        id: "txn_333",
+        subscription_id: "sub_888",
+        customer_id: "ctm_42",
+        items: [{ price: { id: null } }],
+        status: "completed",
+      } as never,
+    )
+
+    const upsert = calls.find((c) => c.op === "upsert")
+    expect(upsert?.payload).toMatchObject({ plan: "free", status: "active" })
   })
 
   it("marks past_due on transaction failure without touching plan", async () => {
@@ -156,12 +181,11 @@ describe("applyPaddleEvent", () => {
     expect((update as any).payload.plan).toBeUndefined()
   })
 
-  it("upgrades to pro on trialing with matching price", async () => {
+  it("upserts pro on trialing with matching price", async () => {
     vi.stubEnv("PADDLE_PRICE_PRO_MONTHLY", PRO_PRICE)
     const { supabase, calls } = fakeSupabase()
     await applyPaddleEvent(supabase, "u1", "subscription.trialing", subPayload({ status: "trialing" }))
-    const update = calls.find((c) => c.op === "update" && (c.payload as any)?.plan !== undefined)
-    expect((update as any).payload).toMatchObject({ plan: "pro", status: "active" })
+    expect(calls.find((c) => c.op === "upsert")?.payload).toMatchObject({ plan: "pro", status: "active" })
   })
 
   it("returns unhandled for unknown events", async () => {

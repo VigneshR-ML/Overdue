@@ -37,7 +37,13 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
   const verified = verifyResolutionToken(params.token)
   if (!verified) return NextResponse.json({ ok: false, error: "invalid link" }, { status: 404 })
 
-  let body: { action?: unknown; promiseDate?: unknown; note?: unknown; category?: unknown }
+  let body: {
+    action?: unknown
+    promiseDate?: unknown
+    note?: unknown
+    category?: unknown
+    requestedCents?: unknown
+  }
   try {
     body = (await request.json()) as typeof body
   } catch {
@@ -108,11 +114,36 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
   }
 
   if (action === "plan_request") {
+    // (D24) Payment-plan requests get a real row the owner can see and act on,
+    // and the ladder pauses so autopilot never chases a client mid-negotiation.
+    const requestedCents =
+      typeof body.requestedCents === "number" && Number.isFinite(body.requestedCents) ? body.requestedCents : null
+    await supabase.from("payment_plan_requests").insert({
+      user_id: userId,
+      offer_id: offer.id as string,
+      invoice_id: offer.invoice_id as string,
+      requested_cents: requestedCents,
+      message: note ?? "",
+      status: "open",
+    })
+    await supabase
+      .from("runs")
+      .update({
+        status: "paused",
+        automation_confidence: 10,
+        reply_classification: "payment_plan",
+        last_reply_at: new Date().toISOString(),
+        error: "paused: open payment-plan request",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("invoice_id", offer.invoice_id as string)
+      .in("status", ["queued", "processing", "sent"])
     await supabase.from("settlement_events").insert({
       offer_id: offer.id,
       user_id: userId,
       event: "plan_request",
-      meta: { note },
+      meta: { note, requested_cents: requestedCents },
     })
     return NextResponse.json({ ok: true, status: "plan_request" })
   }
@@ -128,6 +159,20 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
     reason: note,
     status: "open",
   })
+  // (D05) Pause the ladder so the dispatcher never auto-chases mid-dispute.
+  await supabase
+    .from("runs")
+    .update({
+      status: "paused",
+      automation_confidence: 10,
+      reply_classification: "dispute",
+      last_reply_at: new Date().toISOString(),
+      error: "paused: client dispute via resolution link",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("invoice_id", offer.invoice_id as string)
+    .in("status", ["queued", "processing", "sent"])
   await supabase.from("settlement_events").insert({
     offer_id: offer.id,
     user_id: userId,

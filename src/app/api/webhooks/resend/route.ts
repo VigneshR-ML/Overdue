@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { verifyResendSignature } from "@/lib/webhooks/signatures"
 import { alreadyHandled, recordEvent } from "@/lib/integrations/paid-webhooks"
+import { processInboundReply, extractThreadHeaders } from "@/lib/scheduler/inbound"
 
 export const dynamic = "force-dynamic"
 
@@ -42,13 +43,28 @@ export async function POST(request: NextRequest) {
 
   const type = event.type ?? ""
   const data = event.data ?? {}
-  const to = data.to ?? []
-  const toEmail = Array.isArray(to) ? to[0] : to
 
-  if (!toEmail) return NextResponse.json({ ok: true, skipped: "no recipient" })
+  // (D06) Inbound replies (native Resend inbound): a client replying to one of
+  // our reminders. Match by thread (In-Reply-To/References) then pause/classify
+  // — previously these arrived as email.received and fell through to "no match".
+  if (type === "email.received") {
+    const from = data.from ?? data.message?.from ?? ""
+    const fromRaw = String(Array.isArray(from) ? from[0] ?? "" : from)
+    const fromEmail = fromRaw.replace(/^[^<]*<([^>]+)>.*$/, "$1").trim()
+    const text = data.text ?? data.message?.text ?? data.body ?? ""
+    const thread = extractThreadHeaders(data.headers) ?? {}
+    const handled = await processInboundReply(supabase, {
+      fromEmail,
+      text: String(text).slice(0, 4000) || undefined,
+      inReplyTo: thread.inReplyTo,
+      references: thread.references,
+    })
+    if (eventId) {
+      await recordEvent(supabase, "resend", eventId, event)
+    }
+    return NextResponse.json({ ok: true, classification: handled?.classification ?? undefined })
+  }
 
-  // Try to match the specific message by Resend's email ID only.
-  // Removed overly broad email-based fallback to prevent spoofing.
   const resendId = data.email_id ?? null
   let messages: any[] = []
   if (resendId) {

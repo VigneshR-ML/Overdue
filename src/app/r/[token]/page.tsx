@@ -67,21 +67,19 @@ export default async function ResolutionPage({ params }: { params: { token: stri
     payment_url: string | null
   }
 
-  // Record the view (best-effort, never blocks rendering).
+  // Record the view (best-effort, never blocks rendering). The offer's
+  // "sent" transition happens only when a reminder actually goes out (dispatch
+  // stamps delivered_at) — opening the link is a VIEW, not a send, so it must
+  // never fake delivery signals.
   try {
     await supabase
       .from("settlement_offers")
-      .update({ updated_at: new Date().toISOString() })
+      .update({ viewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", o.id)
+      .is("viewed_at", null)
     await supabase
       .from("settlement_events")
       .insert({ offer_id: o.id, user_id: o.user_id, event: "viewed", meta: {} })
-    if (o.status === "approved") {
-      await supabase
-        .from("settlement_offers")
-        .update({ status: "sent", updated_at: new Date().toISOString() })
-        .eq("id", o.id)
-    }
   } catch {
     // best-effort
   }

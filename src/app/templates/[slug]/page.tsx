@@ -33,7 +33,7 @@ export default function TemplatePage({ params }: Props) {
 
   const ladder = [
     { id: "a", step_order: 1, delay_days: 1, tone: "gentle" as const, ai_enabled: true, subject_template: "", body_template: "" },
-    { id: "b", step_order: 2, delay_days: 7, tone: "nudge" as const, ai_enabled: true, subject_template: "", body_template: "" },
+    { id: "b", step_order: 2, delay_days: 6, tone: "nudge" as const, ai_enabled: true, subject_template: "", body_template: "" },
     { id: "c", step_order: 3, delay_days: 7, tone: "firm" as const, ai_enabled: true, subject_template: "", body_template: "" },
     { id: "d", step_order: 4, delay_days: 7, tone: "final" as const, ai_enabled: true, subject_template: "", body_template: "" },
   ]

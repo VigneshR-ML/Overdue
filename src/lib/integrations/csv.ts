@@ -135,6 +135,10 @@ export function parseCsv(csv: string): { invoices: InboundInvoice[]; errors: str
       errors.push(`Row ${rowIdx + 2}: invalid amount "${pick(row, "amount")}"`)
       return
     }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      errors.push(`Row ${rowIdx + 2}: amount must be a positive number, got "${pick(row, "amount")}"`)
+      return
+    }
 
     const isPaid = status === "paid" || status === "PAID"
     const paidRaw = pick(row, "paid_cents")

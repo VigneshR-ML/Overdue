@@ -10,6 +10,7 @@ import { mapPaddleStatus, isProPriceId } from "@/lib/paddle/helpers"
 
 export interface PaddleEventData {
   id?: string | null
+  subscription_id?: string | null
   customer_id?: string | null
   status?: string | null
   custom_data?: Record<string, unknown> | null
@@ -23,7 +24,7 @@ export interface PaddleEventData {
 
 async function currentRow(supabase: any, userId: string): Promise<{ plan: string } | null> {
   if (!userId) return null
-  const { data } = await supabase.from("subscriptions").select("plan").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle()
+  const { data } = await supabase.from("subscriptions").select("plan").eq("user_id", userId).maybeSingle()
   return (data as { plan?: string } | null) as { plan: string } | null
 }
 
@@ -32,22 +33,20 @@ function priceIdFrom(data: PaddleEventData): string | null {
   return first !== undefined && first !== null ? String(first) : null
 }
 
-async function attachIds(
+/**
+ * Writes the single subscription row for this user. The subscriptions table is
+ * one-row-per-user (unique index on user_id, migration 0018) — every Paddle
+ * lifecycle event upserts that row rather than racing sibling rows, so a
+ * re-subscribe can never leave a stale placeholder that wrong-legs plan gating.
+ */
+async function upsertRow(
   supabase: any,
   userId: string,
-  ids: { paddle_subscription_id?: string | null; paddle_customer_id?: string | null; product_id?: string | null },
+  patch: Record<string, unknown>,
 ) {
-  const patch: Record<string, string> = {}
-  if (ids.paddle_subscription_id) patch.paddle_subscription_id = ids.paddle_subscription_id
-  if (ids.paddle_customer_id) patch.paddle_customer_id = ids.paddle_customer_id
-  if (ids.product_id) patch.product_id = ids.product_id
-  patch.billing_provider = "paddle"
-  if (Object.keys(patch).length === 0) return
   await supabase
     .from("subscriptions")
-    .update(patch)
-    .eq("user_id", userId)
-    .is("paddle_subscription_id", null)
+    .upsert({ user_id: userId, ...patch, billing_provider: "paddle" }, { onConflict: "user_id" })
 }
 
 export async function applyPaddleEvent(
@@ -56,7 +55,15 @@ export async function applyPaddleEvent(
   eventType: string,
   data: PaddleEventData,
 ) {
-  const subId = data?.id ? String(data.id) : ""
+  // (D15) Subscription events identify by data.id; transaction events by
+  // data.subscription_id (data.id there is the TRANSACTION id — using it as a
+  // subscription id attached a new paddle_subscription_id on renewals and could
+  // leave the row pointing at the wrong subscription).
+  const subId = data?.subscription_id
+    ? String(data.subscription_id)
+    : data?.id
+      ? String(data.id)
+      : ""
   const customerId =
     data?.customer_id !== undefined && data?.customer_id !== null
       ? String(data.customer_id)
@@ -76,37 +83,14 @@ export async function applyPaddleEvent(
         verdict === null ? ((await currentRow(supabase, userId))?.plan ?? "free") : verdict ? "pro" : "free"
       const status = mapPaddleStatus(String(data?.status ?? "active"))
 
-      if (subId) {
-        await attachIds(supabase, userId, { paddle_subscription_id: subId, paddle_customer_id: customerId, product_id: priceId })
-        await supabase.from("subscriptions").upsert(
-          {
-            user_id: userId,
-            paddle_subscription_id: subId || null,
-            paddle_customer_id: customerId,
-            product_id: priceId,
-            billing_provider: "paddle",
-            plan,
-            status,
-            current_period_end: periodEnd,
-          },
-          { onConflict: "paddle_subscription_id" },
-        )
-        // Re-subscribing after a previous Paddle sub would otherwise insert a
-        // second row (new paddle_subscription_id ≠ the old row's id), which
-        // breaks plan gating (getPlan assumes a single row per user). Keep the
-        // current subscription's row and drop any sibling rows (old sub ids,
-        // or the free trigger placeholder that never got a Paddle id).
-        await supabase
-          .from("subscriptions")
-          .delete()
-          .eq("user_id", userId)
-          .or(`paddle_subscription_id.is.null,paddle_subscription_id.neq.${subId}`)
-      } else {
-        await supabase
-          .from("subscriptions")
-          .update({ plan, status, paddle_customer_id: customerId ?? undefined, current_period_end: periodEnd, billing_provider: "paddle" })
-          .eq("user_id", userId)
-      }
+      await upsertRow(supabase, userId, {
+        paddle_subscription_id: subId || null,
+        paddle_customer_id: customerId,
+        product_id: priceId,
+        plan,
+        status,
+        current_period_end: periodEnd,
+      })
       return eventType
     }
 
@@ -143,25 +127,33 @@ export async function applyPaddleEvent(
     case "subscription.trialing": {
       const verdict = isProPriceId(priceId)
       const plan = verdict === true ? "pro" : ((await currentRow(supabase, userId))?.plan ?? "free")
-      if (subId) await attachIds(supabase, userId, { paddle_subscription_id: subId, paddle_customer_id: customerId, product_id: priceId })
-      await supabase
-        .from("subscriptions")
-        .update({ plan, status: "active", paddle_customer_id: customerId ?? undefined, current_period_end: periodEnd, billing_provider: "paddle" })
-        .eq("user_id", userId)
+      await upsertRow(supabase, userId, {
+        paddle_subscription_id: subId || null,
+        paddle_customer_id: customerId,
+        product_id: priceId,
+        plan,
+        status: "active",
+        current_period_end: periodEnd,
+      })
       return eventType
     }
 
     case "transaction.completed":
     case "transaction.paid": {
-      // Renewal paid: never downgrade. Upgrade to pro when the price matches.
+      // Renewal paid: never downgrade. Upgrade to pro when the price matches;
+      // an unknown/missing product with no existing grant defaults to FREE —
+      // never invent pro access from an unrelated transaction.
       const verdict = isProPriceId(priceId)
       const existing = await currentRow(supabase, userId)
-      const plan = verdict === true ? "pro" : (existing?.plan ?? "pro")
-      if (subId) await attachIds(supabase, userId, { paddle_subscription_id: subId, paddle_customer_id: customerId, product_id: priceId })
-      await supabase
-        .from("subscriptions")
-        .update({ plan, status: "active", paddle_customer_id: customerId ?? undefined, current_period_end: periodEnd })
-        .eq("user_id", userId)
+      const plan = verdict === true ? "pro" : (existing?.plan ?? "free")
+      await upsertRow(supabase, userId, {
+        paddle_subscription_id: subId || null,
+        paddle_customer_id: customerId,
+        product_id: priceId,
+        plan,
+        status: "active",
+        current_period_end: periodEnd,
+      })
       return eventType
     }
 

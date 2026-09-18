@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import { formatMoney, formatDate, cn } from "@/lib/utils/format"
 import type { Invoice, Client } from "@/types"
 import { PaidBadge, OverdueBadge, SentBadge } from "@/components/ui/badge"
@@ -26,7 +25,7 @@ export function InvoiceTable({
   focusId,
   onRefresh,
 }: {
-  invoices: (Invoice & { client: Client | null })[]
+  invoices: (Invoice & { client: Client | null; paused?: boolean })[]
   focusId?: string
   onRefresh?: () => void
 }) {
@@ -56,11 +55,18 @@ export function InvoiceTable({
   async function markPaid(e: React.MouseEvent, id: string) {
     e.preventDefault()
     e.stopPropagation()
-    const supabase = createClient()
+    // (D19) Marking paid goes through the server PATCH so paid_cents, runs,
+    // settlement offers and disputes all reconcile — the client can't write a
+    // status field and leave a live ladder running behind it.
     try {
-      const { error } = await supabase.from("invoices").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", id)
-      if (error) {
-        setError(error.message)
+      const res = await fetch(`/api/invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mark_paid: true }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(json?.error ?? "Failed to mark as paid")
         return
       }
     } catch {
@@ -82,6 +88,12 @@ export function InvoiceTable({
       if (timerRef.current) window.clearTimeout(timerRef.current)
     }
   }, [])
+
+  // (D20) Seed + keep the pause toggle in line with the server's actual run
+  // state instead of local-only state that resets on every navigation.
+  useEffect(() => {
+    setPausedIds(new Set(invoices.filter((i) => i.paused).map((i) => i.id)))
+  }, [invoices])
 
   async function sendNow(e: React.MouseEvent, id: string) {
     e.preventDefault()

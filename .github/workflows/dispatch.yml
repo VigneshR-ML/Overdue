@@ -11,9 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Overdue dispatch endpoint
+        id: dispatch
+        env:
+          DISPATCH_URL: ${{ secrets.DISPATCH_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -fsS -o /dev/null -w "dispatch HTTP %{http_code}\n" \
-            -X POST "${{ secrets.DISPATCH_URL }}/api/cron/dispatch" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          RESPONSE_FILE="$(mktemp)"
+          HTTP_CODE="$(curl -sS -o "$RESPONSE_FILE" -w "%{http_code}" \
+            -X POST "${DISPATCH_URL}/api/cron/dispatch" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
             -H "Content-Type: application/json" \
-            --max-time 120
+            --max-time 120 || true)"
+          echo "dispatch HTTP ${HTTP_CODE}"
+          cat "$RESPONSE_FILE"
+          echo
+          # (D12) A 200 with {"ok":false} is a real failure — surface it so the
+          # scheduled run goes red instead of silently passing.
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::error::dispatch endpoint returned HTTP ${HTTP_CODE}"
+            exit 1
+          fi
+          if ! grep -q '"ok":true' "$RESPONSE_FILE"; then
+            echo "::error::dispatch endpoint reported ok:false"
+            exit 1
+          fi

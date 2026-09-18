@@ -52,13 +52,34 @@ export async function POST(request: NextRequest) {
     }
     invoices.splice(room)
   }
+
+  // (D18) Which rows already exist, so reported added/updated counts are true.
+  let alreadyExisting = 0
+  {
+    const { data: existing } = await supabase
+      .from("invoices")
+      .select("provider_id")
+      .eq("user_id", user!.id)
+      .eq("provider", "manual")
+      .in(
+        "provider_id",
+        invoices.map((i) => i.provider_id),
+      )
+    alreadyExisting = existing?.length ?? 0
+  }
+
   let clientIdMap = new Map<string, string | null>()
+  let blockedKeys = new Set<string>()
   let clientCount = await countForUser(user!.id, "clients")
 
-  async function resolveClient(name: string | null, email: string | null): Promise<string | null> {
+  async function resolveClient(
+    name: string | null,
+    email: string | null,
+  ): Promise<{ clientId: string | null; blocked: boolean }> {
     const key = email ? `e:${email.toLowerCase()}` : name ? `n:${name.toLowerCase()}` : null
-    if (!key) return null
-    if (clientIdMap.has(key)) return clientIdMap.get(key) ?? null
+    if (!key) return { clientId: null, blocked: false }
+    if (blockedKeys.has(key)) return { clientId: null, blocked: true }
+    if (clientIdMap.has(key)) return { clientId: clientIdMap.get(key) ?? null, blocked: false }
     if (email) {
       const { data: existing } = await supabase
         .from("clients")
@@ -68,14 +89,16 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
       if (existing) {
         clientIdMap.set(key, existing.id)
-        return existing.id
+        return { clientId: existing.id, blocked: false }
       }
     }
-    // Free plan: hard-cap the number of clients.
+    // Free plan: hard-cap the number of clients. (D18) A row whose client can't
+    // be created is skipped entirely — orphan invoices would otherwise be
+    // created with no owner even though the merchant is over the cap.
     if (plan === "free" && clientCount >= FREE_CLIENT_LIMIT) {
-      errors.push("Free plan covers 3 clients — upgrade to Pro to import more.")
       clientIdMap.set(key, null)
-      return null
+      blockedKeys.add(key)
+      return { clientId: null, blocked: true }
     }
     const { data: created } = await supabase
       .from("clients")
@@ -89,11 +112,17 @@ export async function POST(request: NextRequest) {
       .single()
     if (created) clientCount++
     clientIdMap.set(key, created?.id ?? null)
-    return created?.id ?? null
+    return { clientId: created?.id ?? null, blocked: false }
   }
 
+  let added = 0
+  let updated = 0
   for (const inv of invoices) {
-    const clientId = await resolveClient(inv.client_name, inv.client_email)
+    const { clientId, blocked } = await resolveClient(inv.client_name, inv.client_email)
+    if (blocked) {
+      errors.push(`Row for ${inv.client_name || inv.number || "unknown client"} skipped (client limit reached)`)
+      continue
+    }
     const { error: iErr } = await supabase.from("invoices").upsert(
       {
         user_id: user!.id,
@@ -113,6 +142,10 @@ export async function POST(request: NextRequest) {
       { onConflict: "user_id,provider,provider_id" },
     )
     if (iErr) errors.push(iErr.message)
+    else if (alreadyExisting > 0) {
+      alreadyExisting--
+      updated++
+    } else added++
   }
 
   // Mark csv integration present + attach ladders.
@@ -126,6 +159,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    result: { added: invoices.length, updated: 0, errors },
+    result: { added, updated, errors },
   })
 }

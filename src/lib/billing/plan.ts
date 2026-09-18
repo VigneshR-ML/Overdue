@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
+import { planForSubscription } from "./entitlement"
 
-export type Plan = "free" | "pro"
+export type { Plan } from "./entitlement"
 
 // Re-exported here so existing server imports keep working; the canonical
 // home is ./limits (client-safe, no next/headers in its graph).
@@ -14,7 +15,7 @@ export {
 /**
  * Resolves the user's effective plan from their subscription row.
  */
-export async function getPlan(userId: string): Promise<Plan> {
+export async function getPlan(userId: string): Promise<ReturnType<typeof planForSubscription>> {
   const supabase = createClient()
   const { data } = await supabase
     .from("subscriptions")
@@ -23,22 +24,7 @@ export async function getPlan(userId: string): Promise<Plan> {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (!data) return "free"
-  // Cancelled keeps Pro through the paid grace period (current_period_end in
-  // the future); once expired/past that date it falls to free.
-  if (data.status === "cancelled") {
-    const end = (data as { current_period_end?: string | null }).current_period_end
-    if (end && new Date(end).getTime() > Date.now()) {
-      return (data as { plan?: string }).plan === "pro" ? "pro" : "free"
-    }
-    return "free"
-  }
-  // failed / expired revoke Pro outright.
-  if (data.status === "failed" || data.status === "expired") return "free"
-  // past_due / paused / on_hold keep Pro during the retry/grace window so a
-  // failed renewal doesn't instantly lock users out; webhooks flip to free on
-  // expiry/refund.
-  return data.plan === "pro" ? "pro" : "free"
+  return planForSubscription(data as Parameters<typeof planForSubscription>[0] | null)
 }
 
 /** Counts rows in a table for a user, for quota checks. */

@@ -115,15 +115,21 @@ export function recommendSettlement(input: RecommendInput): SettlementRecommenda
     expectedDelayDays: delay,
   }
 
-  const candidates = [0, 100, 150, 250]
-    .filter((bps) => bps <= maxBps)
-    .filter((bps, i, arr) => arr.indexOf(bps) === i)
+  // (D04) Candidate incentives: a spread across the merchant's allowed range,
+  // always capped at maxBps (which is included exactly when it's off-grid).
+  // "wait" is the single 0-bps baseline — no duplicated zero-incentive row.
+  const GRID = [50, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000]
+  const bpsSet = new Set(GRID.filter((bps) => bps <= maxBps))
+  if (maxBps > 0) bpsSet.add(maxBps)
+
+  const settleCandidates = [...bpsSet]
+    .sort((a, b) => a - b)
     .map((bps): SettlementOption => {
       const incentiveCents = Math.round((outstandingCents * bps) / 10000)
       const offerCents = outstandingCents - incentiveCents
       const pToday = payTodayWithIncentive(wait.pToday, bps)
       return {
-        kind: bps === 0 ? "wait" : "settle",
+        kind: "settle",
         incentiveBps: bps,
         offerCents,
         incentiveCents,
@@ -132,14 +138,17 @@ export function recommendSettlement(input: RecommendInput): SettlementRecommenda
         expectedDelayDays: 0,
       }
     })
-    .filter((o) => o.kind === "wait" || o.offerCents >= floor)
+    .filter((o) => o.offerCents >= floor)
 
-  const options = candidates.length > 0 ? candidates : [wait]
+  const options = settleCandidates.length > 0 ? [wait, ...settleCandidates] : [wait]
+
+  // Smallest incentive that actually beats waiting (per the engine contract);
+  // if none does, waiting wins.
+  const recommended =
+    settleCandidates
+      .filter((o) => o.expectedCents > wait.expectedCents)
+      .sort((a, b) => a.incentiveBps - b.incentiveBps)[0] ?? wait
   // Max EV wins; ties break toward the smaller incentive.
-  const ranked = [...options].sort(
-    (a, b) => b.expectedCents - a.expectedCents || a.incentiveBps - b.incentiveBps,
-  )
-  const recommended = ranked[0]
   const reason =
     recommended.kind === "wait"
       ? `Waiting has the highest expected value — no incentive beats ${Math.round(pWait * 100)}% × full amount within guardrails.`

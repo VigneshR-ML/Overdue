@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 const LADDER_STEPS = [
   { id: "g", step_order: 1, delay_days: 1, tone: "gentle" as const, ai_enabled: true, subject_template: "Just checking in on invoice #2026-0914", body_template: "" },
-  { id: "n", step_order: 2, delay_days: 7, tone: "nudge" as const, ai_enabled: true, subject_template: "Friendly reminder: invoice #2026-0914", body_template: "" },
+  { id: "n", step_order: 2, delay_days: 6, tone: "nudge" as const, ai_enabled: true, subject_template: "Friendly reminder: invoice #2026-0914", body_template: "" },
   { id: "f", step_order: 3, delay_days: 7, tone: "firm" as const, ai_enabled: true, subject_template: "Invoice #2026-0914 — can you confirm receipt?", body_template: "" },
   { id: "x", step_order: 4, delay_days: 7, tone: "final" as const, ai_enabled: true, subject_template: "Final notice: invoice #2026-0914", body_template: "" },
 ]
