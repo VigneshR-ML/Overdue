@@ -3,53 +3,42 @@ import { planForSubscription, graceUntil } from "./entitlement"
 
 const REF = Date.parse("2026-09-18T12:00:00Z")
 
-describe("planForSubscription (D14)", () => {
-  it("free when there is no subscription row", () => {
+describe("planForSubscription", () => {
+  it("defaults to free for absent and non-pro records", () => {
     expect(planForSubscription(null, REF)).toBe("free")
     expect(planForSubscription(undefined, REF)).toBe("free")
-  })
-
-  it("free when the plan is not pro", () => {
     expect(planForSubscription({ plan: "free", status: "active" }, REF)).toBe("free")
   })
 
-  it("keeps pro while active", () => {
-    expect(planForSubscription({ plan: "pro", status: "active" }, REF)).toBe("pro")
-  })
-
-  it("keeps pro during the retry window on past_due / paused / on_hold", () => {
-    for (const status of ["past_due", "paused", "on_hold"]) {
+  it("grants pro for active and trialing records", () => {
+    for (const status of ["active", "trialing"]) {
       expect(planForSubscription({ plan: "pro", status }, REF)).toBe("pro")
     }
   })
 
-  it("revokes pro outright on failed / expired even mid-deadline", () => {
-    for (const status of ["failed", "expired"]) {
-      expect(
-        planForSubscription(
-          { plan: "pro", status, current_period_end: new Date(REF + 86400000).toISOString() },
-          REF,
-        ),
-      ).toBe("free")
+  it("requires a future paid-through date for grace states", () => {
+    for (const status of ["past_due", "paused", "on_hold", "cancelled"]) {
+      expect(planForSubscription({ plan: "pro", status }, REF)).toBe("free")
+      expect(planForSubscription({ plan: "pro", status, current_period_end: "invalid" }, REF)).toBe("free")
+      expect(planForSubscription({ plan: "pro", status, current_period_end: new Date(REF - 1).toISOString() }, REF)).toBe("free")
+      expect(planForSubscription({ plan: "pro", status, current_period_end: new Date(REF + 86400000).toISOString() }, REF)).toBe("pro")
     }
   })
 
-  it("cancelled keeps pro only inside the paid-through grace window", () => {
-    const paidThrough = new Date(REF + 86400000).toISOString()
-    expect(planForSubscription({ plan: "pro", status: "cancelled", current_period_end: paidThrough }, REF)).toBe("pro")
-    const lapsed = new Date(REF - 86400000).toISOString()
-    expect(planForSubscription({ plan: "pro", status: "cancelled", current_period_end: lapsed }, REF)).toBe("free")
+  it("fails closed for unknown, missing, failed and expired statuses", () => {
+    for (const status of [undefined, "", "mystery", "failed", "expired"]) {
+      expect(planForSubscription({ plan: "pro", status, current_period_end: new Date(REF + 86400000).toISOString() }, REF)).toBe("free")
+    }
   })
 })
 
 describe("graceUntil", () => {
-  it("returns 0 when there is no paid-through date", () => {
+  it("returns zero for missing or invalid dates", () => {
     expect(graceUntil(null, REF)).toBe(0)
     expect(graceUntil({ plan: "pro", status: "active" }, REF)).toBe(0)
+    expect(graceUntil({ current_period_end: "invalid" }, REF)).toBe(0)
   })
-
   it("returns the parsed period end", () => {
-    const end = new Date(REF).toISOString()
-    expect(graceUntil({ plan: "pro", status: "cancelled", current_period_end: end }, REF)).toBe(REF)
+    expect(graceUntil({ current_period_end: new Date(REF).toISOString() }, REF)).toBe(REF)
   })
 })
