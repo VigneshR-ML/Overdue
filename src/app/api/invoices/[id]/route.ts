@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createClient } from "@/lib/supabase/server"
 import { startRun } from "@/lib/scheduler/dispatch"
+import { reconcilePaidWork } from "@/lib/recovery/paid"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -87,45 +88,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     .eq("user_id", user!.id)
   if (updErr) return NextResponse.json({ ok: false, error: updErr.message }, { status: 400 })
 
-  // (D19) Reconciliation: marking paid stops the chase and settles anything
-  // that was pending resolution for this invoice, so the ledger, the ladder,
-  // the settlement offer and any open dispute all agree.
+  // (D19/paid.ts) Reconciliation: marking paid stops the chase and settles
+  // anything that was pending resolution for this invoice, so the ledger, the
+  // ladder, the settlement offer and any open dispute all agree.
   if (body.mark_paid === true) {
-    const now = new Date().toISOString()
-    await supabase
-      .from("runs")
-      .update({ status: "cancelled", updated_at: now })
-      .eq("invoice_id", params.id)
-      .eq("user_id", user!.id)
-      .in("status", ["queued", "processing", "sent", "paused"])
-    await supabase
-      .from("disputes")
-      .update({ status: "resolved", resolved_at: now })
-      .eq("invoice_id", params.id)
-      .eq("user_id", user!.id)
-      .eq("status", "open")
-    const { data: openOffers } = await supabase
-      .from("settlement_offers")
-      .select("id")
-      .eq("invoice_id", params.id)
-      .eq("user_id", user!.id)
-      .in("status", ["approved", "sent", "accepted"])
-    if (openOffers?.length) {
-      await supabase
-        .from("settlement_offers")
-        .update({ status: "paid", updated_at: now })
-        .eq("invoice_id", params.id)
-        .eq("user_id", user!.id)
-        .in("status", ["approved", "sent", "accepted"])
-      await supabase.from("settlement_events").insert(
-        openOffers.map((o) => ({
-          offer_id: o.id,
-          user_id: user!.id,
-          event: "paid",
-          meta: { source: "manual_mark_paid" },
-        })),
-      )
-    }
+    await reconcilePaidWork(supabase, { userId: user!.id, invoiceId: params.id, source: "manual_mark_paid" })
   }
 
   return NextResponse.json({ ok: true })

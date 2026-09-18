@@ -1,172 +1,195 @@
-# COMPLETE_FILE_AUDIT.md
+# COMPLETE_FILE_AUDIT.md — per-file inventory (reconciles all tracked files)
 
-Inventory of the Overdue codebase (pinned `d005e34e`) with per-file purpose and
-disposition after the fix pass. Reviewed files carry a short finding; the rest
-are inventoried with their role. This is the paper trail behind
-`BUG_REPORT.md` / `FIX_CHANGELOG.md`.
+- Repo: `VigneshR-ML/Overdue` · Audited base: `d005e34e` · Master-pass HEAD: `f2b3d2c`
+- Inventory source: `git ls-files | grep -v '^.opencode/'` at base → **237 files** =
+  119 `.ts` (of which **24 are vitest suites**) + 75 `.tsx` + 18 migrations +
+  5 audit docs + 19 other (config/static/scripts/workflows).
+- HEAD adds 2 files (`src/lib/recovery/paid.ts`, `docs/audit/WORKFLOW_MAP.md`) → 239.
+- Every path below is present in the inventory; files prefixed `[NEW]` were
+  added during the audit fixes.
+- Status: `[R]` read & assessed · `[E]` edited in this pass · `[I]` inventoried
+  (role known, not line-audited). "Issues" = defects found, tagged to BUG_REPORT.
 
-Status legend: `[R]` = read & assessed; `[E]` = edited in this pass;
-`[I]` = inventoried (role known, not line-audited).
+## Config, ops, top level
 
-## Top level
-- `package.json` — Next 15 + Supabase; vitest. `[R]` deps present, no playwright.
-- `tsconfig.json` — strict; `@/*` alias. `[I]`
-- `next.config.mjs` — no transpile of next-auth, etc. `[I]`
-- `vitest.config.ts` — alias + jsdom-free env. `[R]`
-- `tailwind.config.ts` — TT/theme (`ink`, `moss`, `faint`, …) tokens only,
-  no content misses found. `[I]`
-- `vercel.json` — crons intentionally empty (Vercel Cron needs Pro). `[I]`
-- `playwright.config.ts` / `e2e/` / `test-results/` — scaffolded, no runner
-  installed, no tests collected. Known gap (TEST_RESULTS.md).
-- `.env.example` — the only env template tracked; `CRON_SECRET`,
-  `SIGNING_SECRET`, provider keys, `SUPABASE_*`. `[R]`
-- `opencode.json`, `.opencode/` — agent config. `[I]`
-- `scripts/` — 4 helper scripts (seeds/reset helpers). `[I]`
-- `README.md` — ladder copy `day 1 → nudge 7 →` now matches `[1,6,7,7]` data. `[R]`
+| File | Purpose | Reviewed | Issues | Changes | Tests | Status |
+|------|---------|----------|--------|---------|-------|--------|
+| `.env.example` | env template: CRON/SIGNING secrets, provider keys, SUPABASE_* | ✔ | none | — | — | `[R]` |
+| `.eslintrc.json` | ESLint config | — | none | — | — | `[I]` |
+| `.github/workflows/dispatch.yml` | hourly cron → /api/cron/dispatch, fails on non-200/`ok:false` | ✔ | D12 | capture+print+exit 1 | — | `[R][E]` |
+| `.gitignore` | ignores | — | none | — | — | `[I]` |
+| `next.config.mjs` | security headers (CSP/HSTS/DENY/no-store on API & auth pages) | ✔ | none | — | — | `[R]` |
+| `opencode.json` | agent config | — | none | — | — | `[I]` |
+| `package.json` / `package-lock.json` | deps, scripts (test/tsc/build/lint) | ✔ | no playwright | — | — | `[R]` |
+| `postcss.config.mjs` | postcss | — | none | — | — | `[I]` |
+| `public/products/overdue-icon.png` | icon | — | none | — | — | `[I]` |
+| `README.md` | docs; ladder copy `[1,6,7,7]` aligned | ✔ | D27 | — | — | `[R]` |
+| `scripts/dodo-e2e.sh` | dodo e2e harness | — | none | — | — | `[I]` |
+| `scripts/launch-check.sh` | pre-launch checks | — | none | — | — | `[I]` |
+| `scripts/probe-computes.ts` | db compute probe | — | none | — | — | `[I]` |
+| `scripts/tsx-register.mjs` | tsx helper for scripts | — | none | — | — | `[I]` |
+| `tailwind.config.ts`, `tsconfig.json`, `vitest.config.ts` | toolchain | ✔ | none | — | — | `[R]` |
+| `vercel.json` | vercel (crons intentionally empty) | ✔ | none | — | — | `[I]` |
 
-## Supabase migrations (17 ancestry + 1 new)
-- `0001_init.sql` — core schema; RLS; trigger seeds. `[R]` `[E]` ladder seeds now
-  `[1,6,7,7]`; `subs_all_own` originally present (removed in 0018).
-- `0002/0003/0007/0012` credentials + vault wrappers. `[I]`
-- `0004_dispatch_states.sql` — runs status machine incl. `failed`, `promise_*`. `[R]`
-- `0005_indexes_and_constraints.sql` — dedupe uniqueness. `[I]`
-- `0006_delivery_tracking.sql` — `messages.delivered_at`, open tracking. `[R]`
-- `0008/0009` provider account, `payment_url`. `[R]`
-- `0010_promise_to_pay.sql` — promise columns on runs. `[I]`
-- `0011_ai_usage.sql` — AI quota columns. `[R]`
-- `0013_reply_intel.sql` — `reply_intel`, `disputes` (+ RLS). `[R]`
-- `0014_lemon_billing.sql` / `0015_dodo_billing.sql` — legacy Lemon + Dodo
-  subscriptions tables. `[R]`
-- `0016_settlements.sql` — `settlement_offers`/`settlement_events` (+ checks,
-  status-matrix index). `[R]`
-- `0017_paddle_billing.sql` — adds `billing_provider` (default `'dodo'`),
-  paddle ids. `[R]`
-- `0018_hardening_fixes.sql` — **new**: RLS drop, dedupe + unique index,
-  partial active-run index, messages.status, offer tracking columns,
-  payment_plan_requests, ladder repair. `[E]`
+## Supabase migrations (18) + config
 
-## `src/lib`
+| File | Purpose | Reviewed | Issues | Changes | Tests | Status |
+|------|----------|----------|--------|---------|-------|--------|
+| `supabase/config.toml` | local stack | — | none | — | — | `[I]` |
+| `0001_init.sql` | core tables/RLS/trigger seeds | ✔ | D09 | seeds `[1,6,7,7]` | — | `[R][E]` |
+| `0002_credentials.sql` | creds table | — | none | — | — | `[I]` |
+| `0003_vault_credentials.sql`, `0007_vault_wrappers.sql` | vault secret storage + SECURITY DEFINER wrappers | — | none | — | — | `[I]` |
+| `0004_dispatch_states.sql` | runs status machine | ✔ | none | — | — | `[R]` |
+| `0005_indexes_and_constraints.sql` | dedupe constraints | ✔ | none | — | — | `[I]` |
+| `0006_delivery_tracking.sql` | messages.delivered_at/open | ✔ | none | — | — | `[R]` |
+| `0008_provider_account.sql` | integrations.provider_account_id (tenant→user) | ✔ | none | — | — | `[R]` |
+| `0009_payment_url.sql` | payment_url column | — | none | — | — | `[I]` |
+| `0010_promise_to_pay.sql` | runs promise columns | — | none | — | — | `[I]` |
+| `0011_ai_usage.sql` | AI quota table | ✔ | none | — | — | `[R]` |
+| `0012_credentials_rls.sql` | credentials RLS | — | none | — | — | `[I]` |
+| `0013_reply_intel.sql` | reply_intel + disputes | ✔ | none | — | — | `[R]` |
+| `0014_lemon_billing.sql`, `0015_dodo_billing.sql`, `0017_paddle_billing.sql` | billing tables + billing_provider | ✔ | none | — | — | `[R]` |
+| `0016_settlements.sql` | settlement_offers/events + matrix index | ✔ | none | — | — | `[R]` |
+| `0018_hardening_fixes.sql` | RLS drop, dedupe, active-run index, messages.status, offer tracking, plan requests, ladder repair | ✔ | D05/D08/D09/D10/D13/D15/D20/D24 | see FIX_CHANGELOG | — | `[R][E]` |
+| `supabase/.temp/linked-project.json` | local-only link data | — | — | — | — | `[I]` |
 
-### Scheduler (core, heavily fixed)
-- `scheduler/dispatch.ts` — dispatcher + `startRun` + `handleInboundReply`.
-  `[R]` `[E]` D05–D11, D14, D02, D24 gates, D06 thread-first.
-- `scheduler/inbound.ts` — shared inbound entry (`processInboundReply`,
-  `extractThreadHeaders`). `[E]`
-- `scheduler/thread-ids.ts` — header token extraction leaf. `[E]`
-- `scheduler/dispatch.test.ts` — 11 tests, refactored dispatcher behaviors. `[R]`
-- `scheduler/thread-ids.test.ts` — 3 tests. `[E]`
+## `src/app/api` — server routes (35)
 
-### Billing
-- `billing/entitlement.ts` — canonical plan resolution (D14). `[R]` `[E]`
-- `billing/plan.ts` — `getPlan`, limits consts (FREE_CLIENT_LIMIT=3,
-  FREE_INVOICE_LIMIT=10), grew to re-export `Plan`/`planForSubscription`. `[R]` `[E]`
-- `billing/limits.ts` — free/pro limits. `[I]`
-- `billing/paddle-events.ts` — rewritten upsert-on-user_id, default-free. `[R]` `[E]`
-- `billing/dodo-events.ts` — rewritten same. `[R]` `[E]`
-- `billing/reconcile.ts` — reconcile + attach customer ids by user_id. `[R]` `[E]`
-- `billing/paddle-events.test.ts` / `dodo-events.test.ts` — rewritten. `[R]` `[E]`
-- `billing/entitlement.test.ts` — new. `[E]`
+| File | Purpose | Reviewed | Issues | Changes | Tests | Status |
+|------|---------|----------|--------|---------|-------|--------|
+| `account/delete/route.ts` | account deletion; cancels Paddle+Dodo, blocks on failure | ✔ | D16 | — | — | `[R][E]` |
+| `account/export/route.ts` | full data export (profiles by id, all new tables) | ✔ | D17 | — | — | `[R][E]` |
+| `ai/draft/route.ts` | AI draft proxy (ownership-checked, rate-limited, tone/length caps) | ✔ | none new | — | — | `[R]` |
+| `billing/dodo/checkout/route.ts` | Dodo checkout session | — | none | — | — | `[I]` |
+| `billing/paddle/checkout/route.ts` | Paddle checkout session | — | none | — | — | `[I]` |
+| `billing/paddle/overlay-error/route.ts` | overlay error page | — | none | — | — | `[I]` |
+| `billing/status/route.ts` | billing status snapshot | — | none | — | — | `[I]` |
+| `clients/route.ts` | create client | ✔ | D31 | email format validation | — | `[R][E]` |
+| `cron/dispatch/route.ts` | cron gateway (CRON_SECRET, rate limit) | ✔ | none | — | — | `[R]` |
+| `health/route.ts` | health probe | — | none | — | — | `[I]` |
+| `integrations/csv/route.ts` | CSV import (counts, caps, quota skip) | ✔ | D18 | — | — | `[R][E]` |
+| `integrations/paypal/save/route.ts` | save paypal app creds | — | none | — | — | `[I]` |
+| `integrations/[provider]/route.ts` | POST sync + DELETE disconnect | ✔ | none | — | — | `[R]` |
+| `integrations/stripe/{start,callback}/route.ts` | stripe connect OAuth | — | none | — | — | `[I]` |
+| `integrations/xero/{start,callback}/route.ts` | xero OAuth | — | none | — | — | `[I]` |
+| `invoices/[id]/route.ts` | PATCH (mark_paid → reconcilePaidWork) + POST attach sequence | ✔ | D19 | reuses shared reconcile | — | `[R][E]` |
+| `invoices/[id]/send/route.ts` | manual send-now | — | none | — | — | `[I]` |
+| `invoices/route.ts` | manual invoice create (+caps, email/amount/pay-url validation) | ✔ | none | — | — | `[R]` |
+| `r/[token]/pay/route.ts` | debtor pay-intent (discounted link or 409) | ✔ | D03 | — | — | `[R][E]` |
+| `r/[token]/resolve/route.ts` | accept/promise/dispute/plan_request | ✔ | D02/D05/D24 | — | — | `[R][E]` |
+| `sequences/route.ts` | CRUD ladders; PUT applies fresh steps, activates runs | ✔ | none new | — | — | `[R]` |
+| `settlements/approve/route.ts` | approve offer → link + supersede | ✔ | none new | — | — | `[R]` |
+| `settlements/recommend/route.ts` | recommendation (read-only) | ✔ | none | — | — | `[R]` |
+| `tools/smart-csv/{map,insights}/route.ts` | AI header mapping + insights | — | none | — | — | `[I]` |
+| `webhooks/dodo/route.ts` + `route.test.ts` | Dodo webhook (verify, idempotent) | ✔ | none | — | suite | `[R]` |
+| `webhooks/email/route.ts` | inbound email (Svix + legacy + GET verify) | ✔ | D25 | — | — | `[R][E]` |
+| `webhooks/paddle/route.ts` | Paddle webhook (verify, dedupe) | ✔ | none | — | — | `[R]` |
+| `webhooks/paypal/route.ts` | PayPal paid → markInvoicePaid(amount), 500 on write error | ✔ | D29 | amount + 500 | — | `[R][E]` |
+| `webhooks/resend/route.ts` | Resend inbound + outbound events | ✔ | D06/D10 | — | — | `[R][E]` |
+| `webhooks/stripe/route.ts` | Stripe paid → markInvoicePaid(amount_paid), 500 on write error | ✔ | D29 | amount + 500 | — | `[R][E]` |
+| `webhooks/xero/route.ts` | Xero paid (status fetch, never optimistic), 500 on write error | ✔ | D29 | 500 on error | — | `[R][E]` |
 
-### Recovery / settlement
-- `recovery/settlement.ts` — EV engine; D04 (sweep + smallest-beats-wait). `[R]` `[E]`
-- `recovery/settlement.test.ts` — 8 tests incl. D04. `[R]` `[E]`
-- `recovery/token.ts` — resolution-token HMAC sign/verify. `[R]`
-- `recovery/token.test.ts` — 2 tests. `[I]`
+## `src/app` — pages (40)
 
-### AI
-- `ai/draft.ts` — drafting + plan-gated quota, uses entitlement (D14). `[R]` `[E]`
-- `ai/quota.ts`, `ai/promise.ts`, `ai/reply.ts`, `ai/providers.ts` (+ tests) — quota,
-  promise classification, reply classification, provider rollover. `[I]` (used by dispatch; reply→disputes path unit-covered).
+| File | Purpose | Reviewed | Issues | Changes | Tests | Status |
+|------|---------|----------|--------|---------|-------|--------|
+| `(app)/dashboard/page.tsx` + `loading.tsx` | dashboard; live-DB metrics (getAgingTotals/getRecoveryQueue) | ✔ | none (Q verified live) | — | — | `[R]` |
+| `(app)/error.tsx`, `(app)/layout.tsx`, `(app)/loading.tsx` | app shell | — | none | — | — | `[I]` |
+| `(app)/insights/page.tsx` | aging/DSO/forecast from `getInsights` | — | none | — | — | `[I]` |
+| `(app)/invoices/page.tsx` + `loading.tsx` | list (InvoiceTable) | ✔ | D20 | — | — | `[R][E]` |
+| `(app)/clients/page.tsx` | client health | — | none | — | — | `[I]` |
+| `(app)/sequences/{page,new,[id]}.tsx` + `loading.tsx` | ladder CRUD UI | — | none | — | — | `[I]` |
+| `(app)/settings/{page,loading,integrations,billing}.tsx` | settings UI | — | none | — | — | `[I]` |
+| `(app)/tools/page.tsx`, `tools/[slug]/page.tsx`, `tools/smart-csv/page.tsx` | tool pages | — | none | — | — | `[I]` |
+| `auth/callback/page.tsx` | PKCE callback | — | none | — | — | `[I]` |
+| `error.tsx`, `globals.css`, `icon.svg`, `layout.tsx`, `not-found.tsx`, `robots.ts`, `sitemap.ts`, `opengraph-image.tsx` | app infra | — | none | — | — | `[I]` |
+| `login/page.tsx`, `signup/page.tsx`, `onboarding/page.tsx` | auth pages | — | none | — | — | `[I]` |
+| `page.tsx` | landing | ✔ | D27 | LADDER_STEPS `[1,6,7,7]` | — | `[R][E]` |
+| `pricing/page.tsx`, `privacy/page.tsx`, `terms/page.tsx`, `refund/page.tsx`, `security/page.tsx` | legal/marketing | — | none | — | — | `[I]` |
+| `r/[token]/page.tsx` | debtor resolution view (viewed stamp, no status flip) | ✔ | D02 | — | — | `[R][E]` |
+| `templates/page.tsx`, `templates/[slug]/page.tsx` | email template pages | ✔ | D27 | ladder `[1,6,7,7]` | — | `[R][E]` |
 
-### Analysis
-- `analysis/{calculators,forecast,health,next-action,risk}.ts` (+ tests) — debt
-  health panels. Pure math, unit-covered. `[I]`
+## `src/components` (38)
 
-### Integrations
-- `integrations/csv.ts` — RFC-4180 parser + alias mapping; amount>0 now. `[R]` `[E]`
-- `integrations/provider.ts` — `InboundInvoice` shape. `[I]`
-- `integrations/oauth.ts` — OAuth flash/state flow. `[I]`
-- `integrations/sync.ts` — provider sync loop. `[I]`
-- `integrations/paypal.ts`, `xero.ts`, `stripe.ts`, `stripe-flag.ts` — webhook/
-  API wrappers. `[I]` (stripe disabled behind flag).
-- `integrations/credentials.ts` — credential store helpers. `[I]`
-- `integrations/paid-webhooks.ts` (+test) — provider payment → invoice paid
-  reconciliation. `[R]`
-- `integrations/csv.test.ts` — 2 tests. `[R]`
+| File | Purpose | Reviewed | Issues | Changes | Tests | Status |
+|------|---------|----------|--------|---------|-------|--------|
+| `app-shell/{dock,page-header,topbar}.tsx` | app chrome | — | none | — | — | `[I]` |
+| `auth/{auth-code-handler,auth-form,auth-notice}.tsx` | auth UI | — | none | — | — | `[I]` |
+| `billing/{plan-manager,pro-price}.tsx` | billing UI | — | none | — | — | `[I]` |
+| `calculators/{realtime-calculator,tool-detail}.tsx` | tools UI | — | none | — | — | `[I]` |
+| `error-ledger.tsx` | error boundary UI | — | none | — | — | `[I]` |
+| `ledger/add-client.tsx`, `add-invoice.tsx` | manual entry | — | none | — | — | `[I]` |
+| `ledger/aging-strip.tsx`, `urgency-queue.tsx`, `recovery-queue.tsx`, `recovery-steps.tsx`, `receipt-ticker.tsx`, `reply-thread.tsx` | dashboards | — | none | — | — | `[I]` |
+| `ledger/escalation-ladder.tsx` | ladder visual | ✔ | D27 | fallback `[1,6,7,7]` | — | `[R][E]` |
+| `ledger/invoice-table.tsx` | table; mark-paid → PATCH; pause seeded from run | ✔ | D19/D20 | — | — | `[R][E]` |
+| `ledger/sequence-editor.tsx` | ladder editor (delay hint accurate) | ✔ | none | — | — | `[R]` |
+| `marketing/copy-email-button.tsx` | clipboard (awaits success) | ✔ | none | — | — | `[R]` |
+| `marketing/{landing-tool-teaser,site}.tsx` | landing UI | — | none | — | — | `[I]` |
+| `settings/{account-data-controls,integrations-manager}.tsx` | settings UI | ✔ | D16 | — | — | `[R][E]` |
+| `settlements/resolution-view.tsx` | debtor card → /accept,/pay | ✔ | D03 | — | — | `[R][E]` |
+| `settlements/settlement-card.tsx` | owner approve UI | ✔ | D30 | clipboard await + real expiry | — | `[R][E]` |
+| `settlements/settlement-strip.tsx` | dashboard strip | — | none | — | — | `[I]` |
+| `tools/smart-csv-importer.tsx` | CSV importer UI | — | none | — | — | `[I]` |
+| `ui/{badge,button,card,empty-state,input,select,switch}.tsx` | primitives | — | none | — | — | `[I]` |
 
-### Webhooks
-- `webhooks/signatures.ts` — inbound signature check; Svix + legacy + Bearer. `[R]` `[E]`
+## `src/hooks` / `src/middleware.ts` / `src/types`
 
-### Supabase / auth / utils
-- `supabase/{admin,server,client,middleware}.ts` — clients. `[I]`
-- `auth/{require-user,session,local-session}.ts` — session helpers. `[I]`
-- `utils/ratelimit.ts` — in-memory fixed-window limiter + presets. `[R]`
-- `utils/format.ts` (+test), `utils/receipt-ticker.ts` — formatting utils. `[I]`
-- `db/queries.ts` — all dashboard queries; `getInvoicesWithMeta` now emits
-  `paused`. `[R]` `[E]` (+`queries.test.ts`).
-- `dodo/{helpers,server,checkout}.ts`, `paddle/{helpers,server,checkout}.ts`
-- confirmed cancel fns. `[R]`
-- `resend/send.ts` (+test) — outbound send with `resend_message_id`. `[R]`
-- `csv/smart-csv.ts` (+test) — AI assisted header mapping. `[I]`
-- `calculators/types.ts` — shared tool types. `[I]`
-- `seo/{email-templates,tool-calculators}.ts` — marketing content; used by
-  template pages (ladder copy aligned). `[I]`
+| File | Purpose | Reviewed | Issues | Changes | Tests | Status |
+|------|---------|----------|--------|---------|-------|--------|
+| `hooks/use-supabase.ts` | client hook | — | none | — | — | `[I]` |
+| `middleware.ts` | canonical-host 307 + session refresh (never bounces API/auth callback) | ✔ | none | — | — | `[R]` |
+| `types/index.ts` | Invoice/Client/Run/Sequence/Step/Tone | ✔ | none | — | — | `[R]` |
 
-## `src/app` — pages
-- `page.tsx` — landing. `[R]` `[E]` LADDER_STEPS `[1,6,7,7]`; FAQ/watch copy
-  consistent with data.
-- `(app)/invoices/page.tsx` — invoices list (feeds InvoiceTable). `[I]`
-- `(app)/dashboard|insights|clients|sequences|settings|tools` pages — dashboards. `[I]`
-- `(app)/settings/billing/page.tsx`, `settings/integrations/page.tsx` — billing
-  + integrations UI. `[I]`
-- `r/[token]/page.tsx` — debtor resolution page. `[R]` `[E]` no status flip, viewed stamp.
-- `templates/page.tsx`, `templates/[slug]/page.tsx` — marketing template pages. `[R]` `[E]`
-- `login/signup/onboarding/auth/callback` — auth. `[I]`
-- `pricing`, `privacy`, `terms`, `refund`, `security` — static. `[I]`
-- `robots.ts`, `sitemap.ts`, `opengraph-image.tsx`, `not-found.tsx`, `error.tsx`,
-  layouts — infra. `[I]`
+## `src/lib` (75)
 
-## `src/app/api` — routes (server)
-- `cron/dispatch/route.ts` — auth + rate-limited dispatcher; returns `runDispatcher` report. `[R]`
-- `invoices/[id]/route.ts` — PATCH (payment_url, pause/resume, status,
-  `mark_paid` reconciling) + POST (attach sequence → startRun). `[R]` `[E]`
-- `invoices/[id]/send/route.ts` — manual send (`sendRunNow`); WIP preserved
-  (failed-status retry + no-active-follow-up copy). `[R]` `[E]`
-- `invoices/route.ts` — CRUD. `[I]`
-- `r/[token]/pay/route.ts` — new pay-intent. `[E]`
-- `r/[token]/resolve/route.ts` — accept/promise/dispute/plan_request. `[R]` `[E]`
-- `settlements/approve/route.ts` — owner approves an offer (touches settlement_offers
-  status). `[R]` (not modified; reviewed).
-- `settlements/recommend/route.ts` — engine wiring. `[I]`
-- `account/delete/route.ts` — cancellation of both providers + blocking. `[R]` `[E]`
-- `account/export/route.ts` — full data export. `[R]` `[E]`
-- `integrations/csv/route.ts` — import w/ counts, cap, quota skip. `[R]` `[E]`
-- `webhooks/email/route.ts` — inbound email (svix + legacy + GET verify). `[R]` `[E]`
-- `webhooks/resend/route.ts` — Resend inbound + outbound events. `[R]` `[E]`
-- `webhooks/{dodo,paddle,paypal,stripe,xero}/route.ts` — provider webhooks. `[I]`
-- `billing/*`, `clients`, `sequences`, `integrations/*`, `tools/smart-csv/*`,
-  `ai/draft`, `health` — remaining API. `[I]`
+| File | Purpose | Reviewed | Issues | Changes | Tests | Status |
+|------|---------|----------|--------|---------|-------|--------|
+| `ai/draft.ts` | drafting + quota (plan-gated) | ✔ | D14/V | prompt-injection hardening | `draft.test.ts` | `[R][E]` |
+| `ai/{promise,reply,providers,quota}.ts` | classification, provider rollover, quota | — | none | — | 4 suites | `[I]` |
+| `analysis/{calculators,forecast,health,next-action,risk}.ts` | pure math engines | — | none | — | 5 suites | `[I]` |
+| `auth/{local-session,require-user,session}.ts` | session helpers | — | none | — | — | `[I]` |
+| `billing/entitlement.ts` | canonical plan resolution | ✔ | D14 | — | `entitlement.test.ts` (11) | `[R][E]` |
+| `billing/plan.ts`, `limits.ts` | getPlan + limits | ✔ | D14 | — | — | `[R][E]` |
+| `billing/paddle-events.ts` / `dodo-events.ts` | single-row upsert on user_id, default-free | ✔ | D15 | — | both rewritten | `[R][E]` |
+| `billing/reconcile.ts` | reconcile + customer-id attach on user_id | ✔ | D15 | — | — | `[R][E]` |
+| `calculators/types.ts` | tool types | — | none | — | — | `[I]` |
+| `csv/smart-csv.ts` | AI header mapping | — | none | — | `smart-csv.test.ts` | `[I]` |
+| `db/queries.ts` | all dashboard/insight loaders (live tables; paused flag) | ✔ | D20 | — | `queries.test.ts` | `[R][E]` |
+| `dodo/{checkout,helpers,server}.ts` | Dodo SDK wrappers + cancel | ✔ | none | — | — | `[R]` |
+| `integrations/credentials.ts` | vault-first credential store | ✔ | none | — | — | `[R]` |
+| `integrations/csv.ts` | RFC-4180 parser, amount>0 | ✔ | D18 | — | `csv.test.ts` | `[R][E]` |
+| `integrations/oauth.ts` | OAuth state sign/verify + appUrl | ✔ | none | — | — | `[R]` |
+| `integrations/paid-webhooks.ts` | signatures + markInvoicePaid(amount,error)+reconcile | ✔ | D29 | paid_cents, {flipped,error}, reconcile | `paid-webhooks.test.ts` (17) | `[R][E]` |
+| `integrations/{provider,paypal,stripe,stripe-flag,xero,sync}.ts` | provider shapes + fetchers + sync loop | ✔ | none new (L: idempotent-upsert design documented in WORKFLOW_MAP) | — | — | `[R]` |
+| `paddle/{checkout,helpers,server}.ts` | Paddle wrappers + cancel | ✔ | none | — | — | `[R]` |
+| `recovery/paid.ts` | `[NEW]` shared paid reconciliation (runs/disputes/offers) | ✔ | D19/D29 | — | covered by paid-webhooks.test.ts | `[R][E]` |
+| `recovery/settlement.ts` | EV engine (sweep to maxBps, beat-wait) | ✔ | D04 | — | `settlement.test.ts` (8) | `[R][E]` |
+| `recovery/token.ts` | resolution-token HMAC | ✔ | none | — | `token.test.ts` (2) | `[R]` |
+| `resend/send.ts` | outbound send (resend_message_id) | ✔ | none | — | `send.test.ts` (2) | `[R]` |
+| `scheduler/dispatch.ts` | dispatcher/startRun/inbound (all gates) | ✔ | D05–D11,D14,D24 | — | `dispatch.test.ts` (11) | `[R][E]` |
+| `scheduler/inbound.ts`, `thread-ids.ts` | inbound + thread header match | ✔ | D06 | — | `thread-ids.test.ts` (3) | `[R][E]` |
+| `seo/{email-templates,tool-calculators}.ts` | marketing content | — | none | — | — | `[I]` |
+| `supabase/{admin,client,middleware,server}.ts` | clients | — | none | — | — | `[I]` |
+| `utils/format.ts`, `rate-limit.ts`, `receipt-ticker.ts` | utils + limiter presets | ✔ | none | — | `format.test.ts` | `[R]` |
+| `webhooks/signatures.ts` | inbound signature (Svix/legacy/Bearer) | ✔ | D25 | — | — | `[R][E]` |
 
-## `src/components`
-- `settlements/resolution-view.tsx` — debtor card; sends /accept|pay via API. `[R]` `[E]`
-- `settlements/settlement-card.tsx`, `settlement-strip.tsx` — owner settlement
-  UI (approve/offer list). `[I]` (approve route reviewed)
-- `ledger/invoice-table.tsx` — table; Mark paid via PATCH; pause seeded. `[R]` `[E]`
-- `ledger/escalation-ladder.tsx`, `sequence-editor.tsx` — ladder visual + editor
-  (delay hint "days after last touch" is accurate). `[R]` `[E]`
-- `ledger/{aging-strip,urgency-queue,recovery-queue,recovery-steps,receipt-ticker,
-  reply-thread,add-client,add-invoice}.tsx` — dashboards. `[I]`
-- `billing/{plan-manager,pro-price}.tsx`, `settings/*`, `auth/*`,
-  `marketing/*`, `calculators/*`, `tools/*`, `ui/*`, `app-shell/*` — UI. `[I]`
+## Docs — `docs/audit` (6)
 
-## `src/middleware.ts` / `src/hooks` / `src/types/index.ts`
-- middleware — supabase cookie refresh; guard. `[I]`
-- types — `Invoice`, `Client`, `Run`, `Sequence`, `SequenceStep`, `Tone`,
-  `TONE_META`. `[R]`
+| File | Purpose | Reviewed | Issues | Changes | Tests | Status |
+|------|---------|----------|--------|---------|-------|--------|
+| `BUG_REPORT.md` | 28-defect register (26 fixed on HEAD) | ✔ | — | +D29–D32 | — | `[E]` |
+| `COMPLETE_FILE_AUDIT.md` | this inventory | ✔ | — | per-file table | — | `[E]` |
+| `FIX_CHANGELOG.md` | change audit trail | ✔ | — | +D29–D32 | — | `[E]` |
+| `TEST_RESULTS.md` | evidence | ✔ | — | 197 tests | — | `[E]` |
+| `LAUNCH_READINESS.md` | gates G1–G11 | ✔ | — | +D29–D32 | — | `[E]` |
+| `WORKFLOW_MAP.md` | `[NEW]` state machines W1–W7 | ✔ | — | new | — | `[E]` |
 
 ## Verdicts
-- Sound: analysis math, token HMAC, settlement EV engine (post-D04), rate limiting,
-  webhook signature helpers (post-D25), CSV parser.
-- Previously broken and fixed on HEAD: see BUG_REPORT.md D02–D20, D24, D25, D27.
-- Deferred/verify: D21, D22, D23, D26, D28 (registered in source audit, not in
-  this fix set); E2E runner; live-provider smoke tests; live migration apply.
+- **Sound / verified:** analysis math, token HMAC, settlement EV (D04), rate
+  limits, webhook signatures (D25/D29), entitlement (D14), thread matching
+  (D06), dashboard metrics (live-derived), CSP/headers, reconcile-on-paid
+  (D19/D29 shared path).
+- **Fixed on HEAD:** see BUG_REPORT.md D02–D20, D24, D25, D27, D29–D32.
+- **Deferred/verify:** D21/D22/D23/D26/D28 (registered in the prior source
+  audit, not reproduced in this pass); E2E runner; live provider smoke;
+  live migration apply (G5/G6/G7 in LAUNCH_READINESS.md).

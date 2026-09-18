@@ -49,7 +49,18 @@ export async function POST(request: NextRequest) {
   if (event.event_type === "INVOICING.INVOICE.PAID") {
     const invoiceId = event.resource?.invoice?.id ?? event.resource?.id ?? ""
     const ownerId = await resolveInvoiceOwner(supabase, "paypal", invoiceId)
-    if (ownerId) flipped = await markInvoicePaid(supabase, "paypal", invoiceId, ownerId)
+    if (ownerId) {
+      // PayPal reports amounts as major-unit strings ("100.00") — convert to cents.
+      const valueMajor = Number(event.resource?.amount?.value ?? NaN)
+      const res = await markInvoicePaid(supabase, "paypal", invoiceId, ownerId, {
+        paidCents: Number.isFinite(valueMajor) && valueMajor > 0 ? Math.round(valueMajor * 100) : null,
+      })
+      if (res.error) {
+        // Don't acknowledge a payment we couldn't record — PayPal will retry.
+        return NextResponse.json({ ok: false, error: res.error }, { status: 500 })
+      }
+      flipped = res.flipped
+    }
     handled = event.event_type
   }
   await recordEvent(supabase, "paypal", eventId, event)

@@ -3,38 +3,34 @@
 ## Environment
 - Directory: `/home/leodas/mvp/overdue`
 - Node: `v22.23.1` (npm), runner: Vitest `v2.1.9`
-- Base commit: `d005e34e62628cb2217c515552ffdda9cd153e0b`
+- Hardening-pass HEAD: `f2b3d2c` (base `d005e34e62628cb2217c515552ffdda9cd153e0b`)
+- Master-pass re-ran the full gate on top of `f2b3d2c`:
+  `npx tsc --noEmit` (clean), `npx next lint` (clean), `npx vitest run`
+  (**197/197**), `npm run build` (green).
 
-## Baseline (before this pass, prior session)
-- Unit tests: **180 passed / 0 failed** (22 files)
-- `npm run build`: green
-- Known failing after billing refactor (mid-pass): 2 test files, 7 failed
-  (`paddle-events.test.ts`, `dodo-events.test.ts` — asserted the old
-  update/onConflict-subid/default-pro behavior)
+## Baseline (hardening pass, prior session)
+- Unit tests: 180 passed → **193 passed** (24 files) after hardening fixes.
+- `npm run build`: green.
 
-## Current (after fixes)
+## Current (master pass)
 
 ### Unit tests — full suite
 Command: `npx vitest run`
-Result: **193 passed, 0 failed** (24 files)
+Result: **197 passed, 0 failed** (24 files)
 
 ```
-Test Files  24 passed (24)
-     Tests  193 passed (193)
+ Test Files  24 passed (24)
+      Tests  197 passed (197)
 ```
 
-New/updated suites:
-- `src/lib/billing/paddle-events.test.ts` (8) — upsert keyed on user_id,
-  plan preservation, status mapping incl. cancellation grace, transaction sub id
-  from `subscription_id`, default-free on unknown product.
-- `src/lib/billing/dodo-events.test.ts` (8) — same, Dodo flavor.
-- `src/lib/billing/entitlement.test.ts` (11) — `planForSubscription` matrix
-  (no row, non-pro, active, past_due/paused/on_hold, failed/expired revocation,
-  cancelled grace window), `graceUntil`.
-- `src/lib/scheduler/thread-ids.test.ts` (3) — `extractMessageIdTokens`,
-  `extractThreadHeaders` (array + object shapes).
-- `src/lib/recovery/settlement.test.ts` (8) — added off-grid `maxIncentiveBps`,
-  single 0-bps baseline, ascending order assertions.
+New/updated suites this pass:
+- `src/lib/integrations/paid-webhooks.test.ts` (17) — rewritten for D29
+  `markInvoicePaid({paidCents}) → {flipped,error}`: default full-amount flip
+  writes `paid_cents`, provider amount clamped to balance, reconciliation only
+  on a real flip (runs/disputes/offers + `paid` event), write errors surfaced,
+  unscoped/no-invoice no-ops.
+- Earlier hardening suites retained: `paddle-events` (8), `dodo-events` (8),
+  `entitlement` (11), `thread-ids` (3), `settlement` (8).
 
 ### Typecheck
 Command: `npx tsc --noEmit`
@@ -74,7 +70,8 @@ dynamic params generated (`/templates/[slug]`, `/tools/[slug]`).
 ## Reproduction commands
 ```bash
 npm ci
-npx vitest run        # 193 tests
+npx vitest run        # 197 tests
 npx tsc --noEmit      # clean
+npx next lint         # clean
 npm run build         # green
 ```

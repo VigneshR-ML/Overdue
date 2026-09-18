@@ -45,7 +45,17 @@ export async function POST(request: NextRequest) {
   if (PAID_TYPES.has(event.type)) {
     const invoiceId = event.data?.object?.id ?? ""
     const ownerId = await resolveInvoiceOwner(supabase, "stripe", invoiceId)
-    if (ownerId) flipped = await markInvoicePaid(supabase, "stripe", invoiceId, ownerId)
+    if (ownerId) {
+      const amountPaid = Number(event.data?.object?.amount_paid ?? NaN)
+      const res = await markInvoicePaid(supabase, "stripe", invoiceId, ownerId, {
+        paidCents: Number.isFinite(amountPaid) && amountPaid > 0 ? amountPaid : null,
+      })
+      if (res.error) {
+        // Don't acknowledge a payment we couldn't record — Stripe will retry.
+        return NextResponse.json({ ok: false, error: res.error }, { status: 500 })
+      }
+      flipped = res.flipped
+    }
     handled = event.type
   }
   await recordEvent(supabase, "stripe", eventId, event)

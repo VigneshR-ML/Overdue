@@ -24,6 +24,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Client name is required" }, { status: 400 })
   }
 
+  // A malformed contact email would produce a hard-bouncing reminder for
+  // every rung — reject it here instead of learning that from the provider.
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ ok: false, error: "email is invalid" }, { status: 400 })
+  }
+
   const supabase = createClient()
   const plan = await getPlan(user!.id)
 

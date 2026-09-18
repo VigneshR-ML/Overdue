@@ -1,8 +1,45 @@
 # FIX_CHANGELOG.md — what changed, and where
 
-All changes below are uncommitted working-tree changes on top of pinned commit
-`d005e34e`. Baseline before this pass: 180 tests passing, `npm run build` green.
-Current: **193 tests passing**, `tsc --noEmit` clean, `npm run build` green.
+Hardening pass: committed as `f2b3d2c` on top of pinned `d005e34e` (41 files,
++1743/−395). Master pass (this audit) adds the changes below on top of
+`f2b3d2c`, uncommitted. Baseline before this pass: 193 tests. Current:
+**197 tests passing**, `tsc --noEmit` clean, `npx next lint` clean,
+`npm run build` green.
+
+## Master-pass additions (D29–D32)
+
+### Paid webhooks now record real amounts and reconcile the chase (D29)
+- `src/lib/integrations/paid-webhooks.ts` — `markInvoicePaid` now returns
+  `{ flipped, error }` (error only when the write failed, so callers can refuse
+  to acknowledge), accepts `opts.paidCents` (clamped to `amount_cents`), and
+  invokes `reconcilePaidWork` on a real flip.
+- `[NEW] src/lib/recovery/paid.ts` — shared `reconcilePaidWork`: runs
+  (queued/processing/sent/paused) → `cancelled`; open disputes → `resolved`;
+  open settlement offers → `paid` + `settlement_events` `paid` rows.
+- `src/app/api/invoices/[id]/route.ts` — `mark_paid` PATCH now calls the same
+  `reconcilePaidWork` (single source of truth).
+- `webhooks/{stripe,paypal,xero}/route.ts` — pass the provider's authoritative
+  amount (`amount_paid`; PayPal string `amount.value` → cents) and return
+  **500** instead of acknowledging when the flip write errors, so the provider
+  retries and the paid signal is never lost.
+
+### Settlement card copy/clipboard (D30)
+- `src/components/settlements/settlement-card.tsx` — copy link awaits the
+  clipboard write (with textarea fallback) before confirming; expiry line
+  renders the actual `expiresAt` instead of hard-coded "expires tonight".
+
+### Client email validation (D31)
+- `src/app/api/clients/route.ts` — rejects malformed `billing_email` on create
+  (prevents hard-bouncing reminder rungs).
+
+### AI prompt hardening (D32)
+- `src/lib/ai/draft.ts` — system prompt treats the FACTS / CURRENT DRAFT blocks
+  as untrusted data and forbids following any instruction embedded in them.
+
+### Docs
+- `docs/audit/WORKFLOW_MAP.md` — new; W1–W7 state machines end-to-end.
+- `docs/audit/COMPLETE_FILE_AUDIT.md` — per-file table reconciling all tracked
+  files. `BUG_REPORT.md` / `TEST_RESULTS.md` / `LAUNCH_READINESS.md` updated.
 
 ## Schema — `supabase/migrations/0018_hardening_fixes.sql` (new, additive)
 
@@ -135,3 +172,7 @@ New leaf modules (avoid circular imports):
 - `src/lib/recovery/settlement.test.ts` — off-grid maxBps + single-baseline test.
 - New `src/lib/billing/entitlement.test.ts`, `src/lib/scheduler/thread-ids.test.ts`
   cover `planForSubscription`/`graceUntil` and thread-header extraction.
+- `src/lib/integrations/paid-webhooks.test.ts` — rewritten for the D29 API:
+  default full-amount flip, provider-sent amount clamped to balance, reconcile
+  on flip / skip when already paid, write-error surfacing, unscoped/no-invoice
+  no-ops. (17 tests; suite total 197 on 24 files.)

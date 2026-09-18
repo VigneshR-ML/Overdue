@@ -23,6 +23,14 @@ interface Recommend {
 const money = (c: number, cur: string) =>
   `${(c / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })} ${cur}`
 
+const formatEnd = (iso: string) => {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return "soon"
+  const sameDay = d.toDateString() === new Date().toDateString()
+  const t = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  return sameDay ? `today at ${t}` : `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${t}`
+}
+
 export function SettlementCard({ invoiceId }: { invoiceId: string }) {
   const [data, setData] = useState<Recommend | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +42,7 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
   const [maxBps, setMaxBps] = useState("500")
   const [approving, setApproving] = useState(false)
   const [link, setLink] = useState<string | null>(null)
+  const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   async function load(minCents: number | null, maxIncentive: number | null) {
@@ -100,6 +109,7 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
       const json = await res.json()
       if (!res.ok || !json.ok) throw new Error(json?.error ?? "approval failed")
       setLink(json.link)
+      setExpiresAt(typeof json.expiresAt === "string" ? json.expiresAt : null)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Approval failed.")
     } finally {
@@ -233,16 +243,34 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
 
       {link ? (
         <div className="mt-3 rounded-md border border-moss/40 bg-moss-soft p-3">
-          <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-moss">Resolution link · expires tonight</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-moss">
+            Resolution link · {expiresAt ? `ends ${formatEnd(expiresAt)}` : "expires"}
+          </div>
           <div className="mt-1 break-all font-mono text-[13px] text-ink">{link}</div>
           <div className="mt-2 flex gap-2">
             <Button
               type="button"
               size="sm"
               variant="ink"
-              onClick={() => {
-                navigator.clipboard?.writeText(link).catch(() => {})
-                setCopied(true)
+              onClick={async () => {
+                try {
+                  if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(link)
+                  } else {
+                    const ta = document.createElement("textarea")
+                    ta.value = link
+                    ta.style.position = "fixed"
+                    ta.style.opacity = "0"
+                    document.body.appendChild(ta)
+                    ta.select()
+                    document.execCommand("copy")
+                    ta.remove()
+                  }
+                  setCopied(true)
+                  window.setTimeout(() => setCopied(false), 1600)
+                } catch {
+                  // Clipboard denied — leave the raw link selectable on screen.
+                }
               }}
             >
               {copied ? "Copied" : "Copy link"}

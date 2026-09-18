@@ -53,7 +53,14 @@ export async function POST(request: NextRequest) {
       const creds = await freshXeroCreds(userId)
       if (creds) {
         const status = await fetchXeroInvoiceStatus(creds.accessToken, creds.tenantId, invoiceId)
-        if (status === "PAID") flipped += await markInvoicePaid(supabase, "xero", invoiceId, userId)
+        if (status === "PAID") {
+          const res = await markInvoicePaid(supabase, "xero", invoiceId, userId)
+          if (res.error) {
+            // Don't acknowledge a payment we couldn't record — Xero retries non-200s.
+            return NextResponse.json({ ok: false, error: res.error }, { status: 500 })
+          }
+          flipped += res.flipped
+        }
       }
     }
     await recordEvent(supabase, "xero", eventId, ev)

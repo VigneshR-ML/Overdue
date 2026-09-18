@@ -1,15 +1,16 @@
 # BUG_REPORT.md — Overdue pre-launch defect audit
 
 Audit base: commit `d005e34e62628cb2217c515552ffdda9cd153e0b` (pinned)
+Master-pass HEAD: commit `f2b3d2c` (recorded this pass)
 Repo: `VigneshR-ML/Overdue` · Reviewed at `/home/leodas/mvp/overdue`
 
 Below is the consolidated defect register for the 28 items identified during the
-two-pass audit (code read + subagent exploration), each tracked to the fix.
-Items marked **Fixed** address the identified root cause on `HEAD`. Items marked
-**Verify against source audit** are defects whose source-level reproduction was
-not carried into this hard-fix set — the audit notes still apply; crossing them
-off the launch checklist requires the E2E/live check described in
-`LAUNCH_READINESS.md`.
+two-pass audit (code read + subagent exploration) plus the 4 found in the
+master-pass re-read (D29–D32), each tracked to the fix. Items marked **Fixed**
+address the identified root cause on `HEAD`. Items marked **Verify against source
+audit** are defects whose source-level reproduction was not carried into the
+hard-fix set — the audit notes still apply; crossing them off the launch
+checklist requires the E2E/live check described in `LAUNCH_READINESS.md`.
 
 Severity: **Cri** = blocks launch; **Hi** = must fix before wider rollout; **Med** = should fix; **Low** = polish/consistency.
 
@@ -43,7 +44,13 @@ Severity: **Cri** = blocks launch; **Hi** = must fix before wider rollout; **Med
 | D26 | — | — | Defect registered in source audit; not carried into this fix set. | Verify against source audit. |
 | D27 | Low | copy/consistency | Marketing copy claimed ladder `day 1,7,14,21` and displayed `[1,7,7,7]` ladders (1,8,15,22); fallback visuals disagreed with the product defaults. | **Fixed** — `LADDER_STEPS` (landing), template page ladder + "day 1,7,14,21" copy, `escalation-ladder` fallback all use `[1,6,7,7]`; README/templates copy now match the seeded default. |
 | D28 | — | — | Defect registered in source audit; not carried into this fix set. | Verify against source audit. |
+| D29 | Med | paid webhooks / ledger | Provider payment webhooks flipped `invoices.status` to paid but recorded no `paid_cents` (amounts silently diverged) and did not reconcile runs/disputes/offers; on a DB write failure the event was recorded and acknowledged anyway, losing the paid signal for good. | **Fixed** — `markInvoicePaid` takes the provider's authoritative amount (Stripe `amount_paid`, PayPal `amount.value` major→cents, Xero full) clamped to the balance and drives the shared `reconcilePaidWork` (runs→cancelled, disputes→resolved, offers→paid + events). Webhooks now return **500** (no ack) when the flip write errors so the provider retries. Shared helper `src/lib/recovery/paid.ts` used by the manual `mark_paid` PATCH too. |
+| D30 | Low | settlements UI | "Copy link" shown "Copied" even when clipboard write failed/denied; expiry label hard-coded "expires tonight" regardless of the real (up-to-14-day) offer window. | **Fixed** — copy awaits `navigator.clipboard` with a fallback and only then confirms; expiry renders from the returned `expiresAt` (`today at <t>` or a date). |
+| D31 | Med | data quality / outbound | Creating a client accepted any string as `billing_email`, so a malformed address would hard-bounce every reminder rung. | **Fixed** — email format validated on `POST /api/clients` (same regex the invoice path uses). |
+| D32 | Low | AI security | LLM drafts embed client-supplied facts (name, number, notes) unquoted in the prompt — a hostile client name could carry prompt-injection text into a draft the owner might send. | **Fixed** — system prompt now marks the FACTS/CURRENT DRAFT blocks as untrusted data and forbids following instructions inside them. Low severity: drafts stay owner-reviewed, but the guard is cheap. |
 
-22 of 28 defects are fixed on `HEAD` (all 6 remaining are outside the hard-fix
-set that was defined for this pass). See `FIX_CHANGELOG.md` for the concrete
-changes and `TEST_RESULTS.md` for the evidence.
+27 of 32 defects are fixed on `HEAD`. The 5 remaining — D21/D22/D23/D26/D28 —
+are registered in the prior source audit but their source-level reproduction was
+not carried into the hard-fix set; close them against the original audit before
+treating the register as finished (LAUNCH_READINESS G1). See `FIX_CHANGELOG.md`
+for the concrete changes and `TEST_RESULTS.md` for the evidence.

@@ -1,6 +1,7 @@
 import crypto from "crypto"
 import { getCredentials, setCredentials } from "./credentials"
 import { withRefreshMutex } from "./sync"
+import { reconcilePaidWork } from "@/lib/recovery/paid"
 
 export type PaidProvider = "stripe" | "paypal" | "xero"
 
@@ -126,26 +127,54 @@ export async function verifyPaypalWebhook(opts: {
 }
 
 /**
- * Marks the synced invoice paid. userId is REQUIRED — no unscoped fallback,
+ * Marks the synced invoice paid and reconciles the chase (runs, disputes,
+ * offers) via reconcilePaidWork. userId is REQUIRED — no unscoped fallback,
  * so two app users sharing one Stripe account can't flip each other's rows.
+ *
+ * opts.paidCents is the authoritative settled amount when the provider tells
+ * us one (Stripe amount_paid, PayPal invoice amount); a provider "paid" event
+ * otherwise counts as the full outstanding balance. Returns { flipped, error }:
+ * flipped is 0 when the invoice was already paid; error is set only when the
+ * write itself failed (callers should NOT acknowledge the webhook so the
+ * provider retries), never when there was simply nothing to flip.
  */
 export async function markInvoicePaid(
   supabase: any,
   provider: PaidProvider,
   providerId: string,
   userId?: string,
-): Promise<number> {
-  if (!providerId || !userId) return 0
-  const { data, error } = await supabase
+  opts?: { paidCents?: number | null },
+): Promise<{ flipped: number; error: string | null }> {
+  if (!providerId || !userId) return { flipped: 0, error: null }
+
+  const { data: invoice } = await supabase
     .from("invoices")
-    .update({ status: "paid", paid_at: new Date().toISOString() })
+    .select("id, amount_cents")
     .eq("user_id", userId)
     .eq("provider", provider)
     .eq("provider_id", providerId)
+    .maybeSingle()
+  if (!invoice) return { flipped: 0, error: null }
+
+  const amountCents = Math.max(0, Number(invoice.amount_cents ?? 0))
+  let paidCents = Number(opts?.paidCents ?? NaN)
+  if (!Number.isFinite(paidCents) || paidCents <= 0) paidCents = amountCents
+  paidCents = Math.min(Math.round(paidCents), amountCents)
+
+  const { data, error } = await supabase
+    .from("invoices")
+    .update({ status: "paid", paid_at: new Date().toISOString(), paid_cents: paidCents })
+    .eq("id", invoice.id)
+    .eq("user_id", userId)
     .neq("status", "paid")
     .select("id")
-  if (error) return 0
-  return Array.isArray(data) ? data.length : 0
+  if (error) return { flipped: 0, error: error.message }
+
+  const flipped = Array.isArray(data) ? data.length : 0
+  if (flipped > 0) {
+    await reconcilePaidWork(supabase, { userId, invoiceId: invoice.id, source: `${provider}_webhook` })
+  }
+  return { flipped, error: null }
 }
 
 /**

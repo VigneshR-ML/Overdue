@@ -99,27 +99,107 @@ describe("verifyPaypalWebhook", () => {
 })
 
 describe("markInvoicePaid", () => {
-  function fakeDb(rows: any[]) {
-    const chain = chainFake({
-      update: () => chain,
-      eq: () => chain,
-      neq: () => chain,
-      select: () => ({ data: rows, error: null }),
-    })
-    return { from: () => chain }
+  function recordingDb(opts?: {
+    invoice?: { id: string; amount_cents: number } | null
+    flipRows?: Array<{ id: string }>
+    updateError?: { message: string }
+    offers?: Array<{ id: string }>
+  }) {
+    const invoice = opts && "invoice" in opts ? opts.invoice : { id: "inv_1", amount_cents: 1000 }
+    const ops: Array<{ table: string; op: string; args: any[] }> = []
+
+    const from = (table: string) => {
+      let updated = false
+      const q = new Proxy(
+        {},
+        {
+          get(_t, prop: string) {
+            if (prop === "then") return undefined
+            return (...args: any[]) => {
+              ops.push({ table, op: prop, args })
+              if (prop === "update") {
+                updated = true
+                return q
+              }
+              if (prop === "maybeSingle") {
+                return table === "invoices" ? { data: invoice, error: null } : { data: null, error: null }
+              }
+              if (prop === "insert") return { data: { id: "evt_1" }, error: null }
+              if (prop === "select") {
+                if (updated) {
+                  if (opts?.updateError) return { data: [], error: opts.updateError }
+                  return { data: opts?.flipRows ?? [{ id: "flipped" }], error: null }
+                }
+                return q
+              }
+              if (table === "settlement_offers" && prop === "in" && !updated) {
+                return { data: opts?.offers ?? [{ id: "o1" }], error: null }
+              }
+              return q
+            }
+          },
+        },
+      )
+      return q
+    }
+
+    return { db: { from }, ops }
   }
 
-  it("returns flipped count when userId is known", async () => {
-    await expect(markInvoicePaid(fakeDb([{ id: "a" }]), "stripe", "in_1", "u1")).resolves.toBe(1)
-    await expect(markInvoicePaid(fakeDb([]), "paypal", "INV-9", "u1")).resolves.toBe(0)
+  it("flips to paid with full amount by default", async () => {
+    const { db, ops } = recordingDb()
+    const res = await markInvoicePaid(db, "stripe", "in_1", "u1")
+    expect(res).toEqual({ flipped: 1, error: null })
+    const invoiceUpdate = ops.find((o) => o.table === "invoices" && o.op === "update")
+    expect(invoiceUpdate?.args[0]).toMatchObject({ status: "paid", paid_cents: 1000 })
+    expect(invoiceUpdate?.args[0].paid_at).toBeTruthy()
+  })
+
+  it("writes the provider-sent amount and clamps to the balance", async () => {
+    const { db, ops } = recordingDb({ invoice: { id: "inv_1", amount_cents: 5000 } })
+    await markInvoicePaid(db, "paypal", "INV-2", "u1", { paidCents: 499994 }) // "$4999.94"
+    const invoiceUpdate = ops.find((o) => o.table === "invoices" && o.op === "update")
+    expect(invoiceUpdate?.args[0].paid_cents).toBe(5000)
+    await markInvoicePaid(db, "stripe", "in_3", "u1", { paidCents: 1200 })
+    const updates = ops.filter((o) => o.table === "invoices" && o.op === "update")
+    expect(updates[1].args[0].paid_cents).toBe(1200)
+  })
+
+  it("reconciles runs, disputes and offers only when the flip actually happened", async () => {
+    const { db, ops } = recordingDb({ flipRows: [{ id: "flipped" }], offers: [{ id: "o1" }] })
+    await markInvoicePaid(db, "stripe", "in_1", "u1")
+    expect(ops.some((o) => o.table === "runs" && o.op === "update")).toBe(true)
+    expect(ops.some((o) => o.table === "disputes" && o.op === "update")).toBe(true)
+    const offerUpdate = ops.find((o) => o.table === "settlement_offers" && o.op === "update")
+    expect(offerUpdate?.args[0]).toMatchObject({ status: "paid" })
+    const evtInsert = ops.find((o) => o.table === "settlement_events" && o.op === "insert")
+    expect(evtInsert?.args[0]).toEqual([
+      { offer_id: "o1", user_id: "u1", event: "paid", meta: { source: "stripe_webhook" } },
+    ])
+  })
+
+  it("skips reconciliation when the invoice was already paid", async () => {
+    const { db, ops } = recordingDb({ flipRows: [] })
+    const res = await markInvoicePaid(db, "stripe", "in_1", "u1")
+    expect(res).toEqual({ flipped: 0, error: null })
+    expect(ops.some((o) => o.table === "settlement_events" && o.op === "insert")).toBe(false)
+  })
+
+  it("surfaces write errors so webhooks can refuse to acknowledge", async () => {
+    const { db } = recordingDb({ updateError: { message: "connection reset" } })
+    const res = await markInvoicePaid(db, "stripe", "in_1", "u1")
+    expect(res).toEqual({ flipped: 0, error: "connection reset" })
   })
 
   it("refuses unscoped flips (no userId) to prevent cross-tenant writes", async () => {
-    await expect(markInvoicePaid(fakeDb([{ id: "a" }]), "stripe", "in_1")).resolves.toBe(0)
+    const { db } = recordingDb()
+    await expect(markInvoicePaid(db, "stripe", "in_1")).resolves.toEqual({ flipped: 0, error: null })
   })
 
-  it("no-ops on empty provider id", async () => {
-    await expect(markInvoicePaid(fakeDb([{ id: "a" }]), "xero", "", "u1")).resolves.toBe(0)
+  it("no-ops on empty provider id or unknown invoice", async () => {
+    const { db } = recordingDb({ invoice: null })
+    await expect(markInvoicePaid(db, "xero", "", "u1")).resolves.toEqual({ flipped: 0, error: null })
+    await expect(markInvoicePaid(db, "stripe", "missing", "u1")).resolves.toEqual({ flipped: 0, error: null })
   })
 })
 
