@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
-import { getAgingTotals, getUrgencyQueue, getProfile, getRecoveryQueue } from "@/lib/db/queries"
+import { getAgingTotals, getUrgencyQueue, getProfile, getRecoveryQueue, getClientOptions } from "@/lib/db/queries"
+import { countForUser } from "@/lib/billing/plan"
 import { AgingStrip } from "@/components/ledger/aging-strip"
 import { UrgencyQueue } from "@/components/ledger/urgency-queue"
 import { RecoveryQueue } from "@/components/ledger/recovery-queue"
@@ -9,7 +10,8 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { SettlementStrip } from "@/components/settlements/settlement-strip"
-import { CheckCircle2, ArrowRight } from "lucide-react"
+import { AddInvoiceButton } from "@/components/ledger/add-invoice"
+import { CheckCircle2, Upload, Plug } from "lucide-react"
 import { formatDate } from "@/lib/utils/format"
 
 export const metadata = { title: "Dashboard" }
@@ -19,27 +21,35 @@ export default async function DashboardPage() {
   if (!session) redirect("/?signin=1")
   const userId = session.id
 
-  const [totals, queue, profile, recovery] = await Promise.all([
+  const [totals, queue, profile, recovery, clientOptions, invoiceCount] = await Promise.all([
     getAgingTotals(userId),
     getUrgencyQueue(userId, 15),
     getProfile(userId),
     getRecoveryQueue(userId, 5),
+    getClientOptions(userId),
+    countForUser(userId, "invoices"),
   ])
 
   const needsOnboarding = profile && !profile.onboarding_completed
+  const hasInvoices = invoiceCount > 0
 
   return (
     <div className="space-y-6">
       <PageHeader
         kicker={formatDate(new Date().toISOString())}
         title={needsOnboarding ? "Welcome to the ledger." : "Good day. Here's the money."}
-        description="Who owes you, what's overdue, and when the money lands."
+        description={hasInvoices ? "Who owes you, what's overdue, and when the money lands." : "Get your first invoice on the board — everything else follows."}
         action={
-          <Link href="/sequences/new">
-            <Button variant="outline" size="sm">
-              New ladder <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
+          <span className="flex flex-wrap items-center gap-2">
+            <AddInvoiceButton clients={clientOptions} />
+            {hasInvoices ? (
+              <Link href="/tools/smart-csv">
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Upload className="h-3.5 w-3.5" aria-hidden /> Import CSV
+                </Button>
+              </Link>
+            ) : null}
+          </span>
         }
       />
 
@@ -47,13 +57,13 @@ export default async function DashboardPage() {
         <div className="rounded-lg border border-moss/40 bg-moss-soft p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-moss" />
-              <p className="text-sm text-moss">
-                Your account is live. Connect an invoice source or drop in a CSV to see your ledger fill up.
-              </p>
+              <CheckCircle2 className="h-5 w-5 text-moss" aria-hidden />
+              <p className="text-sm text-moss">Your account is live. Add one invoice to see your ledger fill up.</p>
             </div>
             <Link href="/settings/integrations">
-              <Button variant="moss" size="sm">Connect invoices</Button>
+              <Button variant="moss" size="sm" className="gap-2">
+                <Plug className="h-3.5 w-3.5" aria-hidden /> Sync an invoicing source
+              </Button>
             </Link>
           </div>
         </div>
@@ -72,7 +82,30 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {queue.length > 0 ? (
+      {!hasInvoices ? (
+        /* (UX-04) Empty account: a focused first-invoice card, not zeros. */
+        <div className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
+          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">First invoice</div>
+          <h2 className="mt-2 font-display text-xl tracking-tight text-ink">One invoice is all it takes to see recovery working.</h2>
+          <p className="mt-1.5 max-w-prose text-[14px] leading-relaxed text-muted">
+            Add it manually, import a CSV, or sync PayPal, Xero or Stripe. Overdue attaches the default reminder
+            ladder and shows you exactly what would go out — nothing sends on Free until you press Send now.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <AddInvoiceButton clients={clientOptions} />
+            <Link href="/tools/smart-csv">
+              <Button variant="outline" className="gap-2">
+                <Upload className="h-3.5 w-3.5" aria-hidden /> Import CSV
+              </Button>
+            </Link>
+            <Link href="/settings/integrations">
+              <Button variant="ghost" className="gap-2">
+                <Plug className="h-3.5 w-3.5" aria-hidden /> Connect an invoicing source
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : queue.length > 0 ? (
         <>
           <UrgencyQueue items={queue} />
           <div className="flex items-center justify-between border-t border-hairline pt-4 text-sm">
@@ -87,11 +120,11 @@ export default async function DashboardPage() {
       ) : (
         <EmptyState
           title="No unpaid invoices on the board"
-          description="When an invoice goes out past due, it shows up here with its place on the ladder. Connect a source to start."
+          description="When an invoice goes out past due, it shows up here with its place on the ladder. Add one or connect a source to start."
           icon={<ReceiptIcon />}
           action={
             <Link href="/settings/integrations">
-              <Button>Connect PayPal / Xero / CSV</Button>
+              <Button>Connect PayPal / Xero / Stripe</Button>
             </Link>
           }
         />

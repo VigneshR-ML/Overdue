@@ -20,7 +20,7 @@ export default function PricingPage() {
         <div className="text-center">
           <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Pricing</div>
           <h1 className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">
-            One recovering invoice pays for the year.
+            A follow-up autopilot, for the money people owe you.
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-[15px] text-muted">
             Free while you're getting set up. Pro when there's real money on the line.
@@ -35,7 +35,7 @@ export default function PricingPage() {
               <span className="font-display text-3xl text-ink">$0</span> / forever
             </div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["3 clients", "CSV import", "1 ladder, 1 message per step", "AI drafts"].map((f) => (
+              {["3 clients", "10 invoices", "CSV import", "1 ladder, 1 message per step", "5 AI drafts / month"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>
@@ -55,7 +55,7 @@ export default function PricingPage() {
               <ProPrice className="font-display text-3xl text-ink" /> / month <span className="text-moss">· 7-day free trial</span>
             </div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["Unlimited clients & ladders", "PayPal + Xero sync", "Escalation engine on autopilot", "AI drafting, human-voiced", "Reply-detection & pause", "Payment-history scoring"].map((f) => (
+              {["Unlimited clients, invoices & ladders", "PayPal + Xero sync", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>
@@ -68,8 +68,8 @@ export default function PricingPage() {
         </div>
 
         <p className="mt-8 text-center text-sm text-muted">
-          Paddle is our merchant of record and bills Pro subscriptions. 30-day full refund;
-          after that, refunds follow Paddle's terms. See our{" "}
+          Pro billing is handled by Paddle (with Dodo Payments as fallback on some deploys), our merchant of record. 30-day full refund;
+          after that, refunds follow the billing provider's terms. See our{" "}
           <Link href="/refund" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Refund policy</Link> and{" "}
           <Link href="/terms" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Terms</Link>.
         </p>

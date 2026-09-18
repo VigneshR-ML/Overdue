@@ -2,81 +2,159 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
 import {
-  LayoutDashboard,
+  Home,
   Receipt,
   Users,
   Waypoints,
   ChartNoAxesCombined,
   Calculator,
+  Settings,
+  CreditCard,
+  MoreHorizontal,
+  X,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils/format"
 
-const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+const PRIMARY: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/dashboard", label: "Home", icon: Home },
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/clients", label: "Clients", icon: Users },
-  { href: "/sequences", label: "Ladders", icon: Waypoints, badge: "4 rungs" },
-  { href: "/insights", label: "Insights", icon: ChartNoAxesCombined },
-  { href: "/tools", label: "Tools", icon: Calculator },
 ]
 
-type NavItem = { href: string; label: string; icon: LucideIcon; badge?: string }
+const SECONDARY: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/sequences", label: "Ladders", icon: Waypoints },
+  { href: "/insights", label: "Insights", icon: ChartNoAxesCombined },
+  { href: "/tools", label: "Tools", icon: Calculator },
+  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/settings/billing", label: "Billing", icon: CreditCard },
+]
+
+function isActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(href + "/")
+}
 
 /**
- * Floating dock for the authenticated workspace — the Aceternity-style glass
- * pill pinned to the bottom of the viewport. No magnification: each tab has a
- * clean hover state, a floating label, and an accent dot on the active item.
+ * Mobile bottom navigation (the desktop app uses the labeled links in the
+ * top bar). Persistent text labels + a "More" sheet for the secondary
+ * destinations, so every workspace area is reachable from a 320px viewport
+ * without hidden hover-only controls.
  */
 export function AppDock() {
   const pathname = usePathname()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const sheetRef = useRef<HTMLDivElement | null>(null)
+  const moreRef = useRef<HTMLButtonElement | null>(null)
+
+  // Close the "More" sheet on Escape and on outside clicks; restore focus to
+  // the More button on close.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMoreOpen(false)
+    }
+    function onPointer(e: PointerEvent) {
+      if (
+        moreOpen &&
+        sheetRef.current &&
+        !sheetRef.current.contains(e.target as Node) &&
+        moreRef.current &&
+        !moreRef.current.contains(e.target as Node)
+      ) {
+        setMoreOpen(false)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    window.addEventListener("pointerdown", onPointer)
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      window.removeEventListener("pointerdown", onPointer)
+    }
+  }, [moreOpen])
+
+  useEffect(() => {
+    if (moreOpen) {
+      sheetRef.current?.querySelector<HTMLElement>("a,button")?.focus()
+    } else {
+      moreRef.current?.focus()
+    }
+  }, [moreOpen])
 
   return (
-    <nav aria-label="Primary" className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
-      <div className="flex items-center gap-1 rounded-2xl border border-hairline/70 bg-surface/75 p-1.5 shadow-[0_18px_50px_-12px_rgba(16,20,16,0.38)] ring-1 ring-inset ring-white/40 backdrop-blur-xl">
-        {NAV.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/")
-          return <DockItem key={item.href} item={item} active={active} />
-        })}
-      </div>
-    </nav>
-  )
-}
-
-function DockItem({ item, active }: { item: NavItem; active: boolean }) {
-  const Icon = item.icon
-
-  return (
-    <Link
-      href={item.href}
-      prefetch
-      aria-label={`${item.label}${item.badge ? ` — ${item.badge}` : ""}`}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "group relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss",
-        active
-          ? "bg-ink text-paper shadow-[0_4px_14px_rgba(29,27,23,0.28)] ring-1 ring-inset ring-moss/30"
-          : "text-ink-soft hover:-translate-y-0.5 hover:bg-paper hover:text-ink",
-      )}
+    <nav
+      aria-label="Primary"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-hairline bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -top-9 left-1/2 z-10 -translate-x-1/2 -translate-y-1 whitespace-nowrap rounded-md border border-hairline bg-ink px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-paper opacity-0 shadow-[0_8px_24px_rgba(16,20,16,0.28)] transition-all duration-150 group-hover:-translate-y-1.5 group-hover:opacity-100 group-focus-visible:opacity-100"
-      >
-        {item.label}
-        {item.badge ? <span className="text-moss-bright/80"> · {item.badge}</span> : null}
-      </span>
+      <div className="mx-auto grid max-w-md grid-cols-4 items-stretch">
+        {PRIMARY.map((item) => {
+          const active = isActive(pathname, item.href)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-moss",
+                active ? "text-ink" : "text-faint hover:text-ink-soft",
+              )}
+            >
+              <item.icon size={18} strokeWidth={active ? 2.4 : 2} aria-hidden />
+              <span>{item.label}</span>
+              <span aria-hidden className={cn("h-1 w-1 rounded-full", active ? "bg-moss" : "bg-transparent")} />
+            </Link>
+          )
+        })}
 
-      <Icon size={18} strokeWidth={2} />
+        <button
+          ref={moreRef}
+          type="button"
+          aria-expanded={moreOpen}
+          aria-controls="more-sheet"
+          aria-haspopup="dialog"
+          onClick={() => setMoreOpen((o) => !o)}
+          className={cn(
+            "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-moss",
+            moreOpen ? "text-ink" : "text-faint hover:text-ink-soft",
+          )}
+        >
+          {moreOpen ? <X size={18} strokeWidth={2} aria-hidden /> : <MoreHorizontal size={18} strokeWidth={2} aria-hidden />}
+          <span>{moreOpen ? "Close" : "More"}</span>
+        </button>
+      </div>
 
-      <span
-        aria-hidden
-        className={cn(
-          "absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full transition-opacity",
-          active ? "bg-moss opacity-100" : "opacity-0",
-        )}
-      />
-    </Link>
+      {moreOpen ? (
+        <div
+          id="more-sheet"
+          ref={sheetRef}
+          role="dialog"
+          aria-label="More destinations"
+          className="border-t border-hairline bg-surface p-3 shadow-[0_-12px_32px_rgba(16,20,16,0.12)]"
+        >
+          <div className="grid grid-cols-3 gap-2">
+            {SECONDARY.map((item) => {
+              const active = isActive(pathname, item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMoreOpen(false)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-12 flex-col items-center justify-center gap-1.5 rounded-md border px-2 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-moss",
+                    active
+                      ? "border-moss/40 bg-moss-soft text-ink"
+                      : "border-hairline bg-paper text-ink-soft hover:border-moss/40",
+                  )}
+                >
+                  <item.icon size={16} strokeWidth={2} aria-hidden />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+    </nav>
   )
 }

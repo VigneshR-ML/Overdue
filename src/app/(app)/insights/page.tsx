@@ -272,6 +272,10 @@ export default async function InsightsPage() {
       <p className="font-mono text-[11px] text-faint">
         Tighter circles = fewer emails. The ladder auto-pauses the moment a client replies.
       </p>
+      <p className="font-mono text-[11px] text-faint">
+        Aging buckets, DSO and the cash forecast sum amounts in each invoice's own currency (shown as USD by default) —
+        review a mixed-currency ledger invoice by invoice.
+      </p>
     </div>
   )
 }

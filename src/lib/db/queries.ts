@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import type { AgingTotals, Invoice, Client, Sequence, Run, Subscription, SequenceStep } from "@/types"
+import type { AgingTotals, Invoice, Client, Sequence, Run, Subscription, SequenceStep, Message, SettlementOffer } from "@/types"
 import { computeRiskScore, automationConfidence, type RiskResult, type AutomationConfidence } from "@/lib/analysis/risk"
 import { nextAction, type NextAction } from "@/lib/analysis/next-action"
 import { predictedPaymentDate, computeAgingBuckets, computeDsos, forecastSummary, type PredictedPayment, type AgingBucket, type MonthlyForecast } from "@/lib/analysis/forecast"
@@ -212,6 +212,18 @@ export async function getProfile(userId: string) {
   const supabase = createClient()
   const { data } = await supabase.from("profiles").select("*").eq("id", userId).single()
   return (data ?? null) as { full_name: string | null; email: string | null; onboarding_completed: boolean | null } | null
+}
+
+/** Lightweight client list for the manual-invoice "existing client" picker. */
+export async function getClientOptions(userId: string) {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("clients")
+    .select("id, name, billing_email")
+    .eq("user_id", userId)
+    .order("name", { ascending: true })
+    .limit(200)
+  return (data ?? []) as { id: string; name: string; billing_email: string | null }[]
 }
 
 // ---------------------------------------------------------------------------
@@ -643,4 +655,67 @@ export async function getOpenDisputesForInvoice(userId: string, invoiceId: strin
     .eq("status", "open")
     .order("created_at", { ascending: true })
   return (data ?? []) as unknown as OpenDisputeRow[]
+}
+
+export interface InvoiceDetailRow {
+  invoice: Invoice & { client: Client | null }
+  runs: (Run & { sequenceName: string | null })[]
+  messages: Message[]
+  offers: SettlementOffer[]
+  replies: ReplyThreadItem[]
+  disputes: OpenDisputeRow[]
+}
+
+/** Everything the invoice detail page needs, in one scoped read. */
+export async function getInvoiceDetail(userId: string, invoiceId: string): Promise<InvoiceDetailRow | null> {
+  const supabase = createClient()
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("*, clients(name, email, billing_email)")
+    .eq("id", invoiceId)
+    .eq("user_id", userId)
+    .single()
+  if (!invoice) return null
+
+  const [{ data: runs }, { data: messages }, { data: offers }] = await Promise.all([
+    supabase
+      .from("runs")
+      .select("*, sequences(name)")
+      .eq("invoice_id", invoiceId)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(20),
+    supabase
+      .from("messages")
+      .select("*")
+      .eq("invoice_id", invoiceId)
+      .eq("user_id", userId)
+      .order("sent_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("settlement_offers")
+      .select("*")
+      .eq("invoice_id", invoiceId)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(3),
+  ])
+
+  const [replies, disputes] = await Promise.all([
+    getReplyThread(userId, invoiceId),
+    getOpenDisputesForInvoice(userId, invoiceId),
+  ])
+
+  const rest = invoice as unknown as Record<string, unknown>
+  return {
+    invoice: { ...rest, client: (rest as { clients?: Client | null }).clients ?? null } as unknown as Invoice & { client: Client | null },
+    runs: ((runs ?? []) as unknown as (Run & { sequences?: { name: string } | null })[]).map((r) => ({
+      ...r,
+      sequenceName: (r as unknown as { sequences?: { name: string } | null }).sequences?.name ?? null,
+    })),
+    messages: (messages ?? []) as unknown as Message[],
+    offers: (offers ?? []) as unknown as SettlementOffer[],
+    replies,
+    disputes,
+  }
 }

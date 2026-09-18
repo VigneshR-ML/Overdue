@@ -39,7 +39,7 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
   const [basis, setBasis] = useState<"discount" | "fee_waiver">("discount")
   const [feeConfirmed, setFeeConfirmed] = useState(false)
   const [minAccept, setMinAccept] = useState("")
-  const [maxBps, setMaxBps] = useState("500")
+  const [maxIncentivePct, setMaxIncentivePct] = useState("5")
   const [approving, setApproving] = useState(false)
   const [link, setLink] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
@@ -102,7 +102,7 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
           offerCents: opt.offerCents,
           basis,
           minAcceptableCents: minAccept ? Math.round(parseFloat(minAccept) * 100) : null,
-          maxIncentiveBps: parseInt(maxBps || "500", 10),
+          maxIncentiveBps: Math.round(parseFloat(maxIncentivePct || "5") * 100),
           feeBasisConfirmed: basis === "fee_waiver" ? true : undefined,
         }),
       })
@@ -135,6 +135,10 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
 
   const cur = data.invoice.currency
   const settleOpts = data.options.filter((o) => o.kind === "settle")
+  const waitOpt = data.options.find((o) => o.kind === "wait")
+
+  const estToday = (o: Option) => `est. ${money(o.expectedCents, cur)} collected today`
+  const estWait = (o: Option) => `est. ${money(o.expectedCents, cur)} within ~${o.expectedDelayDays}d`
 
   return (
     <section className="rounded-lg border border-moss/40 bg-surface p-5 shadow-ledger">
@@ -146,20 +150,40 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
       </div>
       <p className="mt-1 text-[13px] text-muted">{data.reason}</p>
 
-      {settleOpts.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">No incentive beats waiting within your guardrails — no offer needed.</p>
-      ) : (
-        <div className="mt-3 space-y-2">
-          {settleOpts.map((o) => {
-            const globalIdx = data.options.indexOf(o)
-            return (
-              <label
-                key={o.incentiveBps}
-                className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3 ${
-                  picked === globalIdx ? "border-moss/60 bg-moss-soft/40" : "border-hairline bg-paper"
-                }`}
-              >
-                <span className="flex items-center gap-2 text-sm">
+      <div className="mt-3 space-y-2">
+        {waitOpt ? (
+          <label
+            className={`flex cursor-pointer flex-col gap-1 rounded-md border p-3 ${
+              picked === 0 && !settleOpts.length ? "border-moss/60 bg-moss-soft/40" : "border-dashed border-hairline bg-paper"
+            }`}
+          >
+            <span className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={picked === 0}
+                  onChange={() => setPicked(0)}
+                  aria-label="Keep the full amount and wait"
+                />
+                <span className="font-medium text-ink">Keep the full {money(waitOpt.offerCents, cur)} and wait</span>
+              </span>
+              <span className="font-mono text-[11px] text-faint">{Math.round(waitOpt.pToday * 100)}% today</span>
+            </span>
+            <span className="pl-6 font-mono text-[12px] text-muted">{estWait(waitOpt)} · no offer sent</span>
+          </label>
+        ) : null}
+
+        {settleOpts.map((o) => {
+          const globalIdx = data.options.indexOf(o)
+          return (
+            <label
+              key={o.incentiveBps}
+              className={`flex cursor-pointer flex-col gap-1 rounded-md border p-3 ${
+                picked === globalIdx ? "border-moss/60 bg-moss-soft/40" : "border-hairline bg-paper"
+              }`}
+            >
+              <span className="flex items-center justify-between gap-3 text-sm">
+                <span className="flex items-center gap-2">
                   <input
                     type="radio"
                     checked={picked === globalIdx}
@@ -169,12 +193,19 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
                   <span className="font-medium text-ink">Resolve today for {money(o.offerCents, cur)}</span>
                   <span className="font-mono text-[12px] text-moss">save {money(o.incentiveCents, cur)}</span>
                 </span>
-                <span className="font-mono text-[11px] text-faint">{Math.round(o.pToday * 100)}% today</span>
-              </label>
-            )
-          })}
-        </div>
-      )}
+                <span className="font-mono text-[11px] text-faint">est. {Math.round(o.pToday * 100)}% today</span>
+              </span>
+              <span className="pl-6 font-mono text-[12px] text-muted">{estToday(o)}</span>
+            </label>
+          )
+        })}
+      </div>
+
+      {settleOpts.length === 0 ? (
+        <p className="mt-3 text-[13px] text-muted">
+          No incentive beats waiting within your guardrails — the model recommends holding out for the full amount, no offer needed.
+        </p>
+      ) : null}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <label className="block text-[12px] text-muted">
@@ -188,11 +219,11 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
           />
         </label>
         <label className="block text-[12px] text-muted">
-          Max incentive (bps, 100 = 1%)
+          Max incentive (% of invoice)
           <input
-            value={maxBps}
-            onChange={(e) => setMaxBps(e.target.value)}
-            inputMode="numeric"
+            value={maxIncentivePct}
+            onChange={(e) => setMaxIncentivePct(e.target.value)}
+            inputMode="decimal"
             className="mt-1 h-9 w-full rounded-md border border-hairline bg-paper px-2 font-mono text-[13px] text-ink focus:border-ink-soft focus:outline-none"
           />
         </label>
@@ -230,7 +261,7 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
           onClick={() =>
             load(
               minAccept ? Math.round(parseFloat(minAccept || "0") * 100) : null,
-              parseInt(maxBps || "500", 10),
+              Math.round(parseFloat(maxIncentivePct || "5") * 100),
             )
           }
         >
@@ -240,6 +271,11 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
           {approving ? "Creating…" : "Approve & get resolution link"}
         </Button>
       </div>
+      <p className="mt-3 font-mono text-[11px] leading-relaxed text-faint">
+        Percentages are the model&apos;s estimate from this invoice&apos;s age and the client&apos;s history (opens, disputes,
+        average lateness) — an expectation, not a promise. Approving sends a live offer: the next reminder carries a
+        &ldquo;Resolve&rdquo; button and anything the client accepts is tracked on the invoice.
+      </p>
 
       {link ? (
         <div className="mt-3 rounded-md border border-moss/40 bg-moss-soft p-3">

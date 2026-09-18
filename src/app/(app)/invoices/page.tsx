@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { getSessionUser } from "@/lib/auth/session"
 import { getPlan } from "@/lib/billing/plan"
-import { getInvoicesWithMeta, getReplyThread, getOpenDisputesForInvoice } from "@/lib/db/queries"
+import { getInvoicesWithMeta, getReplyThread, getOpenDisputesForInvoice, getClientOptions } from "@/lib/db/queries"
 import { InvoiceTable } from "@/components/ledger/invoice-table"
 import { RecoverySteps } from "@/components/ledger/recovery-steps"
 import { AddInvoiceButton } from "@/components/ledger/add-invoice"
@@ -21,14 +21,17 @@ export default async function InvoicesPage({
 }) {
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
-  const invoices = await getInvoicesWithMeta(session.id)
+  const [invoices, clientOptions, plan] = await Promise.all([
+    getInvoicesWithMeta(session.id),
+    getClientOptions(session.id),
+    getPlan(session.id),
+  ])
   const focus = typeof searchParams?.focus === "string" ? searchParams.focus : undefined
-  const plan = await getPlan(session.id)
-  const openCount = invoices.filter((i) => i.status !== "paid" && !i.paid_at).length
 
   const [replyThread, openDisputes] = focus
     ? await Promise.all([getReplyThread(session.id, focus), getOpenDisputesForInvoice(session.id, focus)])
     : [null, null]
+  const openCount = invoices.filter((i) => i.status !== "paid" && !i.paid_at).length
 
   return (
     <div className="space-y-6">
@@ -36,7 +39,7 @@ export default async function InvoicesPage({
         kicker="The ledger"
         title="Invoices"
         description="Every invoice from every source, one table. Nothing weird — just the numbers."
-        action={<AddInvoiceButton />}
+        action={<AddInvoiceButton clients={clientOptions} />}
       />
       {plan === "free" && openCount > 0 ? (
         <div className="rounded-lg border border-hairline bg-surface p-4 text-sm text-ink-soft shadow-ledger">

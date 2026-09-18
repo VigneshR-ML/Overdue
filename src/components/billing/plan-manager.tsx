@@ -2,19 +2,34 @@
 
 import { useEffect, useState } from "react"
 import { usePaddleCheckout } from "@/lib/paddle/checkout"
-import { useDodoCheckout } from "@/lib/dodo/checkout"
 import { Button } from "@/components/ui/button"
 import { Badge, StatusDot } from "@/components/ui/badge"
 
-const FEATURES = [
-  "Unlimited clients & ladders",
+const PRO_FEATURES = [
+  "Unlimited clients, invoices & ladders",
   "PayPal + Xero sync",
-  "Escalation engine on autopilot",
-  "AI drafting, human-voiced",
-  "Reply-detection & pause",
+  "Autopilot: follow-ups fire on schedule",
+  "AI drafts, human-voiced",
+  "Reply-detection & auto-pause",
   "Payment-history scoring",
 ]
 
+const FREE_FEATURES = [
+  "Max 3 clients",
+  "Max 10 invoices",
+  "1 recovery ladder",
+  "1 reminder per step",
+  "CSV import",
+  "5 AI-drafted reminders / month",
+]
+
+/**
+ * Pro checkout with one provider path: the Paddle hook below creates the
+ * transaction server-side and opens the overlay; the server route falls back
+ * to Dodo Payments automatically when Paddle isn't configured on the deploy.
+ * The old dual-hook `ready && ready` condition was dead (both were always
+ * true), so the button just starts the checkout and reports failures honestly.
+ */
 export function PlanManager({
   plan,
   status,
@@ -33,10 +48,7 @@ export function PlanManager({
   justUpgraded?: boolean
 }) {
   const paddle = usePaddleCheckout()
-  const dodo = useDodoCheckout()
-  // Paddle is primary; Dodo is the fallback for existing subscribers.
-  const ready = paddle.ready && dodo.ready
-  const error = paddle.error ?? dodo.error
+  const error = paddle.error
   const [checkingOut, setCheckingOut] = useState(false)
   const isPro = plan === "pro" && status === "active"
 
@@ -60,23 +72,15 @@ export function PlanManager({
   async function handleCheckout() {
     setCheckingOut(true)
     try {
-      // Try Paddle first; the server route falls back to Dodo automatically
-      // when Paddle isn't configured, so a single call covers both.
       await paddle.openCheckout()
     } catch (e) {
       console.error("[billing] checkout failed:", e)
-      try {
-        await dodo.openCheckout()
-      } catch (e2) {
-        console.error("[billing] fallback checkout failed:", e2)
-      }
     } finally {
       setCheckingOut(false)
     }
   }
 
-  const renewalLabel =
-    renewalDate && isPro ? formatRenewal(renewalDate) : null
+  const renewalLabel = renewalDate && isPro ? formatRenewal(renewalDate) : null
 
   return (
     <div className="space-y-4">
@@ -97,11 +101,7 @@ export function PlanManager({
             </Badge>
           </div>
           <div className="mt-5 space-y-2 text-sm text-ink-soft">
-            {isPro
-              ? FEATURES.map((f) => <Row key={f} ok label={f} />)
-              : ["3 clients", "CSV import", "1 ladder, 1 message per step", "AI drafts"].map((f) => (
-                  <Row key={f} ok label={f} />
-                ))}
+            {(isPro ? PRO_FEATURES : FREE_FEATURES).map((f) => <Row key={f} ok label={f} />)}
           </div>
           {renewalLabel ? (
             <p className="mt-5 border-t border-hairline pt-4 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
@@ -116,10 +116,12 @@ export function PlanManager({
           <p className="mt-1 text-sm text-muted">
             {isPro
               ? "Manage payments and cancellation through the Paddle customer portal."
-              : "7-day free trial, then $19/month — cancel in two clicks, 30-day refund. One recovered invoice usually pays for the year."}
+              : "7-day free trial, then $19/month. Cancel in two clicks; refunds within 30 days of payment."}
           </p>
           {error ? (
-            <p className="mt-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft">{error}</p>
+            <p role="alert" className="mt-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft">
+              {error}
+            </p>
           ) : isPro ? (
             portalUrl ? (
               <a href={portalUrl} target="_blank" rel="noreferrer" className="mt-5 block">
@@ -127,24 +129,16 @@ export function PlanManager({
               </a>
             ) : (
               <p className="mt-5 text-[13px] text-muted">
-                Manage payments and cancellation from your receipt email while the portal link loads.
+                Here when your billing provider returns a portal link — manage payments and cancellation from your receipt email meanwhile.
               </p>
             )
           ) : (
             <div className="mt-5 space-y-3">
-              <Button
-                className="w-full"
-                variant="moss"
-                disabled={!ready}
-                onClick={handleCheckout}
-              >
+              <Button className="w-full" variant="moss" onClick={handleCheckout}>
                 {checkingOut ? "Opening checkout…" : "Start 7-day free trial — $19/mo after"}
               </Button>
-              {!ready && !error && (
-                <p className="font-mono text-[11px] text-faint">Loading checkout…</p>
-              )}
               <p className="font-mono text-[11px] text-faint">
-                Billed by Paddle (merchant of record) · price shown in your local currency at checkout · sales tax handled
+                Card payments are processed by Paddle, with Dodo Payments as fallback on some deploys — merchant-of-record, sales tax handled. Price shown in your local currency at checkout.
               </p>
             </div>
           )}

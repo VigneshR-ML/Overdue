@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen flex-col bg-paper">
       <AppTopBar email={session.email} plan={plan} />
       <main className="min-w-0 flex-1">
-        <div className="mx-auto max-w-6xl px-6 pb-28 pt-6 lg:px-10">{children}</div>
+        <div className="mx-auto max-w-6xl px-6 pb-32 pt-6 md:pb-12 lg:px-10">{children}</div>
       </main>
       <AppDock />
     </div>
