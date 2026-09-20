@@ -14,11 +14,12 @@ export const metadata = { title: "Invoices" }
 
 export const dynamic = "force-dynamic"
 
-export default async function InvoicesPage({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined }
-}) {
+export default async function InvoicesPage(
+  props: {
+    searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
   const [invoices, clientOptions, plan] = await Promise.all([

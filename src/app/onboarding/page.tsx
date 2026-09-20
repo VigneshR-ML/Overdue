@@ -45,13 +45,15 @@ const PROGRESS: Record<Step, number> = {
   done: 5,
 }
 
-const SAMPLE_PREVIEW_INVOICE = (email: string): InvoiceSnapshot => ({
+const SAMPLE_DUE_DATE = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)
+
+const SAMPLE_PREVIEW_INVOICE = (_email: string): InvoiceSnapshot => ({
   id: "sample",
   number: "2026-0010",
   client_name: "Northwind Creative",
   amount_cents: 120_000,
   currency: "USD",
-  due_date: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10),
+  due_date: SAMPLE_DUE_DATE,
   days_overdue: 0,
 })
 
@@ -147,6 +149,8 @@ export default function OnboardingPage() {
   }, [])
 
   useEffect(() => {
+    // Fetch completion updates state asynchronously; this is not a cascading render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSequences()
   }, [loadSequences])
 
@@ -444,7 +448,7 @@ export default function OnboardingPage() {
               client_name: invoice?.id !== "sample" ? invoice?.client_name ?? "" : "Northwind Creative",
               amount_cents: invoice?.amount_cents ?? 120_000,
               currency: invoice?.currency ?? "USD",
-              due_date: invoice?.id !== "sample" ? (invoice?.due_date ?? null) : new Date(Date.now() + 2 * 86400000).toISOString(),
+              due_date: invoice?.id !== "sample" ? (invoice?.due_date ?? null) : SAMPLE_DUE_DATE,
               issue_date: null,
               days_overdue: invoice?.days_overdue ?? 0,
             },

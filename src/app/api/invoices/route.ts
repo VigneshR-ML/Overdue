@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
 import { getPlan, countForUser, FREE_CLIENT_LIMIT, FREE_INVOICE_LIMIT } from "@/lib/billing/plan"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "client_email is invalid" }, { status: 400 })
   }
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
   const plan = await getPlan(user!.id)
 
   // Free plan: up to 10 active invoices — recover the first ones free, autopilot the rest on Pro.

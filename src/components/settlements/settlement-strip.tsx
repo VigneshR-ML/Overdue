@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { getSessionUser } from "@/lib/auth/session"
 import { createClient } from "@/lib/supabase/server"
+import { currentTimeMs } from "@/lib/utils/format"
 
 /**
  * Today's recovery strip: live offers, promises due/broken. Server-rendered,
@@ -9,7 +10,7 @@ import { createClient } from "@/lib/supabase/server"
 export async function SettlementStrip() {
   const session = await getSessionUser()
   if (!session) return null
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const [{ data: offers }, { data: promiseRuns }] = await Promise.all([
     supabase
@@ -29,7 +30,7 @@ export async function SettlementStrip() {
       .limit(5),
   ])
 
-  const now = Date.now()
+  const now = currentTimeMs()
   const promises = (promiseRuns ?? []) as {
     id: string
     invoice_id: string

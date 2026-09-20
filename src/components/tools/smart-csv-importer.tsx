@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -342,7 +343,7 @@ export function SmartCsvImporter() {
             </div>
             {imported !== null ? (
               <p className="mt-2 rounded-md border border-moss/40 bg-moss-soft p-3 font-mono text-[13px] text-moss">
-                {imported} invoices imported. <a href="/invoices" className="underline">Open ledger →</a>
+                {imported} invoices imported. <Link href="/invoices" className="underline">Open ledger →</Link>
               </p>
             ) : null}
             <div className="mt-3 overflow-x-auto">

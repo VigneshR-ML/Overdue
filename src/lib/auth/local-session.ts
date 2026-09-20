@@ -1,5 +1,3 @@
-import { cookies } from "next/headers"
-
 type SessionUser = { id: string; email: string }
 
 /**
@@ -72,8 +70,4 @@ export function decodeSessionUser(cookies: readonly { name: string; value: strin
   } catch {
     return null
   }
-}
-
-export function getSessionUserFromCookies(): SessionUser | null {
-  return decodeSessionUser(cookies().getAll())
 }

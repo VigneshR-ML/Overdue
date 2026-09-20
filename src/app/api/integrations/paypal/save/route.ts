@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { setCredentials } from "@/lib/integrations/credentials"
 import { syncUserProvider } from "@/lib/integrations/sync"
 import { getPlan } from "@/lib/billing/plan"
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
   })
   if (credErr) return NextResponse.json({ ok: false, error: credErr.message }, { status: 400 })
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
   await supabase.from("integrations").upsert(
     {
       user_id: user!.id,

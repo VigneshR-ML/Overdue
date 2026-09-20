@@ -1,5 +1,27 @@
 # FIX_CHANGELOG.md — what changed, and where
 
+## Reanalysis pass — 2026-09-20
+
+- Added migration `0019_api_write_boundary.sql`: authenticated clients keep
+  owner-scoped reads but cannot bypass API validation, quotas, reconciliation,
+  or scheduler state transitions with direct Data API writes. Trusted writes
+  now use the server-only service role after explicit ownership checks.
+- Bound Stripe/Xero OAuth callbacks to the currently signed-in user; future-
+  dated and expired state tokens are rejected and unit-tested.
+- Canonicalized and validated sequence JSON (bounds, tones, required copy,
+  ordering, field allowlist) before storage.
+- Made calendar-date calculations UTC-stable across forecasting, scheduling,
+  settlement, invoice, and display paths; added cross-timezone verification.
+- Hardened invoice paid/partial-paid transitions and made settlement resolve
+  actions idempotent with mutation-error handling and duplicate suppression.
+- Upgraded Next.js to 16.3.5, React to 19.3.0, ESLint to 9, and Vitest to 5;
+  migrated middleware to Proxy and async request APIs. `npm audit` is now zero.
+- Bundled Figtree, Fraunces, and IBM Plex Mono so production builds are network-
+  independent; updated CSP for Vercel telemetry.
+- Browser smoke found and fixed a public-page crash when Supabase env vars are
+  absent; five public routes now render without a framework overlay.
+- Current evidence: 217/217 tests, lint/typecheck/build green, full audit clean.
+
 Hardening pass: committed as `f2b3d2c` on top of pinned `d005e34e` (41 files,
 +1743/−395). Master pass (this audit) adds the changes below on top of
 `f2b3d2c`, uncommitted. Baseline before this pass: 193 tests. Current:

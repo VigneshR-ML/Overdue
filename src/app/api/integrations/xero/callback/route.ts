@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { setCredentials, getOAuthConfig } from "@/lib/integrations/credentials"
 import { verifyState, appUrl } from "@/lib/integrations/oauth"
 import { getPlan } from "@/lib/billing/plan"
 import { syncUserProvider } from "@/lib/integrations/sync"
+import { getSessionUser } from "@/lib/auth/session"
 
 export const dynamic = "force-dynamic"
 
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
 
   const userId = verifyState(state)
   if (!userId) return NextResponse.redirect(`${appUrl()}/settings/integrations?xero=bad_state`)
+  const session = await getSessionUser()
+  if (!session || session.id !== userId) {
+    return NextResponse.redirect(`${appUrl()}/settings/integrations?xero=session_mismatch`)
+  }
 
   const plan = await getPlan(userId)
   if (plan === "free") {
@@ -54,7 +59,8 @@ export async function GET(request: NextRequest) {
     })
     if (credErr) throw new Error(credErr.message)
 
-    const supabase = createClient()
+    const supabase = createAdminClient()
+    if (!supabase) throw new Error("supabase not configured")
     await supabase.from("integrations").upsert(
       {
         user_id: userId,

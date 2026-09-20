@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 :root {
+  --font-fraunces: "Fraunces Variable";
+  --font-figtree: "Figtree Variable";
+  --font-mono: "IBM Plex Mono";
   --paper: #f6f4ee;
   --surface: #ffffff;
   --ink: #1d1b17;

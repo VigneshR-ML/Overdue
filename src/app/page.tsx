@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import Link from "next/link"
 import { Suspense } from "react"
 import { MarketingNav, MarketingFooter } from "@/components/marketing/site"
 import { ReceiptTicker } from "@/components/ledger/receipt-ticker"
@@ -74,12 +75,12 @@ export default function LandingPage() {
               schedule, and designed to protect the client relationship.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a href="/signup">
+              <Link href="/signup">
                 <Button size="lg">Recover your first invoice free</Button>
-              </a>
-              <a href="/#how">
+              </Link>
+              <Link href="/#how">
                 <Button size="lg" variant="outline">How it works</Button>
-              </a>
+              </Link>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[12px] uppercase tracking-[0.12em] text-muted">
               <span>PayPal</span><span className="text-hairline">/</span>

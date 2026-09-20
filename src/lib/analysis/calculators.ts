@@ -1,3 +1,5 @@
+import { dateOnlyToUtcMs, DAY_MS, utcStartOfDay } from "@/lib/utils/format"
+
 /**
  * Deterministic money math behind the public /tools calculators. Every helper
  * here is a pure function of its inputs so the /tools pages stay boring,
@@ -85,11 +87,12 @@ export function invoiceAgingBuckets(rows: { dueDate: string | null; amountCents:
   b90: number
   totalCents: number
 } {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const today = utcStartOfDay(now)
   const out = { currentCents: 0, b0_30: 0, b31_60: 0, b61_90: 0, b90: 0, totalCents: 0 }
   for (const r of rows) {
-    const due = r.dueDate ? new Date(r.dueDate + "T00:00:00").getTime() : today
-    const days = Math.floor((today - due) / 86400000)
+    const parsedDue = r.dueDate ? dateOnlyToUtcMs(r.dueDate) : Number.NaN
+    const due = Number.isNaN(parsedDue) ? today : parsedDue
+    const days = Math.floor((today - due) / DAY_MS)
     const amount = r.amountCents
     out.totalCents += amount
     if (days <= 0) out.currentCents += amount

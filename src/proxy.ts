@@ -14,7 +14,7 @@ const CANONICAL_HOST = (
  * www.*, preview URLs) to the canonical host keeps start + finish on the same
  * domain so Google sign-in always completes.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const host = request.nextUrl.host
 
   if (

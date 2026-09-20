@@ -1,4 +1,4 @@
-import { formatMoney, formatDate } from "@/lib/utils/format"
+import { dateOnlyToUtcMs, DAY_MS, formatMoney, formatDate } from "@/lib/utils/format"
 
 /**
  * Pure helpers for the first-invoice onboarding flow: turning a ladder's
@@ -68,18 +68,18 @@ export function absoluteOffsets(steps: StepWithDelay[], dueDateIso?: string): Sc
 
   let referenceMs: number | null = null
   if (dueDateIso) {
-    const due = new Date(dueDateIso + "T12:00:00")
-    if (Number.isNaN(due.getTime())) {
+    const dueMs = dateOnlyToUtcMs(dueDateIso)
+    if (Number.isNaN(dueMs)) {
       throw new Error("due_date is not a valid date")
     }
-    referenceMs = due.getTime()
+    referenceMs = dueMs
   }
 
   return rows.map((r) => ({
     ...r,
     when:
       referenceMs !== null
-        ? formatDate(new Date(referenceMs + r.dayOffset * 86400000).toISOString())
+        ? formatDate(new Date(referenceMs + r.dayOffset * DAY_MS).toISOString())
         : r.dayOffset === 0
           ? "due date"
           : `Day ${r.dayOffset} past due`,

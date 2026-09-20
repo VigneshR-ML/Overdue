@@ -1,4 +1,4 @@
-import { formatMoney, formatDate } from "@/lib/utils/format"
+import { daysOverdue, formatMoney, formatDate } from "@/lib/utils/format"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { planForSubscription } from "@/lib/billing/entitlement"
 import { FREE_AI_DRAFTS_PER_MONTH } from "@/lib/billing/limits"
@@ -31,9 +31,7 @@ export interface DraftOutput {
 
 function templateVars(input: DraftInput) {
   const dueDate = input.invoice.due_date
-  const daysOverdue = dueDate
-    ? Math.max(0, Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000))
-    : 0
+  const overdueDays = Math.max(0, daysOverdue(dueDate))
   return {
     "{client_name}": input.client?.name ?? "there",
     "{client_email}": input.client?.billing_email ?? "",
@@ -41,7 +39,7 @@ function templateVars(input: DraftInput) {
     "{amount}": formatMoney(input.invoice.amount_cents, input.invoice.currency),
     "{due_date}": formatDate(dueDate),
     "{issue_date}": formatDate(input.invoice.issue_date),
-    "{days_overdue}": String(daysOverdue),
+    "{days_overdue}": String(overdueDays),
     "{sender_name}": input.sender.name,
     "{company}": input.sender.company,
     "{paid_cents}": formatMoney(input.invoice.paid_cents, input.invoice.currency),

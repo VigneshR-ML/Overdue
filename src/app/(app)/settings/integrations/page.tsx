@@ -11,8 +11,9 @@ export const metadata = { title: "Invoice sources" }
 
 export const dynamic = "force-dynamic"
 
-export default async function IntegrationsPage({ searchParams }: { searchParams?: { upgrade?: string } }) {
-  const supabase = createClient()
+export default async function IntegrationsPage(props: { searchParams?: Promise<{ upgrade?: string }> }) {
+  const searchParams = await props.searchParams;
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

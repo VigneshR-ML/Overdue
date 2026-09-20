@@ -5,6 +5,38 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const ISO_DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
+export const DAY_MS = 86_400_000
+
+/** Current epoch time, kept behind a utility so time-dependent UI is explicit. */
+export function currentTimeMs(): number {
+  return Date.now()
+}
+
+/** Parse a calendar date without letting the server timezone move it a day. */
+export function dateOnlyToUtcMs(value: string): number {
+  const match = ISO_DATE_ONLY.exec(value)
+  if (!match) return Number.NaN
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const ms = Date.UTC(year, month - 1, day)
+  const parsed = new Date(ms)
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day
+    ? ms
+    : Number.NaN
+}
+
+export function utcStartOfDay(value: Date | number = Date.now()): number {
+  const date = value instanceof Date ? value : new Date(value)
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
+
+export function utcDateOnly(value: Date | number): string {
+  const date = value instanceof Date ? value : new Date(value)
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`
+}
+
 export function formatMoney(cents: number | null | undefined, currency = "USD") {
   const n = cents ?? 0
   const value = n / 100
@@ -50,20 +82,22 @@ export function formatMoneyShort(cents: number, currency = "USD") {
 export function daysOverdue(dueDate: string | null, paidAt?: string | null) {
   if (paidAt) return -Infinity
   if (!dueDate) return 0
-  const due = new Date(dueDate).getTime()
+  const due = dateOnlyToUtcMs(dueDate)
   if (Number.isNaN(due)) return 0
-  const ms = Date.now() - due
-  return Math.floor(ms / 86400000)
+  return Math.floor((utcStartOfDay() - due) / DAY_MS)
 }
 
 export function formatDate(iso: string | null | undefined) {
   if (!iso) return "—"
   try {
+    const dateOnlyMs = dateOnlyToUtcMs(iso)
+    const date = Number.isNaN(dateOnlyMs) ? new Date(iso) : new Date(dateOnlyMs)
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
-    }).format(new Date(iso))
+      timeZone: "UTC",
+    }).format(date)
   } catch {
     return iso
   }

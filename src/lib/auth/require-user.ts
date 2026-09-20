@@ -14,7 +14,7 @@ export async function requireUser(): Promise<{ user: User | null; error: NextRes
   if (!url || !anon) {
     return { user: null, error: NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 }) }
   }
-  const supabase = createClient()
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

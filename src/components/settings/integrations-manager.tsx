@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { formatRelative } from "@/lib/utils/format"
 import type { IntegrationRow } from "@/types"
 import { Button } from "@/components/ui/button"
@@ -164,9 +165,9 @@ export function IntegrationsManager({
 
             {p === "csv" && (
               <>
-                <a href="/tools/smart-csv" className="mt-4 block rounded-md border border-moss/40 bg-moss-soft/40 p-3 text-[13px] text-moss hover:bg-moss-soft">
+                <Link href="/tools/smart-csv" className="mt-4 block rounded-md border border-moss/40 bg-moss-soft/40 p-3 text-[13px] text-moss hover:bg-moss-soft">
                   <span className="font-medium">New: Smart CSV import →</span> messy headers? AI maps any columns + extracts insights before importing.
-                </a>
+                </Link>
                 <label className="mt-2 flex items-center justify-between gap-3 rounded-md border border-dashed border-hairline p-3">
                 <div className="flex items-center gap-2 text-sm text-muted">
                   <Upload className="h-4 w-4 text-faint" />

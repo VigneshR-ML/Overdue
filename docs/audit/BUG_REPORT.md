@@ -49,7 +49,22 @@ Severity: **Cri** = blocks launch; **Hi** = must fix before wider rollout; **Med
 | D31 | Med | data quality / outbound | Creating a client accepted any string as `billing_email`, so a malformed address would hard-bounce every reminder rung. | **Fixed** — email format validated on `POST /api/clients` (same regex the invoice path uses). |
 | D32 | Low | AI security | LLM drafts embed client-supplied facts (name, number, notes) unquoted in the prompt — a hostile client name could carry prompt-injection text into a draft the owner might send. | **Fixed** — system prompt now marks the FACTS/CURRENT DRAFT blocks as untrusted data and forbids following instructions inside them. Low severity: drafts stay owner-reviewed, but the guard is cheap. |
 
-27 of 32 defects are fixed on `HEAD`. The 5 remaining — D21/D22/D23/D26/D28 —
+## Reanalysis addendum — 2026-09-20
+
+| ID | Severity | Area | Root cause (as found) | Status |
+|----|----------|------|----------------------|--------|
+| D33 | Cri | authorization | Broad authenticated write grants/policies let owners bypass API quotas, validation and business state transitions through the public Data API. | **Fixed in code** — 0019 removes write policies/grants; server routes use service role with owner filters. **Apply/verify live.** |
+| D34 | Hi | OAuth | Signed state identified a user but callbacks were not bound to the browser's current session; future timestamps were also accepted. | **Fixed** — callback session/user match plus bounded state age tests. |
+| D35 | Hi | ladders | Sequence payloads accepted arbitrary fields and malformed steps on create; update silently coerced invalid values. | **Fixed** — shared strict canonical validator and tests. |
+| D36 | Hi | dates | Date-only invoice and forecast calculations mixed local time, noon offsets and server timezone, changing results by deployment TZ. | **Fixed** — shared UTC calendar helpers and cross-timezone test runs. |
+| D37 | Hi | state transitions | `status:'paid'` could bypass reconciliation; partial-paid amounts were weakly checked; public resolution actions duplicated rows and ignored write failures. | **Fixed** — canonical paid/partial rules, reconciliation, idempotency and explicit mutation errors. |
+| D38 | Cri | dependencies | Next 14/PostCSS and the old Vitest/Vite chain carried critical/high/moderate advisories. | **Fixed** — Next 16/React 19/Vitest 5 migration; full `npm audit` is zero. |
+| D39 | Hi | runtime | Root auth handler constructed a Supabase client without configuration, crashing every public page on fresh/unconfigured previews. | **Fixed** — handler now no-ops until public Supabase settings exist; browser verified. |
+| D40 | Med | build | Production build fetched Google Fonts and failed in restricted/offline builders. | **Fixed** — fonts bundled from Fontsource packages. |
+| D41 | Low | observability | CSP blocked the Vercel Analytics and Speed Insights loader. | **Fixed** — telemetry script origin added to CSP. |
+| D42 | Low | responsive UI | Footer email produced a small horizontal overflow at tablet width. | **Fixed** — long address can wrap. |
+
+37 of 42 registered defects are fixed on `HEAD`. The 5 historical placeholders — D21/D22/D23/D26/D28 —
 are registered in the prior source audit but their source-level reproduction was
 not carried into the hard-fix set; close them against the original audit before
 treating the register as finished (LAUNCH_READINESS G1). See `FIX_CHANGELOG.md`

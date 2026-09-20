@@ -12,7 +12,8 @@ export const metadata = { title: "Ladders" }
 
 export const dynamic = "force-dynamic"
 
-export default async function SequencesPage({ searchParams }: { searchParams?: { error?: string } }) {
+export default async function SequencesPage(props: { searchParams?: Promise<{ error?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
   const userId = session.id
@@ -41,11 +42,11 @@ export default async function SequencesPage({ searchParams }: { searchParams?: {
         title="Ladders"
         description="Four rungs. Gentle to final. The flame only gets warmer when it has to."
         action={
-          <a href="/sequences/new">
+          <Link href="/sequences/new">
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> New ladder
             </Button>
-          </a>
+          </Link>
         }
       />
 

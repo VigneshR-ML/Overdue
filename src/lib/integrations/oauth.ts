@@ -37,7 +37,8 @@ export function verifyState(state: string): string | null {
     if (lastColon < 0) return null
     const userId = decoded.slice(0, lastColon)
     const ts = Number(decoded.slice(lastColon + 1))
-    if (!Number.isFinite(ts) || Date.now() - ts > STATE_MAX_AGE_MS) return null
+    const age = Date.now() - ts
+    if (!Number.isFinite(ts) || age < 0 || age > STATE_MAX_AGE_MS) return null
     return userId
   } catch {
     return null

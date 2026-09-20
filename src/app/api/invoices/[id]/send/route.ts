@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic"
  * current ladder step immediately. This is how Free plans send (autopilot is
  * Pro); Pro users can also force a step early from here.
  */
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, error } = await requireUser()
   if (error) return error
 

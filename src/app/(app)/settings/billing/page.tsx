@@ -13,11 +13,12 @@ export const metadata = { title: "Billing" }
 
 export const dynamic = "force-dynamic"
 
-export default async function BillingPage({
-  searchParams,
-}: {
-  searchParams?: { upgraded?: string }
-}) {
+export default async function BillingPage(
+  props: {
+    searchParams?: Promise<{ upgraded?: string }>
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
 

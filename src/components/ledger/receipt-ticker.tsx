@@ -9,11 +9,10 @@ import { buildTicker, type TickerRow } from "@/lib/utils/receipt-ticker"
  * Implemented client-side so the demo actually animates without any backend.
  */
 export function ReceiptTicker() {
-  const [rows, setRows] = useState<TickerRow[]>([])
+  const [rows] = useState<TickerRow[]>(() => buildTicker())
   const [day, setDay] = useState(0)
 
   useEffect(() => {
-    setRows(buildTicker())
     const iv = setInterval(() => setDay((d) => d + 1), 1600)
     return () => clearInterval(iv)
   }, [])

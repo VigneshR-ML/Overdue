@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/require-user"
 import { syncUserProvider } from "@/lib/integrations/sync"
 import { deleteCredentials } from "@/lib/integrations/credentials"
 import { STRIPE_ENABLED } from "@/lib/integrations/stripe-flag"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { getPlan } from "@/lib/billing/plan"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
@@ -17,7 +17,8 @@ function asProvider(p: string | null): Provider | null {
 }
 
 /** POST /api/integrations/[provider]/sync */
-export async function POST(_req: NextRequest, { params }: { params: { provider: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ provider: string }> }) {
+  const params = await props.params;
   const { user, error } = await requireUser()
   if (error) return error
 
@@ -50,7 +51,8 @@ export async function POST(_req: NextRequest, { params }: { params: { provider: 
 }
 
 /** DELETE /api/integrations/[provider]/disconnect */
-export async function DELETE(_req: NextRequest, { params }: { params: { provider: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ provider: string }> }) {
+  const params = await props.params;
   const { user, error } = await requireUser()
   if (error) return error
 
@@ -59,7 +61,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { provider
 
   await deleteCredentials(user!.id, provider)
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
   await supabase.from("integrations").delete().eq("user_id", user!.id).eq("provider", provider)
 
   // Stop queued reminders for invoices that came from this provider so nobody

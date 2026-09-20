@@ -9,11 +9,12 @@ export const metadata = { title: "Ladder" }
 
 export const dynamic = "force-dynamic"
 
-export default async function SequenceDetailPage({ params }: { params: { id: string } }) {
+export default async function SequenceDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
 
-  const supabase = (await import("@/lib/supabase/server")).createClient()
+  const supabase = await (await import("@/lib/supabase/server")).createClient()
   const { data, error: fetchErr } = await supabase
     .from("sequences")
     .select("*")

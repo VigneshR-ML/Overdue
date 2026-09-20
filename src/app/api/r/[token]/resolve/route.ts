@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 import { verifyResolutionToken } from "@/lib/recovery/token"
+import { dateOnlyToUtcMs, DAY_MS, utcStartOfDay } from "@/lib/utils/format"
 
 export const dynamic = "force-dynamic"
 
@@ -24,7 +25,8 @@ async function loadOffer(offerId: string) {
  * hold so the dispatcher pauses ladder sends until the date (and escalates
  * as promise-broken after it passes).
  */
-export async function POST(request: NextRequest, { params }: { params: { token: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const rl = rateLimit(
     `resolve:${request.headers.get("x-forwarded-for") ?? "anon"}`,
     RATE_LIMITS.api.limit,
@@ -74,10 +76,16 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
   const note = typeof body.note === "string" ? body.note.slice(0, 500) : null
 
   if (action === "accept") {
-    await supabase
+    if (offer.status === "accepted") return NextResponse.json({ ok: true, status: "accepted" })
+    const { data: accepted, error: acceptError } = await supabase
       .from("settlement_offers")
       .update({ status: "accepted", updated_at: new Date().toISOString() })
       .eq("id", offer.id)
+      .in("status", ["approved", "sent"])
+      .select("id")
+      .maybeSingle()
+    if (acceptError) return NextResponse.json({ ok: false, error: "couldn't accept the offer — please retry" }, { status: 503 })
+    if (!accepted) return NextResponse.json({ ok: false, error: "offer state changed — refresh and try again" }, { status: 409 })
     await supabase.from("settlement_events").insert({ offer_id: offer.id, user_id: userId, event: "accepted", meta: {} })
     return NextResponse.json({ ok: true, status: "accepted" })
   }
@@ -86,12 +94,16 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
     if (typeof body.promiseDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.promiseDate)) {
       return NextResponse.json({ ok: false, error: "promiseDate (YYYY-MM-DD) required" }, { status: 400 })
     }
-    const at = new Date(body.promiseDate + "T12:00:00")
-    if (Number.isNaN(at.getTime()) || at.getTime() <= Date.now() || at.getTime() - Date.now() > 60 * 86400000) {
+    const promiseDay = dateOnlyToUtcMs(body.promiseDate)
+    const today = utcStartOfDay()
+    if (Number.isNaN(promiseDay) || promiseDay <= today || promiseDay - today > 60 * DAY_MS) {
       return NextResponse.json({ ok: false, error: "promise date must be within the next 60 days" }, { status: 400 })
     }
+    // Hold the ladder through the promised calendar date, independent of the
+    // deployment region's timezone.
+    const at = new Date(promiseDay + DAY_MS - 1)
     // Hold open runs for this invoice until the promise date (dispatcher pattern).
-    await supabase
+    const { error: promiseError } = await supabase
       .from("runs")
       .update({
         status: "queued",
@@ -104,6 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
       .eq("user_id", userId)
       .eq("invoice_id", offer.invoice_id as string)
       .in("status", ["queued", "processing", "paused", "sent"])
+    if (promiseError) return NextResponse.json({ ok: false, error: "couldn't save the promise — please retry" }, { status: 503 })
     await supabase.from("settlement_events").insert({
       offer_id: offer.id,
       user_id: userId,
@@ -116,17 +129,31 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
   if (action === "plan_request") {
     // (D24) Payment-plan requests get a real row the owner can see and act on,
     // and the ladder pauses so autopilot never chases a client mid-negotiation.
-    const requestedCents =
-      typeof body.requestedCents === "number" && Number.isFinite(body.requestedCents) ? body.requestedCents : null
-    await supabase.from("payment_plan_requests").insert({
-      user_id: userId,
-      offer_id: offer.id as string,
-      invoice_id: offer.invoice_id as string,
-      requested_cents: requestedCents,
-      message: note ?? "",
-      status: "open",
-    })
-    await supabase
+    const requestedCents = typeof body.requestedCents === "number" && Number.isFinite(body.requestedCents)
+      ? Math.round(body.requestedCents)
+      : null
+    if (requestedCents !== null && (requestedCents <= 0 || requestedCents > Number(offer.outstanding_cents))) {
+      return NextResponse.json({ ok: false, error: "requested amount must be within the outstanding balance" }, { status: 400 })
+    }
+    const { data: existingPlan } = await supabase
+      .from("payment_plan_requests")
+      .select("id")
+      .eq("invoice_id", offer.invoice_id as string)
+      .eq("status", "open")
+      .limit(1)
+      .maybeSingle()
+    if (!existingPlan) {
+      const { error: planError } = await supabase.from("payment_plan_requests").insert({
+        user_id: userId,
+        offer_id: offer.id as string,
+        invoice_id: offer.invoice_id as string,
+        requested_cents: requestedCents,
+        message: note ?? "",
+        status: "open",
+      })
+      if (planError) return NextResponse.json({ ok: false, error: "couldn't save the payment-plan request — please retry" }, { status: 503 })
+    }
+    const { error: pauseError } = await supabase
       .from("runs")
       .update({
         status: "paused",
@@ -139,7 +166,8 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
       .eq("user_id", userId)
       .eq("invoice_id", offer.invoice_id as string)
       .in("status", ["queued", "processing", "sent"])
-    await supabase.from("settlement_events").insert({
+    if (pauseError) return NextResponse.json({ ok: false, error: "couldn't pause reminders — please retry" }, { status: 503 })
+    if (!existingPlan) await supabase.from("settlement_events").insert({
       offer_id: offer.id,
       user_id: userId,
       event: "plan_request",
@@ -151,16 +179,26 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
   // dispute → open a dispute row (blocks automated chasing until resolved)
   // and record the event.
   const category = typeof body.category === "string" ? body.category.slice(0, 60) : "other"
-  await supabase.from("disputes").insert({
-    user_id: userId,
-    invoice_id: offer.invoice_id as string,
-    category,
-    amount_cents: (offer.outstanding_cents as number) ?? null,
-    reason: note,
-    status: "open",
-  })
+  const { data: existingDispute } = await supabase
+    .from("disputes")
+    .select("id")
+    .eq("invoice_id", offer.invoice_id as string)
+    .eq("status", "open")
+    .limit(1)
+    .maybeSingle()
+  if (!existingDispute) {
+    const { error: disputeError } = await supabase.from("disputes").insert({
+      user_id: userId,
+      invoice_id: offer.invoice_id as string,
+      category,
+      amount_cents: (offer.outstanding_cents as number) ?? null,
+      reason: note,
+      status: "open",
+    })
+    if (disputeError) return NextResponse.json({ ok: false, error: "couldn't save the dispute — please retry" }, { status: 503 })
+  }
   // (D05) Pause the ladder so the dispatcher never auto-chases mid-dispute.
-  await supabase
+  const { error: pauseError } = await supabase
     .from("runs")
     .update({
       status: "paused",
@@ -173,7 +211,8 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
     .eq("user_id", userId)
     .eq("invoice_id", offer.invoice_id as string)
     .in("status", ["queued", "processing", "sent"])
-  await supabase.from("settlement_events").insert({
+  if (pauseError) return NextResponse.json({ ok: false, error: "couldn't pause reminders — please retry" }, { status: 503 })
+  if (!existingDispute) await supabase.from("settlement_events").insert({
     offer_id: offer.id,
     user_id: userId,
     event: "dispute",

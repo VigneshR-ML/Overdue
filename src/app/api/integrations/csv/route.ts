@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { parseCsv } from "@/lib/integrations/csv"
 import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
 import { getPlan, countForUser, FREE_CLIENT_LIMIT, FREE_INVOICE_LIMIT } from "@/lib/billing/plan"
@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
+  const db = supabase
   const plan = await getPlan(user!.id)
   // Free plan: invoice cap applies to imports too (upgrade moment, not a wall).
   if (plan === "free") {
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
   // (D18) Which rows already exist, so reported added/updated counts are true.
   let alreadyExisting = 0
   {
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from("invoices")
       .select("provider_id")
       .eq("user_id", user!.id)
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
     if (blockedKeys.has(key)) return { clientId: null, blocked: true }
     if (clientIdMap.has(key)) return { clientId: clientIdMap.get(key) ?? null, blocked: false }
     if (email) {
-      const { data: existing } = await supabase
+      const { data: existing } = await db
         .from("clients")
         .select("id")
         .eq("user_id", user!.id)
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
       blockedKeys.add(key)
       return { clientId: null, blocked: true }
     }
-    const { data: created } = await supabase
+    const { data: created } = await db
       .from("clients")
       .insert({
         user_id: user!.id,
@@ -123,7 +125,7 @@ export async function POST(request: NextRequest) {
       errors.push(`Row for ${inv.client_name || inv.number || "unknown client"} skipped (client limit reached)`)
       continue
     }
-    const { error: iErr } = await supabase.from("invoices").upsert(
+    const { error: iErr } = await db.from("invoices").upsert(
       {
         user_id: user!.id,
         client_id: clientId,
@@ -149,7 +151,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Mark csv integration present + attach ladders.
-  await supabase
+  await db
     .from("integrations")
     .upsert(
       { user_id: user!.id, provider: "csv", status: "connected", display_name: "CSV import", last_synced_at: new Date().toISOString() },

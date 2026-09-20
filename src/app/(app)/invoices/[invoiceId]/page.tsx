@@ -2,7 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { getInvoiceDetail } from "@/lib/db/queries"
-import { formatMoney, formatDate, cn } from "@/lib/utils/format"
+import { formatMoney, formatDate, cn, dateOnlyToUtcMs, daysOverdue, utcStartOfDay } from "@/lib/utils/format"
 import { PaidBadge, OverdueBadge, SentBadge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
@@ -17,11 +17,12 @@ export const metadata = { title: "Invoice" }
 
 export const dynamic = "force-dynamic"
 
-export default async function InvoiceDetailPage({
-  params,
-}: {
-  params: { invoiceId: string }
-}) {
+export default async function InvoiceDetailPage(
+  props: {
+    params: Promise<{ invoiceId: string }>
+  }
+) {
+  const params = await props.params;
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
 
@@ -31,14 +32,14 @@ export default async function InvoiceDetailPage({
   const { invoice } = row
   const paid = invoice.status === "paid" || Boolean(invoice.paid_at)
   const balance = Math.max(0, invoice.amount_cents - invoice.paid_cents)
-  const days = invoice.due_date
-    ? Math.ceil((new Date(invoice.due_date + "T12:00:00").getTime() - Date.now()) / 86400000)
-    : 0
+  const days = -daysOverdue(invoice.due_date, invoice.paid_at)
 
   const run = row.runs[0] ?? null
   const lastMessage = row.messages[0] ?? null
   const latestReply = row.replies[0] ?? null
-  const promiseDate = run?.promise_date && new Date(run.promise_date).getTime() > Date.now() ? run.promise_date : null
+  const promiseDate = run?.promise_date && dateOnlyToUtcMs(run.promise_date.slice(0, 10)) > utcStartOfDay()
+    ? run.promise_date
+    : null
 
   const milestones = buildInvoiceTimeline({
     created_at: invoice.created_at,

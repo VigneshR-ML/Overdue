@@ -4,9 +4,23 @@ import { computeRiskScore, automationConfidence, type RiskResult, type Automatio
 import { nextAction, type NextAction } from "@/lib/analysis/next-action"
 import { predictedPaymentDate, computeAgingBuckets, computeDsos, forecastSummary, type PredictedPayment, type AgingBucket, type MonthlyForecast } from "@/lib/analysis/forecast"
 import { computeClientHealth } from "@/lib/analysis/health"
+import { dateOnlyToUtcMs, DAY_MS, utcStartOfDay } from "@/lib/utils/format"
 
 function cents(v: unknown): number {
   return Math.round(Number(v ?? 0))
+}
+
+function daysFromDue(dueDate: string, when: string | Date | number): number {
+  const dueMs = dateOnlyToUtcMs(dueDate)
+  if (Number.isNaN(dueMs)) return 0
+  const at = when instanceof Date ? when : new Date(when)
+  if (Number.isNaN(at.getTime())) return 0
+  return Math.round((utcStartOfDay(at) - dueMs) / DAY_MS)
+}
+
+function overdueDaysFor(dueDate: string | null, now: Date | number = Date.now()): number {
+  if (!dueDate) return 0
+  return Math.max(0, daysFromDue(dueDate, now))
 }
 
 export type AgingRow = {
@@ -18,9 +32,9 @@ export type AgingRow = {
 }
 
 export function aggregateAging(invoices: AgingRow[]): AgingTotals {
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
+  const now = new Date()
+  const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const today = utcStartOfDay(now)
 
   let collectedMonth = 0
   let dueSoon = 0
@@ -42,8 +56,9 @@ export function aggregateAging(invoices: AgingRow[]): AgingTotals {
 
     outstanding += balance
     if (inv.due_date) {
-      const due = new Date(inv.due_date + "T00:00:00Z")
-      const diff = Math.floor((due.getTime() - Date.now()) / 86400000)
+      const due = dateOnlyToUtcMs(inv.due_date)
+      if (Number.isNaN(due)) continue
+      const diff = Math.round((due - today) / DAY_MS)
       if (diff < 0) {
         overdue += balance
         overdueCount += 1
@@ -63,7 +78,7 @@ export function aggregateAging(invoices: AgingRow[]): AgingTotals {
 }
 
 export async function getAgingTotals(userId: string): Promise<AgingTotals> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from("invoices")
     .select("amount_cents, paid_cents, due_date, paid_at, status")
@@ -73,7 +88,7 @@ export async function getAgingTotals(userId: string): Promise<AgingTotals> {
 }
 
 export async function getUrgencyQueue(userId: string, limit = 25) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from("invoices")
     .select("*, clients(name, email, billing_email)")
@@ -84,14 +99,13 @@ export async function getUrgencyQueue(userId: string, limit = 25) {
 
   return (data ?? []).map((row) => {
     const inv = { ...row, client: row.clients } as unknown as Invoice & { client: Client | null }
-    const due = inv.due_date ? new Date(inv.due_date + "T12:00:00").getTime() : 0
-    const overdueDays = inv.due_date ? Math.max(0, Math.ceil((Date.now() - due) / 86400000)) : 0
+    const overdueDays = overdueDaysFor(inv.due_date)
     return { invoice: inv, overdueDays }
   })
 }
 
 export async function getClientScore(clientId: string, userId?: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   let q = supabase
     .from("invoices")
     .select("due_date, paid_at, amount_cents")
@@ -108,7 +122,7 @@ export async function getClientScore(clientId: string, userId?: string) {
   const deltas: number[] = []
   for (const r of rows) {
     if (r.due_date && r.paid_at) {
-      deltas.push(Math.round((new Date(r.paid_at).getTime() - new Date(r.due_date + "T12:00:00").getTime()) / 86400000))
+      deltas.push(daysFromDue(r.due_date, r.paid_at))
     }
   }
   if (deltas.length === 0) return { score: 50, avgDays: null, n: rows.length }
@@ -120,7 +134,7 @@ export async function getClientScore(clientId: string, userId?: string) {
 }
 
 export async function getSequencesWithRuns(userId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from("sequences")
     .select("*, runs(id, status, invoices(number, amount_cents, currency, due_date))")
@@ -133,7 +147,7 @@ export async function getSequencesWithRuns(userId: string) {
 }
 
 export async function getTemplates(): Promise<TemplateRow[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase.from("sequences").select("*").eq("is_template", true).order("created_at")
   return (data as unknown as TemplateRow[]) ?? []
 }
@@ -148,7 +162,7 @@ export type TemplateRow = {
 }
 
 export async function getInvoicesWithMeta(userId: string, includePaid = true, limit = 100, offset = 0) {
-  const supabase = createClient()
+  const supabase = await createClient()
   let q = supabase
     .from("invoices")
     .select("*, clients(name, billing_email), runs(status)")
@@ -166,7 +180,7 @@ export async function getInvoicesWithMeta(userId: string, includePaid = true, li
 }
 
 export async function computeClientPaymentScores(userId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: clients } = await supabase.from("clients").select("*").eq("user_id", userId)
   const { data: invoices } = await supabase
     .from("invoices")
@@ -178,7 +192,7 @@ export async function computeClientPaymentScores(userId: string) {
   for (const inv of invoices ?? []) {
     if (!inv.client_id || !inv.due_date || !inv.paid_at) continue
     const delta = Math.round(
-      (new Date(inv.paid_at).getTime() - new Date(inv.due_date + "T12:00:00").getTime()) / 86400000,
+      daysFromDue(inv.due_date, inv.paid_at),
     )
     const arr = byClient.get(inv.client_id) ?? []
     arr.push(delta)
@@ -197,7 +211,7 @@ export async function computeClientPaymentScores(userId: string) {
 }
 
 export async function getSubscriptionsForUser(userId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from("subscriptions")
     .select("*")
@@ -209,14 +223,14 @@ export async function getSubscriptionsForUser(userId: string) {
 }
 
 export async function getProfile(userId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase.from("profiles").select("*").eq("id", userId).single()
   return (data ?? null) as { full_name: string | null; email: string | null; onboarding_completed: boolean | null } | null
 }
 
 /** Lightweight client list for the manual-invoice "existing client" picker. */
 export async function getClientOptions(userId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from("clients")
     .select("id, name, billing_email")
@@ -240,7 +254,7 @@ export function computeClientHistory(paid: { client_id: string | null; due_date:
   const acc = new Map<string, { deltas: number[]; count: number; sum: number }>()
   for (const r of paid) {
     if (!r.client_id) continue
-    const delta = r.due_date && r.paid_at ? Math.round((new Date(r.paid_at).getTime() - new Date(r.due_date + "T12:00:00").getTime()) / 86400000) : null
+    const delta = r.due_date && r.paid_at ? daysFromDue(r.due_date, r.paid_at) : null
     const cur = acc.get(r.client_id) ?? { deltas: [] as number[], count: 0, sum: 0 }
     cur.count += 1
     cur.sum += cents(r.amount_cents)
@@ -266,7 +280,7 @@ export interface RecoveryQueueItem {
 
 /** The dashboard's "Today's queue": open invoices scored and decided. */
 export async function getRecoveryQueue(userId: string, limit = 8): Promise<RecoveryQueueItem[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: open } = await supabase
     .from("invoices")
     .select("*, clients(name, email, billing_email)")
@@ -303,8 +317,9 @@ export async function getRecoveryQueue(userId: string, limit = 8): Promise<Recov
     const unanswered = msgTotal.length - opened
     const disputeCount = (disputes ?? []).filter((d) => d.invoice_id === invoiceId).length
 
-    const due = invoice.due_date ? new Date(invoice.due_date + "T12:00:00").getTime() : Date.now()
-    const overdueDays = invoice.due_date ? Math.max(0, Math.ceil((Date.now() - due) / 86400000)) : 0
+    const now = Date.now()
+    const due = invoice.due_date ? dateOnlyToUtcMs(invoice.due_date) : utcStartOfDay(now)
+    const overdueDays = overdueDaysFor(invoice.due_date, now)
     const futurePromise = run?.promise_date && new Date(run.promise_date).getTime() > Date.now() ? (run.promise_date as string) : null
     const promiseMissed = Boolean(run?.promise_missed)
     const classification = run?.reply_classification ?? null
@@ -344,7 +359,7 @@ export async function getRecoveryQueue(userId: string, limit = 8): Promise<Recov
       needsHumanReply: Boolean(classification && HUMAN_CLASSES.includes(classification)),
       overdueDays,
       unansweredReminders: unanswered,
-      paymentDueSoon: Boolean(invoice.due_date && overdueDays === 0 && (due - Date.now()) <= 7 * 86400000),
+      paymentDueSoon: Boolean(invoice.due_date && !Number.isNaN(due) && overdueDays === 0 && (due - utcStartOfDay(now)) <= 7 * DAY_MS),
     })
 
     return {
@@ -369,7 +384,7 @@ export async function getRecoveryQueue(userId: string, limit = 8): Promise<Recov
 
 /** Guerrilla aging table for the Insights page (5 buckets). */
 export async function getAgingBucketsForUser(userId: string): Promise<AgingBucket> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from("invoices")
     .select("due_date, amount_cents, paid_cents, paid_at")
@@ -384,7 +399,7 @@ export async function getAgingBucketsForUser(userId: string): Promise<AgingBucke
 
 /** Customer health for the clients page (explainable, deterministic). */
 export async function getClientHealth(userId: string, clientId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: invoices } = await supabase
     .from("invoices")
     .select("id, due_date, amount_cents, paid_cents, paid_at, status")
@@ -411,7 +426,7 @@ export async function getClientHealth(userId: string, clientId: string) {
 
   const paidRows = rows.filter((r) => r.paid_at && r.due_date)
   const avgDelayDays = paidRows.length
-    ? Math.round(paidRows.reduce((a, r) => a + (new Date(r.paid_at!).getTime() - new Date(r.due_date! + "T12:00:00").getTime()) / 86400000, 0) / paidRows.length)
+    ? Math.round(paidRows.reduce((a, r) => a + daysFromDue(r.due_date!, r.paid_at!), 0) / paidRows.length)
     : null
 
   return computeClientHealth({
@@ -428,7 +443,7 @@ export async function getClientHealth(userId: string, clientId: string) {
 
 /** Expected cash for the next 3 months — powers the Insights forecast. */
 export async function getCashForecast(userId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: open } = await supabase
     .from("invoices")
     .select("id, client_id, due_date, amount_cents, paid_cents, paid_at")
@@ -471,7 +486,7 @@ export interface InsightsSnapshot {
 
 /** One-shot snapshot for the Insights page: aging, DSO and cash forecast. */
 export async function getInsights(userId: string): Promise<InsightsSnapshot> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: invoices } = await supabase
     .from("invoices")
     .select("id, client_id, due_date, amount_cents, paid_cents, paid_at, status")
@@ -541,7 +556,7 @@ export type ClientHealthRow = Client & {
 
 /** Everything the clients page needs: payment stats + explainable health. */
 export async function getClientHealthRows(userId: string): Promise<ClientHealthRow[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const [{ data: clients }, { data: invoices }, { data: runs }, { data: messages }, { data: replies }, { data: disputes }] = await Promise.all([
     supabase.from("clients").select("*").eq("user_id", userId),
     supabase.from("invoices").select("id, client_id, due_date, amount_cents, paid_cents, paid_at, status").eq("user_id", userId),
@@ -584,7 +599,7 @@ export async function getClientHealthRows(userId: string): Promise<ClientHealthR
 
     const paid = invs.filter((i) => i.paid_at && i.due_date)
     const avgDays = paid.length
-      ? Math.round((paid.reduce((a, i) => a + (new Date(i.paid_at!).getTime() - new Date(i.due_date! + "T12:00:00").getTime()) / 86400000, 0)) / paid.length)
+    ? Math.round(paid.reduce((a, i) => a + daysFromDue(i.due_date!, i.paid_at!), 0) / paid.length)
       : null
 
     const open = invs.filter((i) => i.status !== "paid" && !i.paid_at)
@@ -625,7 +640,7 @@ export interface ReplyThreadItem {
 
 /** The reply thread for one invoice — what came in, what we decided. */
 export async function getReplyThread(userId: string, invoiceId: string): Promise<ReplyThreadItem[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from("reply_intel")
     .select("id, classification, confidence, source, raw_text, extracted_date, amount_cents, created_at")
@@ -646,7 +661,7 @@ export interface OpenDisputeRow {
 }
 
 export async function getOpenDisputesForInvoice(userId: string, invoiceId: string): Promise<OpenDisputeRow[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase
     .from("disputes")
     .select("id, category, amount_cents, reason, status, created_at")
@@ -668,7 +683,7 @@ export interface InvoiceDetailRow {
 
 /** Everything the invoice detail page needs, in one scoped read. */
 export async function getInvoiceDetail(userId: string, invoiceId: string): Promise<InvoiceDetailRow | null> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: invoice } = await supabase
     .from("invoices")
     .select("*, clients(name, email, billing_email)")

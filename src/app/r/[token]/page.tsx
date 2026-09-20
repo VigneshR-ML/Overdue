@@ -3,17 +3,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { verifyResolutionToken } from "@/lib/recovery/token"
 import { ResolutionView, type PublicOffer } from "@/components/settlements/resolution-view"
 import { Wordmark } from "@/components/marketing/site"
+import { daysOverdue } from "@/lib/utils/format"
 
 export const dynamic = "force-dynamic"
 
 export const metadata = { title: "Resolve invoice", robots: { index: false, follow: false } }
 
-function daysOverdue(due: string | null): number {
-  if (!due) return 0
-  return Math.max(0, Math.floor((Date.now() - new Date(due + "T12:00:00").getTime()) / 86400000))
-}
-
-export default async function ResolutionPage({ params }: { params: { token: string } }) {
+export default async function ResolutionPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const verified = verifyResolutionToken(params.token)
   if (!verified) notFound()
 
@@ -96,7 +93,7 @@ export default async function ResolutionPage({ params }: { params: { token: stri
     expiresAt: o.expires_at,
     status: o.status,
     paymentUrl: inv.payment_url,
-    daysOverdue: daysOverdue(inv.due_date),
+    daysOverdue: Math.max(0, daysOverdue(inv.due_date)),
   }
 
   return (

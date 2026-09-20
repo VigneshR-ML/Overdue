@@ -7,6 +7,8 @@
  * than a 12-month average) and are ignored once gone stale.
  */
 
+import { dateOnlyToUtcMs, DAY_MS, utcDateOnly, utcStartOfDay } from "@/lib/utils/format"
+
 export type Confidence = "high" | "medium" | "low"
 
 export interface ForecastInput {
@@ -20,21 +22,20 @@ export interface ForecastInput {
   promiseDate: string | null
 }
 
-const DAY = 86400000
-
 function iso(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+  return utcDateOnly(d)
 }
 
-/** Today at midnight, local-free (UTC) for stable date math. */
+/** Today at midnight UTC for stable date math in every deployment region. */
 function todayMidnight(now: Date): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return new Date(utcStartOfDay(now))
 }
 
 export function daysBetween(aIso: string, bIso: string): number {
-  const a = new Date(aIso + "T00:00:00Z").getTime()
-  const b = new Date(bIso + "T00:00:00Z").getTime()
-  return Math.round((a - b) / DAY)
+  const a = dateOnlyToUtcMs(aIso)
+  const b = dateOnlyToUtcMs(bIso)
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0
+  return Math.round((a - b) / DAY_MS)
 }
 
 export interface PredictedPayment {
@@ -59,7 +60,9 @@ export function predictedPaymentDate(inv: ForecastInput, now: Date = new Date())
   if (inv.dueDate) {
     const fallback = { date: inv.dueDate, confidence: "low" as Confidence, basis: "due" as const }
     if (inv.avgDays === null) return fallback
-    const predicted = new Date(inv.dueDate + "T00:00:00Z")
+    const dueMs = dateOnlyToUtcMs(inv.dueDate)
+    if (Number.isNaN(dueMs)) return null
+    const predicted = new Date(dueMs)
     predicted.setUTCDate(predicted.getUTCDate() + inv.avgDays)
     const confidence: Confidence = inv.historyCount >= 5 ? "high" : inv.historyCount >= 2 ? "medium" : "low"
     return { date: iso(predicted), confidence, basis: "history" }
@@ -132,7 +135,7 @@ export function forecastForMonth(inputs: ForecastInput[], yearMonth: string, now
 export function forecastSummary(inputs: ForecastInput[], now: Date = new Date()): MonthlyForecast[] {
   const start = todayMidnight(now)
   const months = [0, 1, 2].map((i) => {
-    const d = new Date(start.getFullYear(), start.getMonth() + i, 1)
+    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1))
     return monthKey(d)
   })
   return months.map((m) => forecastForMonth(inputs, m, now))
@@ -187,8 +190,12 @@ export function computeAgingBuckets(rows: AgingRowInput[], now: Date = new Date(
       bucket.current += outstanding
       continue
     }
-    const due = new Date(r.dueDate + "T00:00:00Z")
-    const lateDays = Math.floor((today.getTime() - due.getTime()) / DAY)
+    const dueMs = dateOnlyToUtcMs(r.dueDate)
+    if (Number.isNaN(dueMs)) {
+      bucket.current += outstanding
+      continue
+    }
+    const lateDays = Math.floor((today.getTime() - dueMs) / DAY_MS)
     if (lateDays <= 0) {
       bucket.current += outstanding
     } else {

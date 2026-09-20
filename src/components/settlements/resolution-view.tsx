@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { currentTimeMs } from "@/lib/utils/format"
 
 function PayButton({ offer }: { offer: PublicOffer }) {
   const [busy, setBusy] = useState(false)
@@ -92,7 +93,7 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
   const [showPromise, setShowPromise] = useState(false)
   const [showDispute, setShowDispute] = useState(false)
 
-  const expired = new Date(offer.expiresAt).getTime() <= Date.now()
+  const expired = new Date(offer.expiresAt).getTime() <= currentTimeMs()
 
   async function act(action: string, extra: Record<string, unknown> = {}) {
     setBusy(action)

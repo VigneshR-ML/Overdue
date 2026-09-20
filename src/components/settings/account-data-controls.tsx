@@ -52,6 +52,8 @@ export function AccountDataControls() {
         setDeleting(false)
         return
       }
+      // The account and session no longer exist; clear all client router state.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/?signin=1"
     } catch {
       setError("Network error — try again")

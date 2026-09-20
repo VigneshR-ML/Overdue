@@ -76,6 +76,8 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
   }
 
   useEffect(() => {
+    // The request resolves asynchronously and is re-run only when the invoice changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(null, 500)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId])

@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic"
  * amount. Fail closed until a provider-specific discounted checkout has been
  * created and its exact amount/currency independently verified server-side.
  */
-export async function POST(request: NextRequest, { params }: { params: { token: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const rl = rateLimit(
     `pay:${request.headers.get("x-forwarded-for") ?? "anon"}`,
     RATE_LIMITS.api.limit,

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { planForSubscription } from "./entitlement"
 
 export type { Plan } from "./entitlement"
@@ -16,7 +16,8 @@ export {
  * Resolves the user's effective plan from their subscription row.
  */
 export async function getPlan(userId: string): Promise<ReturnType<typeof planForSubscription>> {
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase || !userId) return "free"
   const { data } = await supabase
     .from("subscriptions")
     .select("plan, status, current_period_end")
@@ -32,7 +33,8 @@ export async function countForUser(
   userId: string,
   table: "clients" | "sequences" | "invoices",
 ): Promise<number> {
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase || !userId) return 0
   const { count } = await supabase
     .from(table)
     .select("id", { count: "exact", head: true })

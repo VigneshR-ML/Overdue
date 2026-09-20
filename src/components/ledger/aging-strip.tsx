@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { formatMoney, formatMoneyShort } from "@/lib/utils/format"
 import type { AgingTotals } from "@/types"
 import { cn } from "@/lib/utils/format"
@@ -10,13 +9,6 @@ import { cn } from "@/lib/utils/format"
  * load and re-count when the values change (e.g. a payment webhook arrives).
  */
 export function AgingStrip({ totals }: { totals: AgingTotals }) {
-  const [prev, setPrev] = useState(totals)
-  const changed = prev.collected_month_cents !== totals.collected_month_cents
-
-  useEffect(() => {
-    if (changed) setPrev(totals)
-  }, [totals, changed])
-
   const cells = [
     { label: "Collected this month", value: totals.collected_month_cents, tone: "moss", key: "collected" },
     { label: "Due soon (7 days)", value: totals.due_soon_cents, tone: "brass", key: "duesoon" },

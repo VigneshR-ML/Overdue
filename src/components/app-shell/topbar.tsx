@@ -32,6 +32,7 @@ export function AppTopBar({ email, plan }: { email: string; plan: string }) {
     }
     // Hard navigation clears the App Router cache — router.push("/") would
     // keep serving cached /dashboard RSC with the old session.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign("/")
   }
 

@@ -1,3 +1,5 @@
+import { dateOnlyToUtcMs, DAY_MS, utcStartOfDay } from "@/lib/utils/format"
+
 /**
  * Smart Settlement engine — deterministic expected-value math, no LLM.
  *
@@ -36,7 +38,9 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 
 export function daysOverdue(dueDate: string | null, now = Date.now()): number {
   if (!dueDate) return 0
-  return Math.max(0, Math.floor((now - new Date(dueDate + "T12:00:00").getTime()) / 86400000))
+  const dueMs = dateOnlyToUtcMs(dueDate)
+  if (Number.isNaN(dueMs)) return 0
+  return Math.max(0, Math.floor((utcStartOfDay(now) - dueMs) / DAY_MS))
 }
 
 /** Base probability of paying today with NO incentive (0-1). */

@@ -13,13 +13,13 @@ import { cookies } from "next/headers"
  * expired one) returns null without a network call.
  */
 export async function getSessionUser(): Promise<{ id: string; email: string } | null> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const fromCookie = decodeSessionUser(cookieStore.getAll())
 
   let user: { id: string; email?: string | null } | null = null
   let authError: unknown = null
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { data, error } = await supabase.auth.getUser()
     user = data.user
     authError = error

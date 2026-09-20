@@ -12,7 +12,8 @@ export const metadata = { title: "New ladder" }
 
 export const dynamic = "force-dynamic"
 
-export default async function NewSequencePage({ searchParams }: { searchParams: { from?: string } }) {
+export default async function NewSequencePage(props: { searchParams: Promise<{ from?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
 
@@ -28,7 +29,8 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
 
     const session = await getSessionUser()
     if (!session) return
-    const supabase = (await import("@/lib/supabase/server")).createClient()
+    const supabase = (await import("@/lib/supabase/admin")).createAdminClient()
+    if (!supabase) redirect("/sequences?error=unavailable")
 
     // Enforce free plan limits.
     const { count } = await supabase
@@ -57,7 +59,8 @@ export default async function NewSequencePage({ searchParams }: { searchParams: 
 
     const session = await getSessionUser()
     if (!session) return
-    const supabase = (await import("@/lib/supabase/server")).createClient()
+    const supabase = (await import("@/lib/supabase/admin")).createAdminClient()
+    if (!supabase) redirect("/sequences?error=unavailable")
 
     // Enforce free plan limits.
     const { count } = await supabase

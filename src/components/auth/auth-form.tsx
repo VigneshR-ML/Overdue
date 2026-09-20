@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
@@ -20,18 +20,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [resetSent, setResetSent] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
   // Recovery links land on /login with a code/token_hash + type=recovery.
-  const [recovery, setRecovery] = useState(false)
+  const [recovery, setRecovery] = useState(() => {
+    if (mode !== "login" || typeof window === "undefined") return false
+    const sp = new URLSearchParams(window.location.search)
+    return sp.get("type") === "recovery" && Boolean(sp.get("code") || sp.get("token_hash"))
+  })
   const [newPassword, setNewPassword] = useState("")
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("")
-
-  useEffect(() => {
-    if (mode !== "login") return
-    const sp = new URLSearchParams(window.location.search)
-    const type = sp.get("type")
-    if (type === "recovery" && (sp.get("code") || sp.get("token_hash"))) {
-      setRecovery(true)
-    }
-  }, [mode])
 
   async function signInWithGoogle() {
     if (!isConfigured()) {
@@ -84,6 +79,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           // Hard navigation (not router.push): guarantees the fresh session
           // cookies hit middleware + server components instead of serving a
           // stale router-cached /dashboard that bounces back to landing.
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination
           window.location.assign("/onboarding")
         } else {
           setMagicSent(true)
@@ -92,6 +88,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) return setError(error.message)
         if (data.session) {
+          // A full navigation makes the new auth cookies visible to server components.
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination
           window.location.assign("/dashboard")
         } else {
           setError("Your email hasn't been confirmed yet. Please check your inbox for the confirmation link, or sign up again.")

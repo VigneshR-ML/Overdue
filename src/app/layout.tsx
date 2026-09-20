@@ -1,36 +1,13 @@
 import type { Metadata, Viewport } from "next"
-import { Fraunces, Figtree, IBM_Plex_Mono } from "next/font/google"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthCodeHandler } from "@/components/auth/auth-code-handler"
+import "@fontsource-variable/figtree/wght.css"
+import "@fontsource-variable/fraunces/wght.css"
+import "@fontsource-variable/fraunces/wght-italic.css"
+import "@fontsource/ibm-plex-mono/400.css"
+import "@fontsource/ibm-plex-mono/500.css"
 import "./globals.css"
-
-// Only the body font (Figtree) is preloaded — it renders above-the-fold text
-// on every page. Fraunces (display) and Plex Mono (accents) load on demand
-// via font-display: swap; preloading them triggered "preloaded but not used"
-// console warnings because they aren't applied within the first seconds.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  style: ["normal", "italic"],
-  axes: ["SOFT", "WONK", "opsz"],
-  display: "swap",
-  preload: false,
-})
-
-const figtree = Figtree({
-  subsets: ["latin"],
-  variable: "--font-figtree",
-  display: "swap",
-})
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
-  display: "swap",
-  preload: false,
-})
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
@@ -73,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     offers: { "@type": "Offer", price: "19", priceCurrency: "USD" },
   }
   return (
-    <html lang="en" className={`${fraunces.variable} ${figtree.variable} ${plexMono.variable}`}>
+    <html lang="en">
       <body>
         {children}
         <AuthCodeHandler />

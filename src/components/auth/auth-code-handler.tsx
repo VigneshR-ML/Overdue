@@ -23,6 +23,10 @@ export function AuthCodeHandler() {
   useEffect(() => {
     if (started.current) return
     started.current = true
+    // Public pages must still render on a fresh clone or an unconfigured
+    // preview deployment. AuthForm shows the actionable setup message when a
+    // visitor actually attempts to sign in.
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return
 
     const { searchParams, pathname } = new URL(window.location.href)
     const code = searchParams.get("code")
@@ -113,6 +117,8 @@ export function AuthCodeHandler() {
       const keepNext = searchParams.get("next")
       if (keepNext) clean.searchParams.set("next", keepNext)
       window.history.replaceState(null, "", clean.toString())
+      // A full navigation makes the new auth cookies visible to server components.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign(`${base}${next}`)
     }
 

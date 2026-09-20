@@ -16,7 +16,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://cdn.paddle.com https://public.profitwell.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cdn.paddle.com https://public.profitwell.com",
               "connect-src 'self' https://*.supabase.co https://*.dodopayments.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://cdn.paddle.com https://api.paddle.com https://buy.paddle.com https://create-checkout.paddle.com",
               "img-src 'self' data: https:",
               "style-src 'self' 'unsafe-inline' https://cdn.paddle.com",

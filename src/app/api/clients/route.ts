@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { getPlan, countForUser, FREE_CLIENT_LIMIT } from "@/lib/billing/plan"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "email is invalid" }, { status: 400 })
   }
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
   const plan = await getPlan(user!.id)
 
   if (plan === "free" && (await countForUser(user!.id, "clients")) >= FREE_CLIENT_LIMIT) {

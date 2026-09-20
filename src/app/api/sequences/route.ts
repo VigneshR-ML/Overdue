@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getPlan, countForUser, FREE_SEQUENCE_LIMIT } from "@/lib/billing/plan"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 import type { SequenceStep } from "@/types"
+import { cleanSequenceSteps } from "@/lib/scheduler/sequence-validation"
 
 export const dynamic = "force-dynamic"
 
@@ -13,7 +13,8 @@ export async function GET() {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
   const { data } = await supabase
     .from("sequences")
     .select("*")
@@ -34,11 +35,13 @@ export async function POST(request: NextRequest) {
 
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
-  const name = String(body.name ?? "My ladder").slice(0, 80)
-  const steps = (body.steps ?? []) as SequenceStep[]
-
-  if (!steps.length) {
-    return NextResponse.json({ ok: false, error: "a ladder needs at least one rung" }, { status: 400 })
+  const name = String(body.name ?? "My ladder").trim().slice(0, 80)
+  if (!name) return NextResponse.json({ ok: false, error: "name is required" }, { status: 400 })
+  let steps: SequenceStep[]
+  try {
+    steps = cleanSequenceSteps(body.steps)
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 400 })
   }
 
   const plan = await getPlan(user!.id)
@@ -49,7 +52,8 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
   const { data, error: err } = await supabase
     .from("sequences")
     .insert({ user_id: user!.id, name, is_active: true, is_template: false, steps })
@@ -75,31 +79,14 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
   }
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
   const patch: Record<string, unknown> = {}
   if (typeof body.name === "string") patch.name = body.name.slice(0, 80)
   if (typeof body.is_active === "boolean") patch.is_active = body.is_active
   if (Array.isArray(body.steps)) {
-    if (body.steps.length > 20) {
-      return NextResponse.json({ ok: false, error: "max 20 steps per ladder" }, { status: 400 })
-    }
     try {
-      const VALID_TONES = ["gentle", "nudge", "firm", "final"]
-      const cleaned = body.steps.map((s: any, idx: number) => {
-        const rawDelay = Number(s.delay_days ?? 1)
-        if (!Number.isFinite(rawDelay)) throw new Error(`step ${idx}: delay_days must be a number`)
-        const subject = String(s.subject_template ?? "").slice(0, 200)
-        const bodyT = String(s.body_template ?? "").slice(0, 5000)
-        return {
-          ...s,
-          delay_days: Math.min(365, Math.max(0, Math.floor(rawDelay))),
-          tone: VALID_TONES.includes(s.tone) ? s.tone : "nudge",
-          step_order: Number.isFinite(Number(s.step_order)) ? Number(s.step_order) : idx,
-          subject_template: subject,
-          body_template: bodyT,
-        }
-      })
-      patch.steps = cleaned
+      patch.steps = cleanSequenceSteps(body.steps)
     } catch (e: any) {
       return NextResponse.json({ ok: false, error: e?.message ?? "invalid steps" }, { status: 400 })
     }
@@ -108,13 +95,16 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "nothing to update" }, { status: 400 })
   }
 
-  const { error: err } = await supabase
+  const { data: updated, error: err } = await supabase
     .from("sequences")
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("user_id", user!.id)
+    .select("id")
+    .maybeSingle()
 
   if (err) return NextResponse.json({ ok: false, error: err.message }, { status: 400 })
+  if (!updated) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
 
   // If activated, attach it to any open invoices that lack a run.
   if (body.is_active === true) {
@@ -145,7 +135,8 @@ export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id")
   if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 })
 
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
   const { data: seq, error: fetchErr } = await supabase
     .from("sequences")
     .select("is_default, is_template")

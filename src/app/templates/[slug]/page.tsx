@@ -14,10 +14,11 @@ export function generateStaticParams() {
 }
 
 interface Props {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
-export function generateMetadata({ params }: Props): Metadata {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   const t = getTemplateBySlug(params.slug)
   if (!t) return { title: "Template not found" }
   return {
@@ -27,7 +28,8 @@ export function generateMetadata({ params }: Props): Metadata {
   }
 }
 
-export default function TemplatePage({ params }: Props) {
+export default async function TemplatePage(props: Props) {
+  const params = await props.params;
   const t = getTemplateBySlug(params.slug)
   if (!t) notFound()
 

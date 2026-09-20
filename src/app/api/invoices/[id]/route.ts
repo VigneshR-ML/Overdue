@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { startRun } from "@/lib/scheduler/dispatch"
 import { reconcilePaidWork } from "@/lib/recovery/paid"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
@@ -8,7 +8,8 @@ import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 export const dynamic = "force-dynamic"
 
 /** PATCH /api/invoices/[id] — mark paid or update status/amount rows */
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, error } = await requireUser()
   if (error) return error
 
@@ -19,7 +20,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   let body: any
   try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
-  const supabase = createClient()
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
 
   const { data: invoice, error: fetchErr } = await supabase
     .from("invoices")
@@ -43,38 +45,56 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if (body.pause_runs === true || body.resume_runs === true) {
     const to = body.pause_runs === true ? "paused" : "queued"
     const from = body.pause_runs === true ? "queued" : "paused"
-    const { data: flipped } = await supabase
+    const { data: flipped, error: runError } = await supabase
       .from("runs")
       .update({ status: to, updated_at: new Date().toISOString() })
       .eq("invoice_id", params.id)
       .eq("user_id", user!.id)
       .eq("status", from)
       .select("id")
+    if (runError) return NextResponse.json({ ok: false, error: "couldn't update reminders" }, { status: 503 })
     return NextResponse.json({ ok: true, runs: Array.isArray(flipped) ? flipped.length : 0 })
   }
 
-  if (body.mark_paid === true) {
+  const markPaid = body.mark_paid === true || body.status === "paid"
+  if (markPaid) {
     patch.status = "paid"
     // (D19) A manual "mark paid" without an explicit partial amount means the
     // whole balance cleared — that's what the invoices table shows the owner.
-    // Partial values stay exactly as provided.
+    // A paid invoice must reconcile to its full amount; partial payments use
+    // the explicit partially_paid state below.
     const amountCents = Number(invoice?.amount_cents ?? 0)
     if (body.paid_cents !== undefined) {
       const paidCents = Number(body.paid_cents)
-      if (!Number.isFinite(paidCents) || paidCents < 0) {
-        return NextResponse.json({ ok: false, error: "paid_cents must be a non-negative number" }, { status: 400 })
+      if (!Number.isFinite(paidCents) || Math.round(paidCents) !== amountCents) {
+        return NextResponse.json({ ok: false, error: "paid invoices require paid_cents to equal the invoice total" }, { status: 400 })
       }
-      patch.paid_cents = Math.min(Math.round(paidCents), amountCents)
-    } else {
-      patch.paid_cents = amountCents
     }
+    patch.paid_cents = amountCents
     patch.paid_at = new Date().toISOString()
   } else if (body.status) {
     if (!VALID_STATUSES.includes(body.status)) {
       return NextResponse.json({ ok: false, error: `invalid status — must be one of: ${VALID_STATUSES.join(", ")}` }, { status: 400 })
     }
     patch.status = body.status
-    if (body.status === "paid") patch.paid_at = new Date().toISOString()
+    if (body.status === "partially_paid") {
+      const amountCents = Number(invoice.amount_cents ?? 0)
+      const paidCents = Number(body.paid_cents)
+      if (!Number.isFinite(paidCents) || paidCents <= 0 || paidCents >= amountCents) {
+        return NextResponse.json({ ok: false, error: "partially_paid requires paid_cents between 1 and the invoice total" }, { status: 400 })
+      }
+      patch.paid_cents = Math.round(paidCents)
+      patch.paid_at = null
+    } else {
+      patch.paid_at = null
+      if (body.paid_cents !== undefined) {
+        const paidCents = Number(body.paid_cents)
+        if (!Number.isFinite(paidCents) || paidCents < 0 || paidCents > Number(invoice.amount_cents ?? 0)) {
+          return NextResponse.json({ ok: false, error: "paid_cents is outside the invoice total" }, { status: 400 })
+        }
+        patch.paid_cents = Math.round(paidCents)
+      }
+    }
   }
 
   if (Object.keys(patch).length === 0) {
@@ -91,7 +111,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   // (D19/paid.ts) Reconciliation: marking paid stops the chase and settles
   // anything that was pending resolution for this invoice, so the ledger, the
   // ladder, the settlement offer and any open dispute all agree.
-  if (body.mark_paid === true) {
+  if (markPaid) {
     await reconcilePaidWork(supabase, { userId: user!.id, invoiceId: params.id, source: "manual_mark_paid" })
   }
 
@@ -99,7 +119,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 /** POST /api/invoices/[id]/sequence?sequenceId=… — attach a ladder & start run */
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { user, error } = await requireUser()
   if (error) return error
 

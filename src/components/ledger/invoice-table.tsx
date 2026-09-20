@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { formatMoney, formatDate, cn } from "@/lib/utils/format"
+import { formatMoney, formatDate, cn, daysOverdue } from "@/lib/utils/format"
 import type { Invoice, Client } from "@/types"
 import { PaidBadge, OverdueBadge, SentBadge } from "@/components/ui/badge"
 import { SegmentedControl } from "@/components/ui/select"
@@ -43,9 +43,7 @@ export function InvoiceTable({
     return invoices
       .map((inv) => {
         const paid = inv.status === "paid" || Boolean(inv.paid_at)
-        const days = inv.due_date
-          ? Math.ceil((new Date(inv.due_date + "T12:00:00").getTime() - Date.now()) / 86400000)
-          : 0
+        const days = -daysOverdue(inv.due_date, inv.paid_at)
         return { inv, paid, days }
       })
       .filter(({ inv, paid, days }) => {
@@ -74,6 +72,8 @@ export function InvoiceTable({
   }, [])
 
   useEffect(() => {
+    // Server refreshes intentionally re-seed the optimistic pause mirror.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPausedIds(new Set(invoices.filter((i) => i.paused).map((i) => i.id)))
   }, [invoices])
 
