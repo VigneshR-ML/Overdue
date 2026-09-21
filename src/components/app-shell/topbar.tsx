@@ -69,7 +69,7 @@ export function AppTopBar({ email, plan }: { email: string; plan: string }) {
             aria-label="Settings"
             title="Settings"
             className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss",
+              "hidden h-9 w-9 items-center justify-center rounded-lg border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss md:flex",
               settingsActive
                 ? "border-moss/40 bg-ink text-paper"
                 : "border-hairline bg-surface text-ink-soft hover:border-moss/40 hover:text-ink",
@@ -78,10 +78,10 @@ export function AppTopBar({ email, plan }: { email: string; plan: string }) {
             <Settings size={17} strokeWidth={2} />
           </Link>
 
-          <div className="hidden h-6 w-px bg-hairline sm:block" aria-hidden="true" />
+          <div className="hidden h-6 w-px bg-hairline md:block" aria-hidden="true" />
 
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-moss/10 font-display text-[13px] text-moss">
+            <div className="hidden h-9 w-9 items-center justify-center rounded-full bg-moss/10 font-display text-[13px] text-moss sm:flex">
               {(email || "?").slice(0, 1).toUpperCase()}
             </div>
             <div className="hidden min-w-0 md:block">

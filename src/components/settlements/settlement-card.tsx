@@ -31,7 +31,21 @@ const formatEnd = (iso: string) => {
   return sameDay ? `today at ${t}` : `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${t}`
 }
 
-export function SettlementCard({ invoiceId }: { invoiceId: string }) {
+export interface ApprovedOfferSummary {
+  offerId: string
+  link: string
+  expiresAt: string
+  offerCents: number
+  status: "approved"
+}
+
+export function SettlementCard({
+  invoiceId,
+  onApproved,
+}: {
+  invoiceId: string
+  onApproved?: (offer: ApprovedOfferSummary) => void
+}) {
   const [data, setData] = useState<Recommend | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -112,6 +126,13 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
       if (!res.ok || !json.ok) throw new Error(json?.error ?? "approval failed")
       setLink(json.link)
       setExpiresAt(typeof json.expiresAt === "string" ? json.expiresAt : null)
+      onApproved?.({
+        offerId: String(json.offerId),
+        link: String(json.link),
+        expiresAt: String(json.expiresAt),
+        offerCents: opt.offerCents,
+        status: "approved",
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : "Approval failed.")
     } finally {
@@ -270,13 +291,13 @@ export function SettlementCard({ invoiceId }: { invoiceId: string }) {
           Re-calculate
         </Button>
         <Button type="button" size="sm" variant="moss" disabled={approving || settleOpts.length === 0} onClick={approve}>
-          {approving ? "Creating…" : "Approve & get resolution link"}
+          {approving ? "Creating…" : "Create resolve option"}
         </Button>
       </div>
       <p className="mt-3 font-mono text-[11px] leading-relaxed text-faint">
         Percentages are the model&apos;s estimate from this invoice&apos;s age and the client&apos;s history (opens, disputes,
-        average lateness) — an expectation, not a promise. Approving sends a live offer: the next reminder carries a
-        &ldquo;Resolve&rdquo; button and anything the client accepts is tracked on the invoice.
+        average lateness) — an expectation, not a promise. Creating the option attaches it to this invoice; you still
+        review and confirm the reminder before anything is emailed.
       </p>
 
       {link ? (

@@ -5,6 +5,7 @@ import { getProfile } from "@/lib/db/queries"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { AccountDataControls } from "@/components/settings/account-data-controls"
 import { PageHeader } from "@/components/app-shell/page-header"
+import { SenderNameForm } from "@/components/settings/sender-name-form"
 
 export const metadata = { title: "Settings" }
 
@@ -31,10 +32,7 @@ export default async function SettingsPage() {
               <div className="text-[13px] text-muted">Email</div>
               <div className="font-mono text-[14px] text-ink">{session.email}</div>
             </div>
-            <div>
-              <div className="text-[13px] text-muted">Sender name for emails</div>
-              <div className="font-mono text-[14px] text-ink">{profile?.full_name ?? "your first name"}</div>
-            </div>
+            <SenderNameForm initialName={profile?.full_name ?? session.email.split("@")[0] ?? ""} />
           </CardBody>
         </Card>
 

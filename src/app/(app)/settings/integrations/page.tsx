@@ -50,7 +50,6 @@ export default async function IntegrationsPage(props: { searchParams?: Promise<{
       <IntegrationsManager
         rows={rows ?? []}
         stripeConfigured={isProviderConfigured("stripe")}
-        paypalConfigured={isProviderConfigured("paypal")}
         xeroConfigured={isProviderConfigured("xero")}
       />
     </div>

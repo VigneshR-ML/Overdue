@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
-import { getAgingTotals, getUrgencyQueue, getProfile, getRecoveryQueue, getClientOptions } from "@/lib/db/queries"
+import { getAgingTotals, getUrgencyQueue, getProfile, getRecoveryQueue, getClientOptions, getIntegrations } from "@/lib/db/queries"
 import { countForUser } from "@/lib/billing/plan"
 import { AgingStrip } from "@/components/ledger/aging-strip"
 import { UrgencyQueue } from "@/components/ledger/urgency-queue"
@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { SettlementStrip } from "@/components/settlements/settlement-strip"
 import { AddInvoiceButton } from "@/components/ledger/add-invoice"
-import { CheckCircle2, Upload, Plug } from "lucide-react"
+import { CheckCircle2, Upload } from "lucide-react"
 import { formatDate } from "@/lib/utils/format"
+import { ConnectSourcesDialog } from "@/components/settings/connect-sources-dialog"
+import { isProviderConfigured } from "@/lib/integrations/credentials"
 
 export const metadata = { title: "Dashboard" }
 
@@ -21,13 +23,14 @@ export default async function DashboardPage() {
   if (!session) redirect("/?signin=1")
   const userId = session.id
 
-  const [totals, queue, profile, recovery, clientOptions, invoiceCount] = await Promise.all([
+  const [totals, queue, profile, recovery, clientOptions, invoiceCount, integrations] = await Promise.all([
     getAgingTotals(userId),
     getUrgencyQueue(userId, 15),
     getProfile(userId),
     getRecoveryQueue(userId, 5),
     getClientOptions(userId),
     countForUser(userId, "invoices"),
+    getIntegrations(userId),
   ])
 
   const needsOnboarding = profile && !profile.onboarding_completed
@@ -43,6 +46,13 @@ export default async function DashboardPage() {
           <span className="flex flex-wrap items-center gap-2">
             <AddInvoiceButton clients={clientOptions} />
             {hasInvoices ? (
+              <ConnectSourcesDialog
+                rows={integrations}
+                stripeConfigured={isProviderConfigured("stripe")}
+                xeroConfigured={isProviderConfigured("xero")}
+              />
+            ) : null}
+            {hasInvoices ? (
               <Link href="/tools/smart-csv">
                 <Button variant="ghost" size="sm" className="gap-2">
                   <Upload className="h-3.5 w-3.5" aria-hidden /> Import CSV
@@ -53,21 +63,22 @@ export default async function DashboardPage() {
         }
       />
 
-      {needsOnboarding && (
+      {needsOnboarding && !hasInvoices ? (
         <div className="rounded-lg border border-moss/40 bg-moss-soft p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-moss" aria-hidden />
               <p className="text-sm text-moss">Your account is live. Add one invoice to see your ledger fill up.</p>
             </div>
-            <Link href="/settings/integrations">
-              <Button variant="moss" size="sm" className="gap-2">
-                <Plug className="h-3.5 w-3.5" aria-hidden /> Sync an invoicing source
-              </Button>
-            </Link>
+            <ConnectSourcesDialog
+              rows={integrations}
+              stripeConfigured={isProviderConfigured("stripe")}
+              xeroConfigured={isProviderConfigured("xero")}
+              label="Connect a source"
+            />
           </div>
         </div>
-      )}
+      ) : null}
 
       <AgingStrip totals={totals} />
 
@@ -89,7 +100,7 @@ export default async function DashboardPage() {
           <h2 className="mt-2 font-display text-xl tracking-tight text-ink">One invoice is all it takes to see recovery working.</h2>
           <p className="mt-1.5 max-w-prose text-[14px] leading-relaxed text-muted">
             Add it manually, import a CSV, or sync PayPal, Xero or Stripe. Overdue attaches the default reminder
-            ladder and shows you exactly what would go out — nothing sends on Free until you press Send now.
+            ladder and shows the exact next action — nothing is emailed until you review and confirm it.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <AddInvoiceButton clients={clientOptions} />
@@ -98,11 +109,12 @@ export default async function DashboardPage() {
                 <Upload className="h-3.5 w-3.5" aria-hidden /> Import CSV
               </Button>
             </Link>
-            <Link href="/settings/integrations">
-              <Button variant="ghost" className="gap-2">
-                <Plug className="h-3.5 w-3.5" aria-hidden /> Connect an invoicing source
-              </Button>
-            </Link>
+            <ConnectSourcesDialog
+              rows={integrations}
+              stripeConfigured={isProviderConfigured("stripe")}
+              xeroConfigured={isProviderConfigured("xero")}
+              label="Connect a source"
+            />
           </div>
         </div>
       ) : queue.length > 0 ? (
@@ -122,11 +134,7 @@ export default async function DashboardPage() {
           title="No unpaid invoices on the board"
           description="When an invoice goes out past due, it shows up here with its place on the ladder. Add one or connect a source to start."
           icon={<ReceiptIcon />}
-          action={
-            <Link href="/settings/integrations">
-              <Button>Connect PayPal / Xero / Stripe</Button>
-            </Link>
-          }
+          action={<ConnectSourcesDialog rows={integrations} stripeConfigured={isProviderConfigured("stripe")} xeroConfigured={isProviderConfigured("xero")} label="Connect PayPal / Xero / CSV" />}
         />
       )}
 

@@ -4,10 +4,8 @@ import { getSessionUser } from "@/lib/auth/session"
 import { getPlan } from "@/lib/billing/plan"
 import { getInvoicesWithMeta, getReplyThread, getOpenDisputesForInvoice, getClientOptions } from "@/lib/db/queries"
 import { InvoiceTable } from "@/components/ledger/invoice-table"
-import { RecoverySteps } from "@/components/ledger/recovery-steps"
 import { AddInvoiceButton } from "@/components/ledger/add-invoice"
 import { ReplyThread } from "@/components/ledger/reply-thread"
-import { SettlementCard } from "@/components/settlements/settlement-card"
 import { PageHeader } from "@/components/app-shell/page-header"
 
 export const metadata = { title: "Invoices" }
@@ -45,16 +43,14 @@ export default async function InvoicesPage(
       {plan === "free" && openCount > 0 ? (
         <div className="rounded-lg border border-hairline bg-surface p-4 text-sm text-ink-soft shadow-ledger">
           <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Free plan · </span>
-          reminders send when you press <span className="font-medium text-ink">Send now</span> on each
-          invoice{openCount > 1 ? ` — ${openCount} open right now` : ""}.{" "}
+          open an invoice, review the recipient and current rung, then confirm the reminder. Nothing is emailed without that confirmation
+          {openCount > 1 ? ` — ${openCount} invoices are open right now` : ""}.{" "}
           <Link href="/settings/billing" className="font-medium text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">
             Pro autopilot sends every rung on schedule →
           </Link>
         </div>
       ) : null}
-      <RecoverySteps />
       <InvoiceTable invoices={invoices} focusId={focus} />
-      {focus ? <SettlementCard invoiceId={focus} /> : null}
       {replyThread ? <ReplyThread replies={replyThread} disputes={openDisputes ?? []} /> : null}
     </div>
   )

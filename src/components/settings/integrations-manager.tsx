@@ -21,12 +21,10 @@ const PROVIDER_META: Record<ProviderName, { label: string; blurb: string }> = {
 
 export function IntegrationsManager({
   rows,
-  paypalConfigured,
   stripeConfigured,
   xeroConfigured,
 }: {
   rows: IntegrationRow[]
-  paypalConfigured: boolean
   stripeConfigured: boolean
   xeroConfigured: boolean
 }) {
@@ -114,7 +112,10 @@ export function IntegrationsManager({
         const meta = PROVIDER_META[p]
         const isConnected = connected(p)
         const row = rowFor(p)
-        const configured = p === "stripe" ? stripeConfigured : p === "paypal" ? paypalConfigured : p === "xero" ? xeroConfigured : true
+        // PayPal credentials are entered per workspace in this screen, so it
+        // does not depend on deployment-level PAYPAL_* values. Xero/Stripe use
+        // OAuth applications and still require server configuration.
+        const configured = p === "stripe" ? stripeConfigured : p === "xero" ? xeroConfigured : true
 
         return (
           <div key={p} className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">

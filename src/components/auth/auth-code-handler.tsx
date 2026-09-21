@@ -61,8 +61,10 @@ export function AuthCodeHandler() {
 
     const base = window.location.origin
     const toError = (reason?: string) => {
-      const q = reason ? `&reason=${encodeURIComponent(reason)}` : ""
-      window.location.replace(`${base}/?auth=error${q}`)
+      const params = new URLSearchParams({ auth: "error" })
+      if (reason) params.set("reason", reason)
+      if (searchParams.get("source") === "google") params.set("source", "google")
+      window.location.replace(`${base}/?${params.toString()}`)
     }
 
     async function finish() {

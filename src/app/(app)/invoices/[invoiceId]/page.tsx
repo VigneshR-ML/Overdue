@@ -2,16 +2,16 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { getInvoiceDetail } from "@/lib/db/queries"
-import { formatMoney, formatDate, cn, dateOnlyToUtcMs, daysOverdue, utcStartOfDay } from "@/lib/utils/format"
+import { formatMoney, formatDate, cn, currentTimeMs, dateOnlyToUtcMs, daysOverdue, utcStartOfDay } from "@/lib/utils/format"
 import { PaidBadge, OverdueBadge, SentBadge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { PageHeader } from "@/components/app-shell/page-header"
-import { SettlementCard } from "@/components/settlements/settlement-card"
 import { ReplyThread } from "@/components/ledger/reply-thread"
 import { RecoveryTimeline } from "@/components/ledger/recovery-timeline"
+import { InvoiceRecoveryFlow } from "@/components/ledger/invoice-recovery-flow"
 import { buildInvoiceTimeline, type TimelineRun } from "@/lib/onboarding/timeline"
-import { ArrowLeft, CheckCircle2 } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
 export const metadata = { title: "Invoice" }
 
@@ -37,13 +37,17 @@ export default async function InvoiceDetailPage(
   const run = row.runs[0] ?? null
   const lastMessage = row.messages[0] ?? null
   const latestReply = row.replies[0] ?? null
+  const recipient = invoice.client?.billing_email ?? invoice.client?.email ?? null
+  const liveOffer = row.offers.find((offer) =>
+    ["approved", "sent", "accepted"].includes(offer.status) && new Date(offer.expires_at).getTime() > currentTimeMs(),
+  ) ?? null
   const promiseDate = run?.promise_date && dateOnlyToUtcMs(run.promise_date.slice(0, 10)) > utcStartOfDay()
     ? run.promise_date
     : null
 
   const milestones = buildInvoiceTimeline({
     created_at: invoice.created_at,
-    clientEmail: invoice.client?.billing_email ?? invoice.client?.email ?? null,
+    clientEmail: recipient,
     run: run
       ? ({
           status: run.status,
@@ -76,8 +80,8 @@ export default async function InvoiceDetailPage(
           kicker={invoice.provider === "manual" ? "Manual invoice" : `${invoice.provider} · ${invoice.number ?? ""}`}
           title={invoice.client?.name ?? "Unknown client"}
           description={
-            invoice.client?.billing_email
-              ? invoice.client.billing_email
+            recipient
+              ? recipient
               : "No client email on file — reminders can't be sent until one is added."
           }
           action={
@@ -178,19 +182,25 @@ export default async function InvoiceDetailPage(
         </Card>
       </div>
 
-      {/* Settlement — anchor target for the ledger's "Settle" action */}
-      <div id="settlement" className={cn("scroll-mt-24", !paid && balance > 0 ? "" : "hidden")}>
-        {!paid && balance > 0 ? (
-          <details open>
-            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-moss/40 bg-surface px-5 py-4 shadow-ledger">
-              <CheckCircle2 size={16} className="text-moss" aria-hidden />
-              <span className="font-display text-lg text-ink">Settlement offer</span>
-              <span className="ml-auto font-mono text-[11px] uppercase tracking-[0.12em] text-muted">optional</span>
-            </summary>
-            <SettlementCard invoiceId={invoice.id} />
-          </details>
-        ) : null}
-      </div>
+      <InvoiceRecoveryFlow
+        invoiceId={invoice.id}
+        invoiceNumber={invoice.number}
+        currency={invoice.currency}
+        paid={paid}
+        recipient={recipient}
+        run={run ? {
+          status: run.status,
+          currentStep: run.current_step,
+          messagesSent: run.messages_sent,
+          sequenceName: run.sequenceName,
+        } : null}
+        initialOffer={liveOffer ? {
+          id: liveOffer.id,
+          offerCents: liveOffer.offer_cents,
+          expiresAt: liveOffer.expires_at,
+          status: liveOffer.status,
+        } : null}
+      />
 
       {/* Replies / disputes */}
       {row.replies.length || row.disputes.length ? (
@@ -223,16 +233,9 @@ export default async function InvoiceDetailPage(
         </Card>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Link href={`/invoices?focus=${invoice.id}`}>
-          <Button variant="outline">Open in ledger</Button>
-        </Link>
-        {!paid ? (
-          <Link href={`/invoices?focus=${invoice.id}`}>
-            <Button>Mark paid / manage reminders</Button>
-          </Link>
-        ) : null}
-      </div>
+      <Link href={`/invoices?focus=${invoice.id}`}>
+        <Button variant="outline">Open in ledger</Button>
+      </Link>
     </div>
   )
 }

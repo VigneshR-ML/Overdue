@@ -228,6 +228,16 @@ export async function getProfile(userId: string) {
   return (data ?? null) as { full_name: string | null; email: string | null; onboarding_completed: boolean | null } | null
 }
 
+export async function getIntegrations(userId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("user_id", userId)
+    .order("connected_at", { ascending: true })
+  return (data ?? []) as unknown as import("@/types").IntegrationRow[]
+}
+
 /** Lightweight client list for the manual-invoice "existing client" picker. */
 export async function getClientOptions(userId: string) {
   const supabase = await createClient()
@@ -698,7 +708,7 @@ export async function getInvoiceDetail(userId: string, invoiceId: string): Promi
       .select("*, sequences(name)")
       .eq("invoice_id", invoiceId)
       .eq("user_id", userId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(20),
     supabase
       .from("messages")

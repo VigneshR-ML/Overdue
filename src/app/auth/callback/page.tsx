@@ -27,8 +27,10 @@ export default function AuthCallback() {
     const { searchParams } = new URL(window.location.href)
     const base = window.location.origin
     const toError = (reason?: string) => {
-      const q = reason ? `&reason=${encodeURIComponent(reason)}` : ""
-      window.location.replace(`${base}/?auth=error${q}`)
+      const params = new URLSearchParams({ auth: "error" })
+      if (reason) params.set("reason", reason)
+      if (searchParams.get("source") === "google") params.set("source", "google")
+      window.location.replace(`${base}/?${params.toString()}`)
     }
 
     async function finish() {
@@ -54,6 +56,7 @@ export default function AuthCallback() {
         const code = searchParams.get("code")
         const tokenHash = searchParams.get("token_hash")
         if (code) {
+          setStatus("Securing your session…")
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) {
             const isPkce = /pkce|code.verifier/i.test(error.message)

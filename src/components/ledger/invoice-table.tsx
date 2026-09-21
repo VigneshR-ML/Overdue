@@ -61,15 +61,7 @@ export function InvoiceTable({
   // pausedIds is only a mirror, re-seeded from `paused` on every invoice load.
   const [pausedIds, setPausedIds] = useState<Set<string>>(new Set())
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [sentFlash, setSentFlash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const timerRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current)
-    }
-  }, [])
 
   useEffect(() => {
     // Server refreshes intentionally re-seed the optimistic pause mirror.
@@ -125,30 +117,6 @@ export function InvoiceTable({
     }
     if (onRefresh) onRefresh()
     else router.refresh()
-  }
-
-  async function sendNow(e: React.MouseEvent, id: string) {
-    e.preventDefault()
-    e.stopPropagation()
-    setBusyId(id)
-    try {
-      const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" })
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
-        setError(json?.error ?? "Send failed")
-        setBusyId(null)
-        return
-      }
-      setSentFlash(id)
-      if (timerRef.current) window.clearTimeout(timerRef.current)
-      timerRef.current = window.setTimeout(() => setSentFlash((cur) => (cur === id ? null : cur)), 4000)
-      if (onRefresh) onRefresh()
-      else router.refresh()
-    } catch {
-      setError("Network error")
-    } finally {
-      setBusyId(null)
-    }
   }
 
   async function togglePause(e: React.MouseEvent, id: string, pausing?: boolean) {
@@ -280,9 +248,7 @@ export function InvoiceTable({
                     inv={inv}
                     paid={paid}
                     busyId={busyId}
-                    sentFlash={sentFlash}
                     pausedIds={pausedIds}
-                    onSend={sendNow}
                     onPause={togglePause}
                     onMarkPaid={markPaid}
                   />
@@ -334,13 +300,13 @@ export function InvoiceTable({
             <p className="mt-3 font-mono text-[12px] text-faint">This invoice is paid — no actions available.</p>
           ) : (
             <div className="mt-3 grid gap-2">
-              <Button
-                variant="ink"
-                disabled={busyId === sheetInvoice.id}
-                onClick={(e) => { sendNow(e, sheetInvoice.id); closeSheet() }}
+              <Link
+                href={`/invoices/${sheetInvoice.id}#send-reminder`}
+                onClick={closeSheet}
+                className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-4 text-sm font-medium text-paper focus-ring"
               >
-                {sentFlash === sheetInvoice.id ? "Sent ✓" : busyId === sheetInvoice.id ? "Sending…" : "Send now"}
-              </Button>
+                Review & send
+              </Link>
               <Button
                 variant="outline"
                 disabled={busyId === sheetInvoice.id}
@@ -351,16 +317,8 @@ export function InvoiceTable({
               <Button variant="outline" onClick={() => { markPaid(sheetInvoice.id); closeSheet() }}>
                 Mark paid
               </Button>
-              <Button variant="ghost" onClick={closeSheet}>
-                <Link href={`/invoices/${sheetInvoice.id}#settlement`} className="inline-flex h-full w-full items-center justify-center">
-                  Review settlement
-                </Link>
-              </Button>
-              <Button variant="ghost" onClick={closeSheet}>
-                <Link href={`/invoices/${sheetInvoice.id}`} className="inline-flex h-full w-full items-center justify-center">
-                  View invoice
-                </Link>
-              </Button>
+              <Link href={`/invoices/${sheetInvoice.id}#settlement`} onClick={closeSheet} className="inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium text-moss hover:bg-hairline/60">Add resolve option</Link>
+              <Link href={`/invoices/${sheetInvoice.id}`} onClick={closeSheet} className="inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium text-ink-soft hover:bg-hairline/60">View invoice</Link>
             </div>
           )}
         </div>
@@ -380,18 +338,14 @@ function DesktopActions({
   inv,
   paid,
   busyId,
-  sentFlash,
   pausedIds,
-  onSend,
   onPause,
   onMarkPaid,
 }: {
   inv: Invoice & { client: Client | null; paused?: boolean }
   paid: boolean
   busyId: string | null
-  sentFlash: string | null
   pausedIds: Set<string>
-  onSend: (e: React.MouseEvent, id: string) => void
   onPause: (e: React.MouseEvent, id: string, pausing?: boolean) => void
   onMarkPaid: (id: string) => void
 }) {
@@ -404,19 +358,12 @@ function DesktopActions({
   }
   return (
     <span className="inline-flex items-center gap-1">
-      {sentFlash === inv.id ? (
-        <span className="font-mono text-[11px] text-moss">Sent ✓</span>
-      ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={busyId === inv.id}
-          onClick={(e) => onSend(e, inv.id)}
-          title="Send the current follow-up step now"
-        >
-          Send now
-        </Button>
-      )}
+      <Link
+        href={`/invoices/${inv.id}#send-reminder`}
+        className="inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium text-moss hover:bg-hairline/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
+      >
+        Review & send
+      </Link>
       <Button
         variant="ghost"
         size="sm"
@@ -434,7 +381,7 @@ function DesktopActions({
         onClick={(e) => e.stopPropagation()}
         className="inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium text-moss hover:bg-hairline/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
       >
-        Settle
+        Resolve
       </Link>
     </span>
   )
