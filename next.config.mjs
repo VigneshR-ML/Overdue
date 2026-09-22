@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+import { withSentryConfig } from "@sentry/nextjs/config"
+
 const nextConfig = {
   reactStrictMode: true,
   async headers() {
@@ -17,7 +19,7 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cdn.paddle.com https://public.profitwell.com",
-              "connect-src 'self' https://*.supabase.co https://*.dodopayments.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://cdn.paddle.com https://api.paddle.com https://buy.paddle.com https://create-checkout.paddle.com",
+              "connect-src 'self' https://*.supabase.co https://*.dodopayments.com https://va.vercel-scripts.com https://vercel-scripts.com https://vitals.vercel-insights.com https://vercel-insights.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://cdn.paddle.com https://api.paddle.com https://buy.paddle.com https://create-checkout.paddle.com https://*.ingest.sentry.io",
               "img-src 'self' data: https:",
               "style-src 'self' 'unsafe-inline' https://cdn.paddle.com",
               "frame-src 'self' https://*.dodopayments.com https://buy.paddle.com https://create-checkout.paddle.com",
@@ -41,4 +43,13 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  telemetry: false,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  sourcemaps: process.env.SENTRY_AUTH_TOKEN
+    ? { deleteSourcemapsAfterUpload: true }
+    : { disable: true },
+})

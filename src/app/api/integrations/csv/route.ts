@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const rl = rateLimit(`csv-import:${user!.id}`, RATE_LIMITS.csvImport.limit, RATE_LIMITS.csvImport.windowMs)
+  const rl = await rateLimit(`csv-import:${user!.id}`, RATE_LIMITS.csvImport.limit, RATE_LIMITS.csvImport.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
   }

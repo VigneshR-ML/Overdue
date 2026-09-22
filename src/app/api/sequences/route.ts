@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getOwnedRecord } from "@/lib/supabase/ownership"
 import { getPlan, countForUser, FREE_SEQUENCE_LIMIT } from "@/lib/billing/plan"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 import type { SequenceStep } from "@/types"
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const rl = rateLimit(`sequences:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  const rl = await rateLimit(`sequences:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
   }
@@ -74,13 +75,20 @@ export async function PUT(request: NextRequest) {
   const id = String(body.id ?? "")
   if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 })
 
-  const rl = rateLimit(`sequences-put:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  const rl = await rateLimit(`sequences-put:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
   }
 
   const supabase = createAdminClient()
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
+  const owned = await getOwnedRecord<{ id: string }>(supabase, "sequences", id, user!.id, "id")
+  if (!owned.ok) {
+    if (owned.reason === "db_error") {
+      return NextResponse.json({ ok: false, error: "couldn't load sequence" }, { status: 500 })
+    }
+    return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
+  }
   const patch: Record<string, unknown> = {}
   if (typeof body.name === "string") patch.name = body.name.slice(0, 80)
   if (typeof body.is_active === "boolean") patch.is_active = body.is_active
@@ -137,13 +145,20 @@ export async function DELETE(request: NextRequest) {
 
   const supabase = createAdminClient()
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
-  const { data: seq, error: fetchErr } = await supabase
-    .from("sequences")
-    .select("is_default, is_template")
-    .eq("id", id)
-    .eq("user_id", user!.id)
-    .single()
-  if (fetchErr || !seq) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
+  const owned = await getOwnedRecord<{ is_default: boolean; is_template: boolean }>(
+    supabase,
+    "sequences",
+    id,
+    user!.id,
+    "is_default, is_template",
+  )
+  if (!owned.ok) {
+    if (owned.reason === "db_error") {
+      return NextResponse.json({ ok: false, error: "couldn't load sequence" }, { status: 500 })
+    }
+    return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
+  }
+  const seq = owned.record
   if (seq.is_default || seq.is_template) {
     return NextResponse.json({ ok: false, error: "defaults and templates stay" }, { status: 400 })
   }

@@ -40,7 +40,10 @@ async function getSender(profile: { full_name: string | null }, email: string) {
 export async function runDispatcher() {
   const supabase = createAdminClient()
   if (!supabase) {
-    return { ok: true, skipped: true, reason: "missing SUPABASE_SERVICE_ROLE_KEY", dispatched: 0 }
+    // (A9) Hard-fail: dispatching WITHOUT the service-role key must never look
+    // like a healthy no-op tick. The cron route surfaces this as a 500 so the
+    // outage pager / Sentry alert fires instead of a silently-quiet "skipped".
+    return { ok: false, error: "missing SUPABASE_SERVICE_ROLE_KEY — refusing to dispatch", dispatched: 0 }
   }
 
   // Recover stranded 'processing' runs BEFORE the batch selection so a crashed

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const rl = rateLimit(`ai-draft:${user!.id}`, RATE_LIMITS.aiDraft.limit, RATE_LIMITS.aiDraft.windowMs)
+  const rl = await rateLimit(`ai-draft:${user!.id}`, RATE_LIMITS.aiDraft.limit, RATE_LIMITS.aiDraft.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
   }

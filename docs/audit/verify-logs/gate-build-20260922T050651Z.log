@@ -1,0 +1,105 @@
+
+── [GATE] build @ c2d90f3 ──
+
+> overdue@0.1.0 build
+> next build
+
+▲ Next.js 16.3.5 (Turbopack)
+- Environments: .env.local
+⚠ Warning: Next.js ignored package-lock.json in /home/leodas because it is outside the current Git repository (/home/leodas/mvp/overdue).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+✓ Running next.config.mjs took 8ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1154ms
+  Running TypeScript ...
+  Finished TypeScript in 1409ms ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/26) ...
+  Generating static pages using 7 workers (6/26) 
+  Generating static pages using 7 workers (12/26) 
+  Generating static pages using 7 workers (19/26) 
+✓ Generating static pages using 7 workers (26/26) in 328ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/account/delete
+├ ƒ /api/account/export
+├ ƒ /api/account/sender
+├ ƒ /api/ai/draft
+├ ƒ /api/billing/dodo/checkout
+├ ƒ /api/billing/paddle/checkout
+├ ƒ /api/billing/paddle/overlay-error
+├ ƒ /api/billing/status
+├ ƒ /api/clients
+├ ƒ /api/cron/dispatch
+├ ƒ /api/health
+├ ƒ /api/integrations/[provider]
+├ ƒ /api/integrations/csv
+├ ƒ /api/integrations/paypal/save
+├ ƒ /api/integrations/stripe/callback
+├ ƒ /api/integrations/stripe/start
+├ ƒ /api/integrations/xero/callback
+├ ƒ /api/integrations/xero/start
+├ ƒ /api/invoices
+├ ƒ /api/invoices/[id]
+├ ƒ /api/invoices/[id]/send
+├ ƒ /api/r/[token]/pay
+├ ƒ /api/r/[token]/resolve
+├ ƒ /api/sequences
+├ ƒ /api/settlements/approve
+├ ƒ /api/settlements/recommend
+├ ƒ /api/tools/smart-csv/insights
+├ ƒ /api/tools/smart-csv/map
+├ ƒ /api/webhooks/dodo
+├ ƒ /api/webhooks/email
+├ ƒ /api/webhooks/paddle
+├ ƒ /api/webhooks/paypal
+├ ƒ /api/webhooks/resend
+├ ƒ /api/webhooks/stripe
+├ ƒ /api/webhooks/xero
+├ ○ /auth/callback
+├ ƒ /clients
+├ ƒ /dashboard
+├ ○ /icon.svg
+├ ƒ /insights
+├ ƒ /invoices
+├ ƒ /invoices/[invoiceId]
+├ ƒ /login
+├ ○ /onboarding
+├ ○ /opengraph-image
+├ ○ /pricing
+├ ○ /privacy
+├ ƒ /r/[token]
+├ ○ /refund
+├ ○ /robots.txt
+├ ○ /security
+├ ƒ /sequences
+├ ƒ /sequences/[id]
+├ ƒ /sequences/new
+├ ƒ /settings
+├ ƒ /settings/billing
+├ ƒ /settings/integrations
+├ ƒ /signup
+├ ○ /sitemap.xml
+├ ○ /templates
+├   /templates/[slug]
+│ ├ ● /templates/late-invoice-email-template
+│ ├ ● /templates/late-payment-reminder-email
+│ ├ ● /templates/final-invoice-email
+│ └ ● [+8 more paths]
+├ ○ /terms
+├ ƒ /tools
+├ ƒ /tools/[slug]
+└ ƒ /tools/smart-csv
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

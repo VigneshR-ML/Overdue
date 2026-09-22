@@ -9,7 +9,7 @@ export async function GET() {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const rl = rateLimit(`export:${user!.id}`, 5, 60_000)
+  const rl = await rateLimit(`export:${user!.id}`, 5, 60_000)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
   }

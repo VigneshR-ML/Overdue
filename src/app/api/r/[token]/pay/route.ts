@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
  */
 export async function POST(request: NextRequest, props: { params: Promise<{ token: string }> }) {
   const params = await props.params;
-  const rl = rateLimit(
+  const rl = await rateLimit(
     `pay:${request.headers.get("x-forwarded-for") ?? "anon"}`,
     RATE_LIMITS.api.limit,
     RATE_LIMITS.api.windowMs,

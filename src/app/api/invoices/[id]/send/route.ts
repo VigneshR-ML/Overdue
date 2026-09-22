@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
   const { user, error } = await requireUser()
   if (error) return error
 
-  const rl = rateLimit(`send:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  const rl = await rateLimit(`send:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
   }

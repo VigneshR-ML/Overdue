@@ -27,7 +27,7 @@ async function loadOffer(offerId: string) {
  */
 export async function POST(request: NextRequest, props: { params: Promise<{ token: string }> }) {
   const params = await props.params;
-  const rl = rateLimit(
+  const rl = await rateLimit(
     `resolve:${request.headers.get("x-forwarded-for") ?? "anon"}`,
     RATE_LIMITS.api.limit,
     RATE_LIMITS.api.windowMs,

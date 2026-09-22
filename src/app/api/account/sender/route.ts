@@ -9,7 +9,7 @@ export async function PATCH(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
 
-  const rl = rateLimit(`sender:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  const rl = await rateLimit(`sender:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Too many updates. Try again shortly." }, { status: 429 })
   }

@@ -10,7 +10,7 @@ export async function DELETE(request: NextRequest) {
   if (error) return error
 
   // Rate limit account deletion
-  const rl = rateLimit(`account-delete:${user!.id}`, RATE_LIMITS.accountDelete.limit, RATE_LIMITS.accountDelete.windowMs)
+  const rl = await rateLimit(`account-delete:${user!.id}`, RATE_LIMITS.accountDelete.limit, RATE_LIMITS.accountDelete.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Too many deletion attempts. Try again later." }, { status: 429 })
   }

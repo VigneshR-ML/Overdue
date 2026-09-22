@@ -1,0 +1,31 @@
+
+── [GATE] test @ c2d90f3 ──
+
+> overdue@0.1.0 test
+> vitest run --reporter=dot
+
+
+ RUN  v5.0.1 /home/leodas/mvp/overdue
+
+··············stderr | src/lib/ai/promise.test.ts > detectPromise (LLM path) > falls back to heuristic when the LLM fails
+[llm] primary (gpt-4o-mini) failed: HTTP undefined
+
+··············································································································stderr | src/lib/ai/providers.test.ts > chatJsonWithFallback > falls through to the next provider when the first errors
+[llm] primary (m1) failed: HTTP 429
+
+···········stderr | src/lib/ai/providers.test.ts > chatJsonWithFallback > returns null when every provider fails
+[llm] primary (m1) failed: HTTP 500
+
+stderr | src/lib/ai/providers.test.ts > chatJsonWithFallback > returns null when every provider fails
+[llm] groq (openai/gpt-oss-20b) failed: HTTP 500
+
+···················································································
+
+ Test Files  29 passed (29)
+      Tests  218 passed (218)
+   Start at  10:36:51
+   Duration  1.13s (transform 49%, import 31%, tests 13%, worker 7%)
+
+    Isolate  29 workers spawned · ~161ms startup each (spawn + environment, per file)
+             at least ~504ms faster with isolate: false — reuses workers across files instead of one per file
+

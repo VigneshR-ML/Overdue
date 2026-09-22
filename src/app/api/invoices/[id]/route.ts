@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getOwnedRecord } from "@/lib/supabase/ownership"
 import { startRun } from "@/lib/scheduler/dispatch"
 import { reconcilePaidWork } from "@/lib/recovery/paid"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
@@ -13,7 +14,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   const { user, error } = await requireUser()
   if (error) return error
 
-  const rl = rateLimit(`invoices-patch:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  const rl = await rateLimit(`invoices-patch:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
   if (!rl.allowed) {
     return NextResponse.json({ ok: false, error: "Rate limit exceeded. Try again later." }, { status: 429 })
   }
@@ -23,13 +24,20 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   const supabase = createAdminClient()
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
 
-  const { data: invoice, error: fetchErr } = await supabase
-    .from("invoices")
-    .select("id, amount_cents, paid_cents")
-    .eq("id", params.id)
-    .eq("user_id", user!.id)
-    .single()
-  if (fetchErr || !invoice) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
+  const owned = await getOwnedRecord<{ id: string; amount_cents: number | null; paid_cents: number | null }>(
+    supabase,
+    "invoices",
+    params.id,
+    user!.id,
+    "id, amount_cents, paid_cents",
+  )
+  if (!owned.ok) {
+    if (owned.reason === "db_error") {
+      return NextResponse.json({ ok: false, error: "couldn't load invoice" }, { status: 500 })
+    }
+    return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
+  }
+  const invoice = owned.record
 
   const patch: Record<string, unknown> = {}
   const VALID_STATUSES = ["pending", "sent", "overdue", "paid", "partially_paid"]

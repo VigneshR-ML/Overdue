@@ -1,0 +1,2 @@
+✗ assert_write_boundary RPC failed: Could not find the function public.assert_write_boundary without parameters in the schema cache
+  → migrations 0018/0019 (and 0020) are not applied to this project yet.
