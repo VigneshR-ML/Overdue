@@ -74,31 +74,49 @@ npm run dev
 - Dashboard first-invoice card (three pathways), dynamic header CTA, honest Free notes.
 - Mobile labeled dock + desktop topbar nav; ledger row "⋯" action sheet with
   `confirm()` on destructive actions; paused state survives reload from server.
+- Google OAuth completion preserves its PKCE/browser context, uses the session
+  returned by the code exchange directly, and never mislabels a Google failure
+  as an email-confirmation-link error.
 - Manual invoice: currency select (`CURRENCIES`), existing-client picker, no-email draft,
   duplicate-submit guard.
 - Settlement: percent input + `est.` EV labels + "keep the full amount and wait" baseline.
-- Billing: single-provider path (Paddle, Dodo server fallback), real quotas from
+- Exact-email confirmation: manual send previews the real server-generated subject/body,
+  sender, recipient, ladder rung and resolve action; a short-lived signed token binds the
+  confirmation to that exact draft. Manual send atomically claims the run to prevent a
+  click/cron race and never reports a paused/disputed run as sent.
+- Editable sender name now controls both the visible email From name (`Name via Overdue`)
+  and the signature while retaining the deployment's verified delivery address.
+- Invoice-source dialog: PayPal, Xero and CSV stay in-context; QuickBooks is visible but
+  disabled as **Coming soon** for the post-launch Intuit integration.
+- Billing: Paddle checkout by default, Dodo checkout only behind the explicit
+  `DODO_FALLBACK_ENABLED=true` flag, real quotas from
   `src/lib/billing/limits.ts`, no dead `ready&&ready`, no unbacked ROI claims.
-- Insights: honest currency footnote (per-currency buckets are P1).
+- Multi-currency reporting: dashboard aging totals, Insights aging/DSO, cash forecasts
+  and fast-cash lines are calculated and displayed independently per currency.
 
-### Defect register (D01–D42) — 37/42 fixed on HEAD; D21/D22/D23/D26/D28 pending source-audit reconciliation
+### Defect register (D01–D42) — every described defect fixed on HEAD
 | Severity | Fixed | Open |
 |----------|-------|------|
 | Cri | D13, D33, D38 | — |
 | Hi | D01, D05, D06, D07, D08, D09, D14, D15, D25, D34, D35, D36, D37, D39 | — |
 | Med | D02, D03, D04, D10, D11, D12, D16, D17, D18, D19, D20, D24, D29, D31 | — |
 | Low | D27, D30, D32, D40, D41, D42 | — |
-| —    | — | D21, D22, D23, D26, D28 (verify against source audit) |
+| —    | — | None among the 37 defects that had a description and reproduction |
 
 Key fixes in the master pass (D29–D32): paid webhooks record real provider amounts and
 drive the shared `reconcilePaidWork` (`src/lib/recovery/paid.ts`) returning 500 on
 DB-write failure so providers retry; settlement card clipboard/expiry honesty; client
 email validation; AI prompt-injection hardening.
 
+Historical IDs D21/D22/D23/D26/D28 were empty placeholders in the deleted audit files:
+they had no area, severity, reproduction or expected behavior. They are not counted as
+closed defects and are not represented as release evidence. Any recovered source finding
+must be added back with a reproducible description and its own test.
+
 ### Gates (test evidence — last recorded 2026-09-22)
 | Gate | Command | Result |
 |------|---------|--------|
-| G2 unit suite | `npm test` | **223 passed, 0 failed (30 files)** |
+| G2 unit suite | `npm test` | **229 passed, 0 failed (31 files)** |
 | G3 typecheck | `npx tsc --noEmit` | passed (exit 0) |
 | G4 production build | `npm run build` | green (all routes compiled, templates prerendered) |
 | G12 dependency security | `npm audit` | **0 vulnerabilities** |
@@ -106,7 +124,7 @@ email validation; AI prompt-injection hardening.
 | G5 live migrations | `bash scripts/verify-gates.sh live` | **PASS — write-boundary + migration state verified `0 problems` (live)** |
 
 ### Environment
-- Node v22.23.1 · Vitest v5.0.1 · `npm ci` (474 packages, 0 vulnerabilities).
+- Node v22.23.1 · Vitest v5.0.1 · `npm ci` (585 packages, 0 vulnerabilities).
 
 ---
 
@@ -117,26 +135,24 @@ email validation; AI prompt-injection hardening.
   has 0018+0019+0020 applied: run `e2e/security-boundary.spec.ts` + `e2e/authed.spec.ts`
   with `E2E_EMAIL`/`E2E_PASSWORD` set.
 - **G7 — live provider smoke**: Paddle + Dodo checkout → webhook → entitlement flip;
-  Resend inbound reply → ladder pause; Svix signature verification. No live provider
+  Resend outbound/inbound reply → ladder pause; Svix signature verification. No live provider
   transaction has been run.
 - **G8 — cron**: confirm `DISPATCH_URL` + `CRON_SECRET` repo secrets + a green
   `workflow_dispatch` run returning 200 with `{"ok":true,...}` and a report parse.
 - **Live env wiring**: `UPSTASH_REDIS_REST_URL/TOKEN`, real Sentry DSNs, real Paddle
-  price IDs (`pro_...` → `pri_...`, incl. an annual price for D4.1), Vercel connect/SHA,
-  Intuit approval (QuickBooks).
+  price IDs (`pro_...` → `pri_...`, incl. an annual price for D4.1), and Vercel connect/SHA.
 - **Data repair pre-G5** (only if a dev DB already had tenants) — see Runbook below;
   live had no pre-existing tenants.
 
 ### Agent-lane
-- Reconcile D21/D22/D23/D26/D28 against the original source audit (register is NOT closed
-  until this is done) — closes G1 completely.
 - Verify gates again on the exact commit promoted, and record output.
 
 ### Open decisions (fixes needing a yes/no from the owner)
 - **Sentry now** (free tier) vs Vercel-logs-first — wiring is done; ship or keep DSNs empty.
-- **QuickBooks provider** — draft against sandbox/placeholder Intuit app now, or defer.
-- **Multi-currency** (D4.2 feasibility now) + **team seats** (D4.4 design-first, hinges on
-  `assertOwnsResource`) remain in scope — confirm scope.
+- **QuickBooks provider** — intentionally deferred until after launch; UI is disabled and
+  labeled Coming soon, with no misleading OAuth/connect action.
+- **Team seats** (D4.4 design-first, hinges on `assertOwnsResource`) remains in scope —
+  confirm scope.
 - **G5/G7 lane split** (agent writes code, owner runs live/charged steps, staging-first) —
   confirm standing policy.
 
@@ -145,7 +161,6 @@ email validation; AI prompt-injection hardening.
 ## Roadmap
 
 ### P1 — designed, next
-- Per-currency aging/forecast buckets (replace raw-cent sums in `getInsights`).
 - Plain-language "why did the ladder pause?" (`promise_note`/`reply_classification`).
 - Settlement offer card status on the detail page.
 - `/tools` landing refresh to match ledger voice.
@@ -176,6 +191,10 @@ email validation; AI prompt-injection hardening.
   pending plan request, write-ahead `messages` `sending`→`sent`/`failed` (D10), advances by
   cumulative days (D09). Inbound replies match thread-first (`In-Reply-To`/`References`)
   then address. Run: `queued ⇄ processing → sent → queued… | paused ↔ queued | completed | failed`.
+- **W2a Manual confirmation** — `POST /api/invoices/[id]/send/preview` composes the real
+  current rung once and signs its subject/body/run/step/offer for ten minutes. The owner
+  sees the exact draft and explicitly confirms it; `/send` verifies the token, atomically
+  claims the run, attaches only the reviewed resolve offer, and then calls Resend.
 - **W3 Billing / entitlement** — ONE `subscriptions` row per user (`onConflict:'user_id'`,
   D15); `entitlement.ts` is the ONLY place "is pro?" is decided; grace through
   `current_period_end`; unknown product + no prior grant = **free**.
@@ -253,7 +272,7 @@ rollback artifacts are gone, then restored. Refuses the production project ref w
   refresh that self-heals. Wrap in a DB lease if hourly cross-provider sync is ever added.
 - Ladder edits don't reset run progress (steps re-read fresh per send) — intentional.
 
-## Test inventory (223 in 30 files)
+## Test inventory (229 in 31 files)
 Suites cover: ownership (`ownership.test.ts`), billing events rewrite (upsert-on-`user_id`),
 entitlement (11), settlement EV (8), thread IDs (3), paid-webhooks (17), dispatch (11),
 onboarding schedule (9) + timeline (7), csv, format, token, send, queries, smart-csv, and

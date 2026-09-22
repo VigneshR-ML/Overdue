@@ -5,6 +5,7 @@ export interface EmailPayload {
   subject: string
   html: string
   replyTo?: string
+  fromName?: string
 }
 
 export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? ""
@@ -20,6 +21,13 @@ function assertValidEmail(addr: string, field: string) {
   // Accepts "Name <addr@domain>" or bare addr.
   const bare = addr.includes("<") ? (addr.match(/<([^>]+)>/)?.[1] ?? "") : addr
   if (!EMAIL_RE.test(bare.trim())) throw new Error(`${field} is not a valid email: ${addr}`)
+}
+
+export function formatFromAddress(address: string, fromName?: string): string {
+  const bare = address.includes("<") ? (address.match(/<([^>]+)>/)?.[1] ?? "") : address
+  assertValidEmail(bare, "RESEND_FROM_EMAIL")
+  const cleanName = fromName?.replace(/[\r\n<>\"@:;]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80)
+  return cleanName ? `${cleanName} via Overdue <${bare.trim()}>` : address
 }
 
 export async function sendEmail(payload: EmailPayload) {
@@ -38,7 +46,7 @@ export async function sendEmail(payload: EmailPayload) {
   assertValidEmail(payload.to, "to")
   if (payload.replyTo) assertValidEmail(payload.replyTo, "replyTo")
   const { data, error } = await resend.emails.send({
-    from: FROM_EMAIL,
+    from: formatFromAddress(FROM_EMAIL, payload.fromName),
     to: payload.to,
     subject: payload.subject,
     html: payload.html,

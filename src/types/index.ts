@@ -209,6 +209,10 @@ export interface AgingTotals {
   overdue_count: number
 }
 
+export interface CurrencyAgingTotals extends AgingTotals {
+  currency: string
+}
+
 export const TONE_META: Record<Tone, { label: string; color: string; bg: string; border: string }> = {
   gentle: { label: "Gentle", color: "#8A6D1F", bg: "temp-gentle", border: "#C29A43" },
   nudge: { label: "Nudge", color: "#A85A12", bg: "temp-nudge", border: "#D9792B" },

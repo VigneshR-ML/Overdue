@@ -20,12 +20,12 @@ export function AuthNotice() {
     return (
       <div role="alert" className="mb-4 rounded-md border border-ember/40 bg-ember/10 p-4 text-[13px] text-ink-soft">
         <p className="font-medium text-ink">
-          {source === "google" ? "Google sign-in could not finish." : "Link expired or opened in a different browser."}
+          {source === "google" ? "Google sign-in could not finish." : "This sign-in link is no longer valid."}
         </p>
         <p className="mt-1">
           {source === "google"
             ? "Return to sign in and try Google again. Keep this tab open until you arrive at your dashboard."
-            : "Confirmation links only work once and must be opened in the same browser you signed up in. Please sign in with your email and password to finish verifying your account."}
+            : "The link may have been used already or opened in a different browser. Request a new link from the same browser and try again."}
         </p>
         <div className="mt-3 flex gap-2">
           <a href="/login" className="rounded-md bg-moss px-3 py-1.5 text-[12px] font-medium text-white hover:bg-moss-bright">

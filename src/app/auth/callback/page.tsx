@@ -26,10 +26,13 @@ export default function AuthCallback() {
 
     const { searchParams } = new URL(window.location.href)
     const base = window.location.origin
+    const isGoogle = searchParams.get("source") === "google"
+      || window.sessionStorage.getItem("overdue:oauth-provider") === "google"
     const toError = (reason?: string) => {
       const params = new URLSearchParams({ auth: "error" })
       if (reason) params.set("reason", reason)
-      if (searchParams.get("source") === "google") params.set("source", "google")
+      if (isGoogle) params.set("source", "google")
+      window.sessionStorage.removeItem("overdue:oauth-provider")
       window.location.replace(`${base}/?${params.toString()}`)
     }
 
@@ -55,14 +58,16 @@ export default function AuthCallback() {
 
         const code = searchParams.get("code")
         const tokenHash = searchParams.get("token_hash")
+        let exchangedSession = false
         if (code) {
           setStatus("Securing your session…")
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) {
             const isPkce = /pkce|code.verifier/i.test(error.message)
             toError(isPkce ? "pkce_error" : error.message)
             return
           }
+          exchangedSession = Boolean(data.session)
         } else if (tokenHash) {
           const type = searchParams.get("type") ?? "email"
           const valid = ["signup", "email", "recovery", "invite", "magiclink", "email_change"]
@@ -77,10 +82,12 @@ export default function AuthCallback() {
         }
 
         // Let the browser client recover an implicit-hash session, then confirm.
-        const { data, error } = await supabase.auth.getSession()
-        if (error || !data.session) {
-          toError()
-          return
+        if (!exchangedSession) {
+          const { data, error } = await supabase.auth.getSession()
+          if (error || !data.session) {
+            toError()
+            return
+          }
         }
 
         // Validate `next` is a safe internal path to prevent open redirects.
@@ -90,6 +97,7 @@ export default function AuthCallback() {
           next = rawNext
         }
 
+        window.sessionStorage.removeItem("overdue:oauth-provider")
         window.location.replace(`${base}${next}`)
       } catch {
         toError()

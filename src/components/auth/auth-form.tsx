@@ -37,6 +37,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setLoading(true)
     try {
       const supabase = createClient()
+      // Supabase may fall back to the configured Site URL when an allowlist is
+      // incomplete. Preserve the provider locally so any callback failure is
+      // still explained as Google OAuth, never as an email-confirmation link.
+      window.sessionStorage.setItem("overdue:oauth-provider", "google")
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -44,8 +48,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           queryParams: { prompt: "select_account" },
         },
       })
-      if (error) setError(error.message)
+      if (error) {
+        window.sessionStorage.removeItem("overdue:oauth-provider")
+        setError(error.message)
+      }
     } catch {
+      window.sessionStorage.removeItem("overdue:oauth-provider")
       setError("Couldn't reach the sign-in service. Please try again.")
     } finally {
       setLoading(false)

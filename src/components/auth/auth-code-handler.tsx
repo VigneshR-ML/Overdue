@@ -32,6 +32,8 @@ export function AuthCodeHandler() {
     const code = searchParams.get("code")
     const tokenHash = searchParams.get("token_hash")
     const authError = searchParams.get("error")
+    const isGoogle = searchParams.get("source") === "google"
+      || window.sessionStorage.getItem("overdue:oauth-provider") === "google"
 
     const supabase = createClient()
 
@@ -63,7 +65,8 @@ export function AuthCodeHandler() {
     const toError = (reason?: string) => {
       const params = new URLSearchParams({ auth: "error" })
       if (reason) params.set("reason", reason)
-      if (searchParams.get("source") === "google") params.set("source", "google")
+      if (isGoogle) params.set("source", "google")
+      window.sessionStorage.removeItem("overdue:oauth-provider")
       window.location.replace(`${base}/?${params.toString()}`)
     }
 
@@ -74,6 +77,7 @@ export function AuthCodeHandler() {
       }
 
       try {
+        let exchangedSession = false
         if (tokenHash) {
           const type = searchParams.get("type") ?? "email"
           const valid = ["signup", "email", "recovery", "invite", "magiclink", "email_change"]
@@ -86,21 +90,23 @@ export function AuthCodeHandler() {
             return
           }
         } else if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) {
             const isPkce = /pkce|code.verifier/i.test(error.message)
             toError(isPkce ? "pkce_error" : error.message)
             return
           }
+          exchangedSession = Boolean(data.session)
+        }
+        if (!exchangedSession) {
+          const { data, error } = await supabase.auth.getSession()
+          if (error || !data.session) {
+            toError()
+            return
+          }
         }
       } catch (e) {
         console.error("[auth-code-handler] exchange failed:", e)
-        toError()
-        return
-      }
-
-      const { data, error } = await supabase.auth.getSession()
-      if (error || !data.session) {
         toError()
         return
       }
@@ -119,6 +125,7 @@ export function AuthCodeHandler() {
       const keepNext = searchParams.get("next")
       if (keepNext) clean.searchParams.set("next", keepNext)
       window.history.replaceState(null, "", clean.toString())
+      window.sessionStorage.removeItem("overdue:oauth-provider")
       // A full navigation makes the new auth cookies visible to server components.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign(`${base}${next}`)

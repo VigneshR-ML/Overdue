@@ -35,6 +35,7 @@ export default async function DashboardPage() {
 
   const needsOnboarding = profile && !profile.onboarding_completed
   const hasInvoices = invoiceCount > 0
+  const overdueCount = totals.reduce((sum, total) => sum + total.overdue_count, 0)
 
   return (
     <div className="space-y-6">
@@ -122,7 +123,7 @@ export default async function DashboardPage() {
           <UrgencyQueue items={queue} />
           <div className="flex items-center justify-between border-t border-hairline pt-4 text-sm">
             <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">
-              {totals.overdue_count} overdue
+              {overdueCount} overdue
             </span>
             <Link href="/invoices" className="text-moss hover:text-moss-bright">
               Open full ledger →

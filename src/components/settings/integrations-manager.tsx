@@ -191,6 +191,22 @@ export function IntegrationsManager({
         )
       })}
 
+      <div className="rounded-lg border border-dashed border-hairline bg-paper/70 p-5" aria-label="QuickBooks coming soon">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <ProviderMark p="quickbooks" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-lg text-ink">QuickBooks</span>
+                <Badge className="border-hairline bg-surface text-muted">Coming soon</Badge>
+              </div>
+              <p className="text-[13px] text-muted">Intuit connection will be added after launch. It cannot be connected yet.</p>
+            </div>
+          </div>
+          <Button type="button" size="sm" variant="outline" disabled>Not available</Button>
+        </div>
+      </div>
+
       <p className="font-mono text-[11px] leading-relaxed text-faint">
         Credentials are stored encrypted-side server-only, used only to fetch your invoices.
         OAuth tokens refresh automatically where supported; CSVs never leave your session on import.
@@ -200,7 +216,7 @@ export function IntegrationsManager({
 }
 
 function ProviderMark({ p }: { p: string }) {
-  const initials = p === "stripe" ? "S" : p === "paypal" ? "P" : p === "xero" ? "X" : "CSV"
+  const initials = p === "stripe" ? "S" : p === "paypal" ? "P" : p === "xero" ? "X" : p === "quickbooks" ? "QB" : "CSV"
   return (
     <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-hairline bg-paper font-mono text-[11px] font-medium text-ink-soft">
       {initials}

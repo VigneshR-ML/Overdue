@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { aggregateAging } from "@/lib/db/queries"
+import { aggregateAging, aggregateAgingByCurrency } from "@/lib/db/queries"
 
 const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
 const stamp = (n: number) => new Date(Date.now() + n * 86400000).toISOString()
@@ -65,5 +65,19 @@ describe("aggregateAging", () => {
       outstanding_total_cents: 0,
       overdue_count: 0,
     })
+  })
+})
+
+describe("aggregateAgingByCurrency", () => {
+  it("never combines balances from different currencies", () => {
+    const rows = [
+      { amount_cents: 1000, paid_cents: 0, due_date: day(-2), paid_at: null, status: "overdue", currency: "USD" },
+      { amount_cents: 2500, paid_cents: 0, due_date: day(-2), paid_at: null, status: "overdue", currency: "EUR" },
+    ]
+
+    expect(aggregateAgingByCurrency(rows)).toEqual([
+      expect.objectContaining({ currency: "EUR", overdue_cents: 2500, outstanding_total_cents: 2500 }),
+      expect.objectContaining({ currency: "USD", overdue_cents: 1000, outstanding_total_cents: 1000 }),
+    ])
   })
 })

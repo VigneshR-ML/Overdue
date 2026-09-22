@@ -23,6 +23,17 @@ type FlowRun = {
   sequenceName: string | null
 }
 
+type EmailPreview = {
+  token: string
+  recipient: string
+  senderName: string
+  subject: string
+  body: string
+  rung: number
+  sequenceName: string
+  resolveLabel: string | null
+}
+
 export function InvoiceRecoveryFlow({
   invoiceId,
   invoiceNumber,
@@ -43,6 +54,8 @@ export function InvoiceRecoveryFlow({
   const router = useRouter()
   const [offer, setOffer] = useState<FlowOffer | null>(initialOffer)
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [preview, setPreview] = useState<EmailPreview | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,19 +88,40 @@ export function InvoiceRecoveryFlow({
       status: next.status,
       link: next.link,
     })
+    setPreview(null)
     setError(null)
     window.setTimeout(() => document.getElementById("send-reminder")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50)
   }
 
+  async function openReview() {
+    if (!canSend || loadingPreview) return
+    setLoadingPreview(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}/send/preview`, { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json?.preview) {
+        setError(json?.error ?? "The email preview could not be prepared.")
+        return
+      }
+      setPreview(json.preview as EmailPreview)
+      setReviewOpen(true)
+    } catch {
+      setError("Network error — check your connection and try again.")
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
   async function confirmSend() {
-    if (!canSend || sending) return
+    if (!canSend || sending || !preview) return
     setSending(true)
     setError(null)
     try {
       const res = await fetch(`/api/invoices/${invoiceId}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirmed: true }),
+        body: JSON.stringify({ confirmed: true, previewToken: preview.token }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -96,6 +130,7 @@ export function InvoiceRecoveryFlow({
         return
       }
       setSent(true)
+      setPreview(null)
       setReviewOpen(false)
       router.refresh()
     } catch {
@@ -183,8 +218,8 @@ export function InvoiceRecoveryFlow({
                 </div>
               </div>
               {hasRun ? (
-                <Button type="button" variant="ink" disabled={!canSend || sending} onClick={() => setReviewOpen(true)}>
-                  {sending ? "Sending…" : "Review email"}
+                <Button type="button" variant="ink" disabled={!canSend || sending || loadingPreview} onClick={openReview}>
+                  {loadingPreview ? "Preparing…" : sending ? "Sending…" : "Review email"}
                 </Button>
               ) : (
                 <Link href="/sequences" className="inline-flex h-10 items-center justify-center rounded-md border border-hairline px-4 text-sm font-medium text-ink hover:border-ink-soft hover:bg-surface focus-ring">Attach a ladder</Link>
@@ -214,16 +249,26 @@ export function InvoiceRecoveryFlow({
             </div>
             <dl className="mt-5 divide-y divide-hairline rounded-lg border border-hairline bg-paper px-4">
               <ReviewRow label="Invoice" value={invoiceNumber ?? "Manual invoice"} />
-              <ReviewRow label="Recipient" value={recipient ?? "Missing email"} />
-              <ReviewRow label="Ladder" value={`${run?.sequenceName ?? "Default"} · rung ${currentRung}`} />
-              <ReviewRow label="Resolve action" value={offer ? `Attached · ${formatMoney(offer.offerCents, currency)}` : "Not included"} />
+              <ReviewRow label="From" value={preview?.senderName ?? "—"} />
+              <ReviewRow label="Recipient" value={preview?.recipient ?? recipient ?? "Missing email"} />
+              <ReviewRow label="Ladder" value={`${preview?.sequenceName ?? run?.sequenceName ?? "Default"} · rung ${preview?.rung ?? currentRung}`} />
+              <ReviewRow label="Resolve action" value={preview?.resolveLabel ?? "Not included"} />
             </dl>
-            {!offer ? (
+            <div className="mt-4 overflow-hidden rounded-lg border border-hairline bg-white">
+              <div className="border-b border-hairline px-4 py-3">
+                <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Subject</div>
+                <div className="mt-1 text-[14px] font-medium text-ink">{preview?.subject ?? "Preparing preview…"}</div>
+              </div>
+              <div className="max-h-64 overflow-y-auto whitespace-pre-wrap px-4 py-4 text-[13px] leading-relaxed text-ink-soft">
+                {preview?.body ?? ""}
+              </div>
+            </div>
+            {!preview?.resolveLabel ? (
               <p className="mt-3 text-[12px] leading-relaxed text-muted">This reminder can be sent without a resolve option. Close this window and create one first if you want the Resolve button included.</p>
             ) : null}
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <Button type="button" variant="outline" disabled={sending} onClick={() => setReviewOpen(false)}>Go back</Button>
-              <Button type="button" variant="moss" disabled={sending} onClick={confirmSend}>{sending ? "Sending…" : "Confirm & send"}</Button>
+              <Button type="button" variant="moss" disabled={sending || !preview} onClick={confirmSend}>{sending ? "Sending…" : "Confirm exact email & send"}</Button>
             </div>
           </div>
         </div>

@@ -1,12 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { draftEmail } from "@/lib/ai/draft"
 import { classifyReply } from "@/lib/ai/reply"
-import { renderEscalationEmail, sendEmail } from "@/lib/resend/send"
+import { FROM_EMAIL, formatFromAddress, renderEscalationEmail, sendEmail } from "@/lib/resend/send"
 import { signResolutionToken } from "@/lib/recovery/token"
 import { appUrl } from "@/lib/integrations/oauth"
 import { formatMoney } from "@/lib/utils/format"
 import { planForSubscription } from "@/lib/billing/entitlement"
 import { extractMessageIdTokens } from "@/lib/scheduler/thread-ids"
+import { signEmailPreview } from "@/lib/scheduler/email-preview"
 import type { Sequence, SequenceStep, Invoice, Client, Run, ReplyClassification } from "@/types"
 
 const CUMULATIVE_DAYS = (steps: SequenceStep[], throughIndex: number) =>
@@ -24,6 +25,13 @@ export function cumulativeDays(steps: SequenceStep[], throughIndex: number): num
 }
 
 type ParsedSequence = { id: string; name: string; is_active: boolean; steps: SequenceStep[] }
+
+type ApprovedEmailDraft = {
+  step: number
+  subject: string
+  body: string
+  offerId: string | null
+}
 
 async function getSender(profile: { full_name: string | null }, email: string) {
   return {
@@ -257,6 +265,7 @@ async function requeueOnError(
 async function dispatchOne(
   runId: string,
   supabase: NonNullable<ReturnType<typeof createAdminClient>>,
+  approvedDraft?: ApprovedEmailDraft,
 ): Promise<"sent" | "completed" | "paused" | "failed" | "skipped"> {
   const { data: runRow, error } = await supabase.from("runs").select("*").eq("id", runId).single()
   if (error || !runRow) return "skipped"
@@ -299,16 +308,21 @@ async function dispatchOne(
   let resolutionOfferId: string | null = null
   let resolutionOfferStatus: string | null = null
   try {
-    const { data: liveOffer } = await supabase
-      .from("settlement_offers")
-      .select("id, offer_cents, expires_at, status")
-      .eq("user_id", run.user_id)
-      .eq("invoice_id", invoice.id)
-      .in("status", ["approved", "sent", "accepted"])
-      .gt("expires_at", new Date().toISOString())
-      .order("expires_at", { ascending: true })
-      .limit(1)
-      .maybeSingle()
+    // A confirmed preview freezes whether an offer is attached. Cron sends,
+    // which have no preview, continue to select the current live offer.
+    let liveOffer: unknown = null
+    if (!approvedDraft || approvedDraft.offerId !== null) {
+      let offerQuery = supabase
+        .from("settlement_offers")
+        .select("id, offer_cents, expires_at, status")
+        .eq("user_id", run.user_id)
+        .eq("invoice_id", invoice.id)
+        .in("status", ["approved", "sent", "accepted"])
+        .gt("expires_at", new Date().toISOString())
+      if (approvedDraft?.offerId) offerQuery = offerQuery.eq("id", approvedDraft.offerId)
+      const result = await offerQuery.order("expires_at", { ascending: true }).limit(1).maybeSingle()
+      liveOffer = result.data
+    }
     const off = liveOffer as { id: string; offer_cents: number; expires_at: string; status: string } | null
     if (off?.id) {
       const token = signResolutionToken(off.id, new Date(off.expires_at).getTime())
@@ -319,6 +333,17 @@ async function dispatchOne(
     }
   } catch {
     // No link on this rung — plain reminder still goes out.
+  }
+  if (approvedDraft?.offerId && !resolutionUrl) {
+    await supabase
+      .from("runs")
+      .update({
+        status: "queued",
+        error: "resolve option changed after preview — review the email again",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", runId)
+    return "failed"
   }
 
   const clientRow = invoice.client_id
@@ -441,15 +466,17 @@ async function dispatchOne(
 
   const sender = await getSender(profile, profile.email ?? "")
 
-  const draft = await draftEmail({
-    tone: step.tone,
-    subjectTemplate: step.subject_template,
-    bodyTemplate: step.body_template,
-    invoice,
-    client,
-    sender,
-    aiEnabled: step.ai_enabled,
-  })
+  const draft = approvedDraft
+    ? { subject: approvedDraft.subject, body: approvedDraft.body, aiUsed: false }
+    : await draftEmail({
+        tone: step.tone,
+        subjectTemplate: step.subject_template,
+        bodyTemplate: step.body_template,
+        invoice,
+        client,
+        sender,
+        aiEnabled: step.ai_enabled,
+      })
 
   const toEmail = client?.billing_email ?? client?.email ?? ""
 
@@ -559,6 +586,7 @@ async function dispatchOne(
     const sent = await sendEmail({
       to: toEmail,
       subject: draft.subject,
+      fromName: sender.name,
       html: renderEscalationEmail({
         subject: draft.subject,
         body: draft.body,
@@ -869,30 +897,191 @@ export async function handleInboundReply(
   return { classification, action, date: intel?.date ?? null }
 }
 
+export type RunEmailPreview = {
+  token: string
+  recipient: string
+  senderName: string
+  subject: string
+  body: string
+  rung: number
+  sequenceName: string
+  resolveLabel: string | null
+}
+
+/** Builds the exact draft shown in the final confirmation dialog. */
+export async function previewRunEmail(
+  userId: string,
+  runId: string,
+): Promise<{ ok: true; preview: RunEmailPreview } | { ok: false; error: string }> {
+  const supabase = createAdminClient()
+  if (!supabase) return { ok: false, error: "Supabase is not configured." }
+
+  const { data: runRow } = await supabase
+    .from("runs")
+    .select("id, user_id, sequence_id, invoice_id, current_step, status, promise_date")
+    .eq("id", runId)
+    .eq("user_id", userId)
+    .maybeSingle()
+  const run = runRow as {
+    id: string
+    user_id: string
+    sequence_id: string
+    invoice_id: string
+    current_step: number
+    status: string
+    promise_date: string | null
+  } | null
+  if (!run) return { ok: false, error: "No active ladder is attached to this invoice." }
+  if (run.status === "completed") return { ok: false, error: "This ladder is already complete." }
+  if (run.status === "processing") return { ok: false, error: "This reminder is already being processed. Refresh in a moment." }
+
+  const [{ data: sequenceRow }, { data: invoiceRow }, { data: profileRow }] = await Promise.all([
+    supabase.from("sequences").select("id, user_id, is_template, name, is_active, steps").eq("id", run.sequence_id).single(),
+    supabase.from("invoices").select("*").eq("id", run.invoice_id).eq("user_id", userId).single(),
+    supabase.from("profiles").select("full_name, email").eq("id", userId).single(),
+  ])
+  if (!sequenceRow || !invoiceRow) return { ok: false, error: "The invoice or ladder could not be loaded." }
+
+  const sequence = sequenceRow as unknown as ParsedSequence & { user_id: string | null; is_template: boolean }
+  if (!sequence.is_template && sequence.user_id !== userId) return { ok: false, error: "The ladder could not be loaded." }
+  if (!sequence.is_active) return { ok: false, error: "This ladder is paused. Activate it before sending." }
+
+  const invoice = invoiceRow as unknown as Invoice
+  const amount = Number(invoice.amount_cents ?? 0)
+  const paid = Number(invoice.paid_cents ?? 0)
+  if (invoice.paid_at || invoice.status === "paid" || (amount > 0 && paid >= amount)) {
+    return { ok: false, error: "This invoice is already paid." }
+  }
+  if (run.promise_date && new Date(run.promise_date).getTime() > Date.now()) {
+    return { ok: false, error: `The client promised payment on ${new Date(run.promise_date).toLocaleDateString()}. Resume after that date or clear the promise first.` }
+  }
+
+  const [{ data: replied }, { data: dispute }, { data: planRequest }] = await Promise.all([
+    supabase.from("messages").select("id").eq("run_id", runId).eq("replied", true).limit(1),
+    supabase.from("disputes").select("id").eq("user_id", userId).eq("invoice_id", invoice.id).eq("status", "open").limit(1).maybeSingle(),
+    supabase.from("payment_plan_requests").select("id").eq("user_id", userId).eq("invoice_id", invoice.id).eq("status", "open").limit(1).maybeSingle(),
+  ])
+  if (dispute?.id) return { ok: false, error: "This invoice has an open dispute. Resolve it before sending another reminder." }
+  if (planRequest?.id) return { ok: false, error: "The client requested a payment plan. Respond before sending another reminder." }
+  if (replied?.length) return { ok: false, error: "The client replied. Review the reply before continuing the ladder." }
+
+  const steps = (sequence.steps as unknown as SequenceStep[]).slice().sort((a, b) => a.step_order - b.step_order)
+  const stepIndex = Number(run.current_step ?? 0)
+  const step = steps[stepIndex]
+  if (!step) return { ok: false, error: "There is no remaining reminder in this ladder." }
+
+  const clientRow = invoice.client_id
+    ? await supabase.from("clients").select("*").eq("id", invoice.client_id).eq("user_id", userId).single()
+    : { data: null }
+  const client = clientRow.data as unknown as Client | null
+  const recipient = client?.billing_email ?? client?.email ?? ""
+  if (!recipient) return { ok: false, error: "Add a client email address before sending this reminder." }
+
+  const profile = (profileRow ?? { full_name: null, email: "" }) as { full_name: string | null; email?: string }
+  const sender = await getSender(profile, profile.email ?? "")
+  let senderName: string
+  try {
+    senderName = formatFromAddress(FROM_EMAIL, sender.name)
+  } catch {
+    return { ok: false, error: "Email delivery is not configured yet. Add the verified Resend sender before reviewing this email." }
+  }
+  const draft = await draftEmail({
+    tone: step.tone,
+    subjectTemplate: step.subject_template,
+    bodyTemplate: step.body_template,
+    invoice,
+    client,
+    sender,
+    aiEnabled: step.ai_enabled,
+  })
+
+  const { data: offerRow } = await supabase
+    .from("settlement_offers")
+    .select("id, offer_cents, expires_at, status")
+    .eq("user_id", userId)
+    .eq("invoice_id", invoice.id)
+    .in("status", ["approved", "sent", "accepted"])
+    .gt("expires_at", new Date().toISOString())
+    .order("expires_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  const offer = offerRow as { id: string; offer_cents: number } | null
+  const offerId = offer?.id ?? null
+  const token = signEmailPreview({
+    userId,
+    invoiceId: invoice.id,
+    runId,
+    step: stepIndex,
+    subject: draft.subject,
+    body: draft.body,
+    offerId,
+  })
+
+  return {
+    ok: true,
+    preview: {
+      token,
+      recipient,
+      senderName,
+      subject: draft.subject,
+      body: draft.body,
+      rung: step.step_order,
+      sequenceName: sequence.name,
+      resolveLabel: offer ? `Resolve for ${formatMoney(Number(offer.offer_cents), invoice.currency)}` : null,
+    },
+  }
+}
+
 /**
  * Manual send ("Send now" in the ledger — the Free plan's sending model).
- * Verifies ownership, then executes the current step immediately regardless of
- * schedule. Pro autopilot never needs this; Free users send each rung by hand.
+ * Verifies ownership, atomically claims the run, then sends the exact signed
+ * preview the owner confirmed. Pro autopilot never needs this path.
  */
 export async function sendRunNow(
   userId: string,
   runId: string,
+  approvedDraft: ApprovedEmailDraft,
 ): Promise<{ ok: boolean; result?: string; error?: string }> {
   const supabase = createAdminClient()
   if (!supabase) return { ok: false, error: "supabase not configured" }
-  const { data: run } = await supabase.from("runs").select("id, user_id, status").eq("id", runId).single()
-  const row = run as { id: string; user_id: string; status: string } | null
+  const { data: run } = await supabase.from("runs").select("id, user_id, status, current_step").eq("id", runId).single()
+  const row = run as { id: string; user_id: string; status: string; current_step: number } | null
   if (!row || row.user_id !== userId) return { ok: false, error: "not found" }
   if (row.status === "completed" || row.status === "processing") {
     return { ok: false, error: row.status === "completed" ? "already completed" : "currently being processed" }
   }
-  if (row.status === "failed") {
-    await supabase
-      .from("runs")
-      .update({ attempt: 0, error: null, updated_at: new Date().toISOString() })
-      .eq("id", runId)
+  if (Number(row.current_step) !== approvedDraft.step) {
+    return { ok: false, error: "The ladder changed after the preview. Review the current email again before sending." }
   }
-  const res = await dispatchOne(runId, supabase)
+
+  // Manual and cron sends can race. Claim the exact state we just read so only
+  // one request can reach Resend for a run/rung.
+  const claimPatch: Record<string, unknown> = {
+    status: "processing",
+    updated_at: new Date().toISOString(),
+  }
+  if (row.status === "failed") {
+    claimPatch.attempt = 0
+    claimPatch.error = null
+  }
+  const { data: claimed, error: claimError } = await supabase
+    .from("runs")
+    .update(claimPatch)
+    .eq("id", runId)
+    .eq("user_id", userId)
+    .eq("status", row.status)
+    .select("id")
+    .maybeSingle()
+  if (claimError) return { ok: false, error: claimError.message }
+  if (!claimed) return { ok: false, error: "This reminder is already being processed. Refresh in a moment." }
+
+  let res: Awaited<ReturnType<typeof dispatchOne>>
+  try {
+    res = await dispatchOne(runId, supabase, approvedDraft)
+  } catch (error) {
+    await requeueOnError(supabase, runId, error)
+    return { ok: false, error: error instanceof Error ? error.message : "send failed" }
+  }
   if (res === "failed" || res === "skipped") {
     let detail: string = res
     if (res === "failed") {
@@ -902,6 +1091,20 @@ export async function sendRunNow(
     }
     return { ok: false, error: detail }
   }
+  if (res === "paused") {
+    const { data: after } = await supabase
+      .from("runs")
+      .select("error, promise_date, reply_classification")
+      .eq("id", runId)
+      .single()
+    const state = after as { error?: string | null; promise_date?: string | null; reply_classification?: string | null } | null
+    const reason = state?.error
+      ?? (state?.promise_date ? `Client promised payment on ${new Date(state.promise_date).toLocaleDateString()}.` : null)
+      ?? (state?.reply_classification ? "The client replied. Review it before sending another reminder." : null)
+      ?? "The ladder is paused. Resolve the open item before sending."
+    return { ok: false, error: reason }
+  }
+  if (res === "completed") return { ok: false, error: "The invoice or ladder is already complete." }
   return { ok: true, result: res }
 }
 

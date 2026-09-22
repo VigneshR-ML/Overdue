@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { attachDefaultRuns, sendRunNow } from "@/lib/scheduler/dispatch"
+import { sendRunNow } from "@/lib/scheduler/dispatch"
+import { verifyEmailPreview } from "@/lib/scheduler/email-preview"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -32,50 +33,38 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     .single()
   if (!invoice) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
 
-  let body: { confirmed?: unknown } = {}
+  let body: { confirmed?: unknown; previewToken?: unknown } = {}
   try {
     body = (await request.json()) as typeof body
   } catch {
     // An empty body is treated as unconfirmed, not malformed.
   }
-  if (body.confirmed !== true) {
+  if (body.confirmed !== true || typeof body.previewToken !== "string") {
     return NextResponse.json(
-      { ok: false, error: "Review the recipient and reminder details before confirming the send." },
+      { ok: false, error: "Preview the complete email before confirming the send." },
       { status: 400 },
     )
   }
 
-  let { data: run } = await supabase
-    .from("runs")
-    .select("id")
-    .eq("invoice_id", params.id)
-    .eq("user_id", user!.id)
-    .in("status", ["queued", "paused", "failed"])
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  // Repair older/imported invoices that pre-date automatic ladder attachment.
-  if (!run) {
-    await attachDefaultRuns(user!.id)
-    const retry = await supabase
-      .from("runs")
-      .select("id")
-      .eq("invoice_id", params.id)
-      .eq("user_id", user!.id)
-      .in("status", ["queued", "paused", "failed"])
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    run = retry.data
+  let preview
+  try {
+    preview = verifyEmailPreview(body.previewToken)
+  } catch {
+    return NextResponse.json({ ok: false, error: "Email confirmation is not configured on this deployment." }, { status: 500 })
   }
-  if (!run) {
+  if (!preview || preview.userId !== user!.id || preview.invoiceId !== params.id) {
     return NextResponse.json(
-      { ok: false, error: "No active ladder is attached. Create or activate a default ladder, then return here." },
-      { status: 400 },
+      { ok: false, error: "This email preview expired or no longer matches the invoice. Review it again before sending." },
+      { status: 409 },
     )
   }
 
-  const res = await sendRunNow(user!.id, (run as { id: string }).id)
+  const res = await sendRunNow(user!.id, preview.runId, {
+    step: preview.step,
+    subject: preview.subject,
+    body: preview.body,
+    offerId: preview.offerId,
+  })
   if (!res.ok) {
     const raw = res.error ?? "send failed"
     const friendly = /RESEND_API_KEY|RESEND_FROM_EMAIL|mail backend unavailable/i.test(raw)

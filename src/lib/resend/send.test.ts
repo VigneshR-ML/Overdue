@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { renderEscalationEmail } from "./send"
+import { formatFromAddress, renderEscalationEmail } from "./send"
 
 const BASE = {
   subject: "Overdue invoice",
@@ -24,5 +24,17 @@ describe("renderEscalationEmail resolution button", () => {
     expect(
       renderEscalationEmail({ ...BASE, resolutionUrl: "javascript:alert(1)" }),
     ).not.toContain("javascript:")
+  })
+})
+
+describe("formatFromAddress", () => {
+  it("uses the workspace sender name with the verified delivery address", () => {
+    expect(formatFromAddress("Overdue <reminders@getoverdue.online>", "Vignesh Studio"))
+      .toBe("Vignesh Studio via Overdue <reminders@getoverdue.online>")
+  })
+
+  it("strips header-breaking characters from sender names", () => {
+    expect(formatFromAddress("reminders@getoverdue.online", "Vignesh\r\nBcc: bad@example.com"))
+      .toBe("Vignesh Bcc bad example.com via Overdue <reminders@getoverdue.online>")
   })
 })

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import type { AgingTotals, Invoice, Client, Sequence, Run, Subscription, SequenceStep, Message, SettlementOffer } from "@/types"
+import type { AgingTotals, CurrencyAgingTotals, Invoice, Client, Sequence, Run, Subscription, SequenceStep, Message, SettlementOffer } from "@/types"
 import { computeRiskScore, automationConfidence, type RiskResult, type AutomationConfidence } from "@/lib/analysis/risk"
 import { nextAction, type NextAction } from "@/lib/analysis/next-action"
 import { predictedPaymentDate, computeAgingBuckets, computeDsos, forecastSummary, type PredictedPayment, type AgingBucket, type MonthlyForecast } from "@/lib/analysis/forecast"
@@ -29,6 +29,7 @@ export type AgingRow = {
   due_date: string | null
   paid_at: string | null
   status: string
+  currency?: string | null
 }
 
 export function aggregateAging(invoices: AgingRow[]): AgingTotals {
@@ -77,14 +78,25 @@ export function aggregateAging(invoices: AgingRow[]): AgingTotals {
   }
 }
 
-export async function getAgingTotals(userId: string): Promise<AgingTotals> {
+export function aggregateAgingByCurrency(invoices: AgingRow[]): CurrencyAgingTotals[] {
+  const groups = new Map<string, AgingRow[]>()
+  for (const invoice of invoices) {
+    const currency = invoice.currency?.trim().toUpperCase() || "USD"
+    groups.set(currency, [...(groups.get(currency) ?? []), invoice])
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([currency, rows]) => ({ currency, ...aggregateAging(rows) }))
+}
+
+export async function getAgingTotals(userId: string): Promise<CurrencyAgingTotals[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from("invoices")
-    .select("amount_cents, paid_cents, due_date, paid_at, status")
+    .select("amount_cents, paid_cents, due_date, paid_at, status, currency")
     .eq("user_id", userId)
 
-  return aggregateAging((data ?? []) as unknown as AgingRow[])
+  return aggregateAgingByCurrency((data ?? []) as unknown as AgingRow[])
 }
 
 export async function getUrgencyQueue(userId: string, limit = 25) {
@@ -489,9 +501,12 @@ export async function getCashForecast(userId: string) {
 }
 
 export interface InsightsSnapshot {
-  aging: AgingBucket
-  dso: { days: number; revenuePerDay: number }
-  forecast: MonthlyForecast[]
+  byCurrency: {
+    currency: string
+    aging: AgingBucket
+    dso: { days: number; revenuePerDay: number }
+    forecast: MonthlyForecast[]
+  }[]
 }
 
 /** One-shot snapshot for the Insights page: aging, DSO and cash forecast. */
@@ -499,7 +514,7 @@ export async function getInsights(userId: string): Promise<InsightsSnapshot> {
   const supabase = await createClient()
   const { data: invoices } = await supabase
     .from("invoices")
-    .select("id, client_id, due_date, amount_cents, paid_cents, paid_at, status")
+    .select("id, client_id, due_date, amount_cents, paid_cents, paid_at, status, currency")
     .eq("user_id", userId)
   const rows = (invoices ?? []) as unknown as {
     id: string
@@ -509,26 +524,18 @@ export async function getInsights(userId: string): Promise<InsightsSnapshot> {
     paid_cents: number
     paid_at: string | null
     status: string
+    currency: string | null
   }[]
 
   if (rows.length === 0) {
-    return {
-      aging: computeAgingBuckets([]),
-      dso: { days: 0, revenuePerDay: 0 },
-      forecast: forecastSummary([]),
-    }
+    return { byCurrency: [] }
   }
 
   const now = new Date()
   const openIds = rows.filter((r) => r.status !== "paid" && !r.paid_at).map((r) => r.id)
   const paidRows = rows.filter((r) => r.status === "paid" || r.paid_at)
 
-  const aging = computeAgingBuckets(
-    rows.map((r) => ({ dueDate: r.due_date, amountCents: Number(r.amount_cents), paidCents: Number(r.paid_cents), paidAt: r.paid_at })),
-  )
   const since90 = new Date(now.getTime() - 90 * 86400000).toISOString()
-  const revenue90 = paidRows.filter((r) => r.paid_at && r.paid_at >= since90).reduce((a, r) => a + Number(r.paid_cents), 0)
-  const dso = computeDsos(aging.total, revenue90)
 
   const { data: runs } = openIds.length
     ? await supabase.from("runs").select("invoice_id, promise_date").eq("user_id", userId).in("invoice_id", openIds)
@@ -537,25 +544,37 @@ export async function getInsights(userId: string): Promise<InsightsSnapshot> {
     paidRows.map((r) => ({ client_id: r.client_id, due_date: r.due_date, paid_at: r.paid_at, amount_cents: r.amount_cents })),
   )
 
-  const forecast = forecastSummary(
-    rows.filter((r) => r.status !== "paid" && !r.paid_at).map((r) => {
-      const h = r.client_id ? history.get(r.client_id) : undefined
-      const promiseDate = (runs ?? []).find((x) => x.invoice_id === r.id)?.promise_date as string | null | undefined
-      return {
-        id: r.id,
-        dueDate: r.due_date,
-        amountCents: Number(r.amount_cents),
-        paidCents: Number(r.paid_cents),
-        paidAt: r.paid_at,
-        avgDays: h?.avgDays ?? null,
-        historyCount: h?.count ?? 0,
-        promiseDate: promiseDate && new Date(promiseDate).getTime() > now.getTime() ? promiseDate : null,
-      }
-    }),
-    now,
-  )
+  const currencies = [...new Set(rows.map((r) => r.currency?.trim().toUpperCase() || "USD"))].sort()
+  const byCurrency = currencies.map((currency) => {
+    const currencyRows = rows.filter((r) => (r.currency?.trim().toUpperCase() || "USD") === currency)
+    const aging = computeAgingBuckets(
+      currencyRows.map((r) => ({ dueDate: r.due_date, amountCents: Number(r.amount_cents), paidCents: Number(r.paid_cents), paidAt: r.paid_at })),
+    )
+    const revenue90 = currencyRows
+      .filter((r) => (r.status === "paid" || r.paid_at) && r.paid_at && r.paid_at >= since90)
+      .reduce((sum, r) => sum + Number(r.paid_cents), 0)
+    const dso = computeDsos(aging.total, revenue90)
+    const forecast = forecastSummary(
+      currencyRows.filter((r) => r.status !== "paid" && !r.paid_at).map((r) => {
+        const h = r.client_id ? history.get(r.client_id) : undefined
+        const promiseDate = (runs ?? []).find((x) => x.invoice_id === r.id)?.promise_date as string | null | undefined
+        return {
+          id: r.id,
+          dueDate: r.due_date,
+          amountCents: Number(r.amount_cents),
+          paidCents: Number(r.paid_cents),
+          paidAt: r.paid_at,
+          avgDays: h?.avgDays ?? null,
+          historyCount: h?.count ?? 0,
+          promiseDate: promiseDate && new Date(promiseDate).getTime() > now.getTime() ? promiseDate : null,
+        }
+      }),
+      now,
+    )
+    return { currency, aging, dso, forecast }
+  })
 
-  return { aging, dso, forecast }
+  return { byCurrency }
 }
 
 export type ClientHealthRow = Client & {

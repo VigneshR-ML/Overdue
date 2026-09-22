@@ -50,7 +50,7 @@ export function SenderNameForm({ initialName }: { initialName: string }) {
         </Button>
       </div>
       <p id="sender-name-help" className="text-[12px] leading-relaxed text-faint">
-        Used for the email signature and reply-to identity. The delivery address stays verified by Overdue.
+        Appears in the email From line and signature. The delivery address stays verified by Overdue.
       </p>
       {message ? <p className="font-mono text-[11px] text-moss" role="status">{message}</p> : null}
     </form>

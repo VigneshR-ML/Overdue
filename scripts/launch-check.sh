@@ -56,11 +56,16 @@ check_required "PADDLE_ENVIRONMENT"
 check_required "PADDLE_PRICE_PRO_MONTHLY"
 check_required "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN"
 
-echo "--- Dodo Payments billing, FALLBACK (required while fallback kept) ---"
-check_required "DODO_PAYMENTS_API_KEY"
-check_required "DODO_PAYMENTS_WEBHOOK_KEY"
-check_required "DODO_PAYMENTS_ENVIRONMENT"
-check_required "DODO_PRODUCT_PRO_MONTHLY"
+if grep -Eq '^DODO_FALLBACK_ENABLED=(true|"true")$' "$ENV_FILE"; then
+  echo "--- Dodo Payments billing, ENABLED fallback (required) ---"
+  check_required "DODO_PAYMENTS_API_KEY"
+  check_required "DODO_PAYMENTS_WEBHOOK_KEY"
+  check_required "DODO_PAYMENTS_ENVIRONMENT"
+  check_required "DODO_PRODUCT_PRO_MONTHLY"
+else
+  echo "--- Dodo Payments billing, disabled fallback ---"
+  echo "- Dodo credentials not required (DODO_FALLBACK_ENABLED is not true)"
+fi
 
 echo "--- Resend + inbound (required for dispatch) ---"
 check_required "RESEND_API_KEY"
@@ -86,10 +91,11 @@ check_optional "PAYPAL_WEBHOOK_ID"
 check_optional "XERO_CLIENT_ID"
 check_optional "XERO_CLIENT_SECRET"
 check_optional "XERO_WEBHOOK_KEY"
+check_optional "EMAIL_PREVIEW_SECRET"
 
 echo "--- Repo wiring ---"
 [ -f ".github/workflows/dispatch.yml" ] && echo "✓ .github/workflows/dispatch.yml exists (needs DISPATCH_URL + CRON_SECRET secrets)" || { echo "✗ dispatch.yml missing"; fail=1; }
-for m in 0001_init.sql 0002_credentials.sql 0003_vault_credentials.sql 0004_dispatch_states.sql 0005_indexes_and_constraints.sql 0006_delivery_tracking.sql 0007_vault_wrappers.sql 0008_provider_account.sql 0009_payment_url.sql 0010_promise_to_pay.sql 0011_ai_usage.sql 0012_credentials_rls.sql 0013_reply_intel.sql 0014_lemon_billing.sql 0015_dodo_billing.sql 0016_settlements.sql 0017_paddle_billing.sql 0018_hardening_fixes.sql 0019_api_write_boundary.sql; do
+for m in 0001_init.sql 0002_credentials.sql 0003_vault_credentials.sql 0004_dispatch_states.sql 0005_indexes_and_constraints.sql 0006_delivery_tracking.sql 0007_vault_wrappers.sql 0008_provider_account.sql 0009_payment_url.sql 0010_promise_to_pay.sql 0011_ai_usage.sql 0012_credentials_rls.sql 0013_reply_intel.sql 0014_lemon_billing.sql 0015_dodo_billing.sql 0016_settlements.sql 0017_paddle_billing.sql 0018_hardening_fixes.sql 0019_api_write_boundary.sql 0020_maint_assert_write_boundary.sql; do
   [ -f "supabase/migrations/$m" ] && echo "✓ supabase/migrations/$m" || { echo "✗ supabase/migrations/$m missing"; fail=1; }
 done
 if grep -q '"crons": \[\]' vercel.json 2>/dev/null; then
@@ -105,7 +111,7 @@ if [ "$APP_URL_LEN" -gt 0 ] && grep -q "^NEXT_PUBLIC_APP_URL=http://localhost" "
 fi
 
 echo
-if [ "$fail" -eq 0 ]; then echo "All required keys present. 🎉 Then run: bash scripts/dodo-e2e.sh"
+if [ "$fail" -eq 0 ]; then echo "All required keys present. Run the authenticated E2E and provider smoke checks next."
 else echo "Missing required keys above — paste them into $ENV_FILE (never commit it)."
 fi
 exit "$fail"
