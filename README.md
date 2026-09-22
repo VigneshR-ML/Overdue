@@ -134,9 +134,9 @@ must be added back with a reproducible description and its own test.
 - **G6 — live authenticated E2E / negative boundary tests** against the staging project that
   has 0018+0019+0020 applied: run `e2e/security-boundary.spec.ts` + `e2e/authed.spec.ts`
   with `E2E_EMAIL`/`E2E_PASSWORD` set.
-- **G7 — live provider smoke**: Paddle + Dodo checkout → webhook → entitlement flip;
-  Resend outbound/inbound reply → ladder pause; Svix signature verification. No live provider
-  transaction has been run.
+- **G7 — live provider smoke**: Paddle checkout → webhook → entitlement flip; Resend
+  outbound/inbound reply → ladder pause; Svix signature verification. Exercise Dodo only
+  if `DODO_FALLBACK_ENABLED=true`. No live provider transaction has been run.
 - **G8 — cron**: confirm `DISPATCH_URL` + `CRON_SECRET` repo secrets + a green
   `workflow_dispatch` run returning 200 with `{"ok":true,...}` and a report parse.
 - **Live env wiring**: `UPSTASH_REDIS_REST_URL/TOKEN`, real Sentry DSNs, real Paddle
