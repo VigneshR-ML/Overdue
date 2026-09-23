@@ -1,7 +1,7 @@
 import crypto from "crypto"
 import { getCredentials, setCredentials } from "./credentials"
 import { withRefreshMutex } from "./sync"
-import { reconcilePaidWork } from "@/lib/recovery/paid"
+import { reconcileConfirmedPayment } from "@/lib/recovery/payment-ledger"
 
 export type PaidProvider = "stripe" | "paypal" | "xero"
 
@@ -149,32 +149,35 @@ export async function markInvoicePaid(
 
   const { data: invoice } = await supabase
     .from("invoices")
-    .select("id, amount_cents")
+    .select("id, amount_cents, paid_cents, currency, workspace_id, status")
     .eq("user_id", userId)
     .eq("provider", provider)
     .eq("provider_id", providerId)
     .maybeSingle()
   if (!invoice) return { flipped: 0, error: null }
 
-  const amountCents = Math.max(0, Number(invoice.amount_cents ?? 0))
-  let paidCents = Number(opts?.paidCents ?? NaN)
-  if (!Number.isFinite(paidCents) || paidCents <= 0) paidCents = amountCents
-  paidCents = Math.min(Math.round(paidCents), amountCents)
+  const outstanding = Math.max(0, Number(invoice.amount_cents ?? 0) - Number(invoice.paid_cents ?? 0))
+  if (!outstanding || invoice.status === "paid") return { flipped: 0, error: null }
+  let amountCents = Number(opts?.paidCents ?? NaN)
+  if (!Number.isFinite(amountCents) || amountCents <= 0) amountCents = outstanding
+  amountCents = Math.min(Math.round(amountCents), outstanding)
 
-  const { data, error } = await supabase
-    .from("invoices")
-    .update({ status: "paid", paid_at: new Date().toISOString(), paid_cents: paidCents })
-    .eq("id", invoice.id)
-    .eq("user_id", userId)
-    .neq("status", "paid")
-    .select("id")
-  if (error) return { flipped: 0, error: error.message }
+  const source = provider === "xero" ? "xero_sync" : provider
+  const { data: payment, error: paymentError } = await supabase.from("payments").insert({
+    user_id: userId,
+    workspace_id: invoice.workspace_id ?? null,
+    invoice_id: invoice.id,
+    amount_cents: amountCents,
+    currency: String(invoice.currency ?? "USD").toUpperCase(),
+    source,
+    status: "confirmed",
+    paid_at: new Date().toISOString(),
+  }).select("id").single()
+  if (paymentError || !payment) return { flipped: 0, error: paymentError?.message ?? "could not record provider payment" }
 
-  const flipped = Array.isArray(data) ? data.length : 0
-  if (flipped > 0) {
-    await reconcilePaidWork(supabase, { userId, invoiceId: invoice.id, source: `${provider}_webhook` })
-  }
-  return { flipped, error: null }
+  const reconciled = await reconcileConfirmedPayment(supabase, payment.id)
+  if (!reconciled.ok) return { flipped: 0, error: reconciled.error }
+  return { flipped: reconciled.result.applied_cents > 0 ? 1 : 0, error: null }
 }
 
 /**
