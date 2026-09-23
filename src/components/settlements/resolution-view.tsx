@@ -108,6 +108,7 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
   const [planBusy, setPlanBusy] = useState<"accept" | "decline" | null>(null)
 
   const expired = new Date(offer.expiresAt).getTime() <= currentTimeMs()
+  const canAcceptOffer = !expired && ["approved", "sent", "accepted"].includes(offer.status) && !offer.proposedPlan
 
   async function decidePlan(action: "accept" | "decline") {
     if (!offer.proposedPlan) return
@@ -223,7 +224,7 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
           {offer.basis === "fee_waiver" ? " in waived late fees" : ""} ·{" "}
           {expired ? "offer expired" : `offer ends ${new Date(offer.expiresAt).toLocaleString()}`}
         </p>
-        {!expired ? (
+        {canAcceptOffer ? (
           <div className="mt-5 space-y-2">
             <Button size="lg" variant="moss" className="w-full" disabled={busy !== null} onClick={() => act("accept")}>
               {busy === "accept" ? "Accepting…" : `Accept offer for ${money(offer.offerCents, offer.currency)}`}
@@ -234,8 +235,9 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
           </div>
         ) : (
           <p className="mt-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-sm">
-            This offer expired — the full {money(offer.outstandingCents, offer.currency)} applies. You can still choose
-            a payment date or report an issue below.
+            {offer.proposedPlan
+              ? "A payment-plan proposal is ready below. Review that schedule instead of accepting the old settlement offer."
+              : "This offer expired or is no longer active. You can still choose a payment date or report an issue below."}
           </p>
         )}
       </div>
