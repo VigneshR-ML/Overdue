@@ -5,7 +5,6 @@ import { verifyResolutionToken } from "@/lib/recovery/token"
 import { dateOnlyToUtcMs, DAY_MS, utcStartOfDay } from "@/lib/utils/format"
 import { formatMoney } from "@/lib/utils/format"
 import { notifyOwner } from "@/lib/notifications/owner"
-import { createAutoPaymentPlanProposal } from "@/lib/recovery/auto-payment-plan"
 
 export const dynamic = "force-dynamic"
 
@@ -178,7 +177,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
       .maybeSingle()
     if (!existingPlan) {
       const expiresAt = new Date(Date.now() + 72 * 3600 * 1000).toISOString();
-      const { data: plan, error: planError } = await supabase.from("payment_plan_requests").insert({
+      const { error: planError } = await supabase.from("payment_plan_requests").insert({
         user_id: userId,
         offer_id: offer.id as string,
         invoice_id: offer.invoice_id as string,
@@ -189,14 +188,18 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
         message: note ?? "",
         status: "under_review",
         expires_at: expiresAt,
-      }).select("id").single()
+      });
       if (planError) return NextResponse.json({ ok: false, error: "couldn't save the payment-plan request — please retry" }, { status: 503 })
       // Mutual exclusivity: live settlement offer becomes suspended (not cancelled).
       await supabase.from("settlement_offers")
         .update({ status: "suspended", suspended_reason: "plan_request_open", updated_at: new Date().toISOString() })
         .eq("id", offer.id)
         .in("status", ["approved", "sent"]);
-      if (plan?.id) await createAutoPaymentPlanProposal(supabase, { requestId: plan.id, userId, invoiceId: offer.invoice_id as string })
+      // RETIRED: the interim auto-planner (createAutoPaymentPlanProposal) must NOT
+      // fire here. It silently discounts + flips requests to legacy `accepted`
+      // with no Cmax/Dmax, M-floor, disclosure, snapshot, or role checks —
+      // the exact behavior this canonical flow replaces. One request creates
+      // zero auto proposals; owner builds one versioned proposal via POST /api/plans.
     }
     const { error: pauseError } = await supabase
       .from("runs")
