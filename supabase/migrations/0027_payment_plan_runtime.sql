@@ -43,9 +43,11 @@ create policy payment_allocations_select on public.payment_allocations
 -- permitted recipient.
 alter table public.notifications
   drop constraint if exists notifications_workspace_id_dedupe_key_key;
-create unique index if not exists notifications_recipient_dedupe_uidx
-  on public.notifications (recipient_member_id, dedupe_key)
-  where recipient_member_id is not null;
+alter table public.notifications
+  drop constraint if exists notifications_recipient_dedupe_key_key;
+alter table public.notifications
+  add constraint notifications_recipient_dedupe_key_key
+  unique (recipient_member_id, dedupe_key);
 
 -- Claim due jobs atomically. It is server-only: no anon/authenticated execute
 -- grant, a pinned search_path, and SKIP LOCKED prevents duplicate sends.
