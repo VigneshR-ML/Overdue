@@ -41,22 +41,17 @@ export async function POST(request: NextRequest) {
   const threshold = Number(process.env.MANUAL_DUAL_CONTROL_THRESHOLD_CENTS ?? 50000);
   const outstanding = Math.max(0, Number(owned.record.amount_cents) - Number(owned.record.paid_cents ?? 0));
   if (amountCents > outstanding) return NextResponse.json({ ok: false, error: "payment exceeds the remaining invoice balance" }, { status: 422 });
-  // A caller cannot assert a different confirmer by sending an arbitrary UUID.
-  // The separate approval flow must authenticate the second workspace member.
-  if (amountCents > threshold) {
-    return NextResponse.json({ ok: false, error: `payments above ${threshold}c require a second authenticated workspace confirmation`, need_dual_control: true }, { status: 422 });
-  }
-  const confirmerId = user!.id;
+  const needsSecondConfirmation = amountCents > threshold;
   const now = new Date().toISOString();
   const { data: payment, error: payErr } = await supabase.from("payments").insert({
     user_id: user!.id, workspace_id: owned.record.workspace_id, invoice_id: invoiceId, amount_cents: Math.round(amountCents),
-    currency: String(body.currency ?? "USD"), source, status: "confirmed",
+    currency: String(body.currency ?? "USD"), source, status: needsSecondConfirmation ? "pending" : "confirmed",
     reference, recorded_by_member_id: user!.id, paid_at: now,
   }).select("id").single();
   if (payErr || !payment) return NextResponse.json({ ok: false, error: (payErr as { message?: string } | null)?.message ?? "could not record — run 0022 migration" }, { status: 500 });
   try {
     await (supabase.from("manual_payment_approvals") as unknown as { insert: (r: unknown) => Promise<unknown> }).insert({
-      payment_id: (payment as { id: string }).id, created_by: user!.id, confirmed_by: confirmerId, threshold_cents: threshold,
+      payment_id: (payment as { id: string }).id, created_by: user!.id, confirmed_by: needsSecondConfirmation ? null : user!.id, threshold_cents: threshold,
     });
     await (supabase.from("workflow_events") as unknown as { insert: (r: unknown) => Promise<unknown> }).insert({
       user_id: user!.id, invoice_id: invoiceId, event_type: "manual_payment_recorded", actor_type: "owner",
@@ -66,6 +61,7 @@ export async function POST(request: NextRequest) {
       job_type: "email", payload: { kind: "receipt", payment_id: (payment as { id: string }).id, invoice_id: invoiceId, amount_cents: amountCents }, run_after: now,
     });
   } catch { /* pre-migration */ }
+  if (needsSecondConfirmation) return NextResponse.json({ ok: true, pending_confirmation: true, payment_id: (payment as { id: string }).id, message: "A second authenticated workspace admin must confirm this payment." });
   const nextPaid = Number(owned.record.paid_cents ?? 0) + Math.round(amountCents);
   const isFullyPaid = nextPaid >= Number(owned.record.amount_cents);
   const { error: invoiceError } = await supabase.from("invoices").update({
