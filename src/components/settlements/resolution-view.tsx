@@ -61,12 +61,13 @@ export interface PublicOffer {
   daysOverdue: number
   proposedPlan?: {
     id: string
+    status: string
     totalCents: number
     currency: string
     frequency: string
     startsOn: string
     installmentCount: number
-    installments: { amountCents: number; dueDate: string; status: string }[]
+    installments: { amountCents: number; dueDate: string; status: string; checkoutUrl?: string | null }[]
   } | null
 }
 
@@ -244,8 +245,8 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
 
       {offer.proposedPlan && !done?.startsWith("plan_") ? (
         <div className="rounded-lg border border-moss/40 bg-moss-soft p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-moss">Payment plan ready</p>
-          <h2 className="mt-1 font-display text-xl text-ink">Review your proposed schedule</h2>
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-moss">{offer.proposedPlan.status === "proposed" ? "Payment plan ready" : `Payment plan ${offer.proposedPlan.status}`}</p>
+          <h2 className="mt-1 font-display text-xl text-ink">{offer.proposedPlan.status === "proposed" ? "Review your proposed schedule" : "Your payment schedule"}</h2>
           <p className="mt-2 text-sm text-ink-soft">
             {offer.proposedPlan.installmentCount} {offer.proposedPlan.frequency} payments starting {offer.proposedPlan.startsOn}.
             Total: {money(offer.proposedPlan.totalCents, offer.proposedPlan.currency)}.
@@ -258,14 +259,26 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
               </div>
             ))}
           </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <Button type="button" variant="moss" disabled={planBusy !== null} onClick={() => decidePlan("accept")}>
-              {planBusy === "accept" ? "Accepting…" : "Accept payment plan"}
-            </Button>
-            <Button type="button" variant="outline" disabled={planBusy !== null} onClick={() => decidePlan("decline")}>
-              {planBusy === "decline" ? "Declining…" : "Decline"}
-            </Button>
-          </div>
+          {offer.proposedPlan.status === "proposed" ? (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Button type="button" variant="moss" disabled={planBusy !== null} onClick={() => decidePlan("accept")}>
+                {planBusy === "accept" ? "Accepting…" : "Accept payment plan"}
+              </Button>
+              <Button type="button" variant="outline" disabled={planBusy !== null} onClick={() => decidePlan("decline")}>
+                {planBusy === "decline" ? "Declining…" : "Decline"}
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {offer.proposedPlan.installments.find((installment) => installment.checkoutUrl)?.checkoutUrl ? (
+                <a href={offer.proposedPlan.installments.find((installment) => installment.checkoutUrl)?.checkoutUrl ?? "#"} className="flex h-11 items-center justify-center rounded-md bg-moss px-4 text-sm font-medium text-white hover:bg-moss-bright">
+                  Pay next scheduled installment
+                </a>
+              ) : (
+                <p className="rounded-md border border-hairline bg-paper p-3 text-[13px] text-muted">Your business will send a secure installment payment link when it is available. The original invoice link is never used for a plan payment.</p>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
 
