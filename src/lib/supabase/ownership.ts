@@ -6,18 +6,9 @@ export type OwnedRecordResult<T> =
   | { ok: false; reason: "db_error"; message: string }
 
 /**
- * Verified ownership read for the service-role (RLS-bypassing) client.
- *
- * After 0019_api_write_boundary.sql the client (`authenticated`) role is locked
- * to selects + profile updates, so every by-id mutation runs through the admin
- * client. With RLS off the `user_id` predicate is the tenancy guard — call this
- * BEFORE any `.update()` / `.delete()` that targets `id`, and treat `ok:false`
- * as your 404.
- *
- * Role enforcement lives in `workspace-guard.ts` (requireWorkspaceRole) and is
- * applied on top of this in money/team routes (plans, requests, disputes,
- * manual payments, settlements, team). Single-user rows with NULL workspace_id
- * fall back to owner so legacy flows keep working.
+ * Returns a record owned by the current user or shared with one of their
+ * workspaces. Owner-first preserves legacy rows; the membership branch enables
+ * legitimate admin/member work without opening an unscoped service-role read.
  */
 export async function getOwnedRecord<T>(
   supabase: SupabaseClient,
@@ -26,18 +17,37 @@ export async function getOwnedRecord<T>(
   userId: string,
   columns = "*",
 ): Promise<OwnedRecordResult<T>> {
-  if (!id.trim() || !userId.trim()) {
-    return { ok: false, reason: "not_found" }
-  }
-  const { data, error } = await supabase
+  if (!id.trim() || !userId.trim()) return { ok: false, reason: "not_found" }
+
+  const own = await supabase
     .from(table)
     .select(columns)
     .eq("id", id)
     .eq("user_id", userId)
     .maybeSingle()
-  if (error) {
-    return { ok: false, reason: "db_error", message: error.message || error.code || "ownership query failed" }
+  if (own.error) return { ok: false, reason: "db_error", message: own.error.message || own.error.code || "ownership query failed" }
+  if (own.data) return { ok: true, record: own.data as T }
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", userId)
+  if (membershipError) return { ok: false, reason: "db_error", message: membershipError.message || "workspace lookup failed" }
+  const workspaceIds = [...new Set((memberships ?? []).map((m: { workspace_id: string }) => m.workspace_id).filter(Boolean))]
+  if (!workspaceIds.length) return { ok: false, reason: "not_found" }
+
+  const shared = await supabase
+    .from(table)
+    .select(columns)
+    .eq("id", id)
+    .in("workspace_id", workspaceIds)
+    .maybeSingle()
+  if (shared.error) {
+    // Some legacy tables do not have workspace_id. They are intentionally
+    // owner-only until migrated, rather than becoming broadly accessible.
+    if (/workspace_id|column/i.test(shared.error.message ?? "")) return { ok: false, reason: "not_found" }
+    return { ok: false, reason: "db_error", message: shared.error.message || shared.error.code || "workspace ownership query failed" }
   }
-  if (!data) return { ok: false, reason: "not_found" }
-  return { ok: true, record: data as T }
+  if (!shared.data) return { ok: false, reason: "not_found" }
+  return { ok: true, record: shared.data as T }
 }
