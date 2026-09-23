@@ -8,22 +8,27 @@ export type OwnerNotificationInput = {
   meta?: Record<string, unknown>
 }
 
-/** Writes the member-targeted notification first. The legacy owner feed is
- * retained as a compatibility fallback while older deployments migrate. */
+/** Delivers a workflow notification to every workspace decision-maker. The old
+ * owner_notifications table remains a compatibility fallback until all live
+ * projects have applied 0026/0027. */
 export async function notifyOwner(supabase: any, input: OwnerNotificationInput) {
   try {
-    const { data: member } = await supabase
+    const { data: ownerMembership } = await supabase
       .from("workspace_members")
-      .select("id, workspace_id")
+      .select("workspace_id")
       .eq("user_id", input.userId)
-      .eq("role", "owner")
       .order("created_at")
       .limit(1)
       .maybeSingle()
 
-    if (member?.id && member.workspace_id) {
-      const { error } = await supabase.from("notifications").upsert({
-        workspace_id: member.workspace_id,
+    if (ownerMembership?.workspace_id) {
+      const { data: recipients } = await supabase
+        .from("workspace_members")
+        .select("id")
+        .eq("workspace_id", ownerMembership.workspace_id)
+        .in("role", ["owner", "admin"])
+      const rows = (recipients ?? []).map((member: { id: string }) => ({
+        workspace_id: ownerMembership.workspace_id,
         recipient_member_id: member.id,
         type: input.type,
         title: input.title.slice(0, 140),
@@ -33,11 +38,17 @@ export async function notifyOwner(supabase: any, input: OwnerNotificationInput) 
         entity_id: typeof input.meta?.invoice_id === "string" ? input.meta.invoice_id : null,
         dedupe_key: input.dedupeKey.slice(0, 180),
         channel: "in_app",
-      }, { onConflict: "workspace_id,dedupe_key", ignoreDuplicates: true })
-      if (!error) return
+      }))
+      if (rows.length) {
+        const { error } = await supabase.from("notifications").upsert(rows, {
+          onConflict: "recipient_member_id,dedupe_key",
+          ignoreDuplicates: true,
+        })
+        if (!error) return
+      }
     }
   } catch {
-    // Continue to the legacy feed during the migration window.
+    // Continue to the compatibility feed during the migration window.
   }
 
   try {
