@@ -723,7 +723,7 @@ export interface InvoiceDetailRow {
   offers: SettlementOffer[]
   replies: ReplyThreadItem[]
   disputes: OpenDisputeRow[]
-  paymentPlans: { id: string; requested_cents: number | null; message: string; created_at: string }[]
+  paymentPlans: { id: string; requested_cents: number | null; message: string; status: string; created_at: string }[]
 }
 
 /** Everything the invoice detail page needs, in one scoped read. */
@@ -764,7 +764,7 @@ export async function getInvoiceDetail(userId: string, invoiceId: string): Promi
   const [replies, disputes, paymentPlans] = await Promise.all([
     getReplyThread(userId, invoiceId),
     getOpenDisputesForInvoice(userId, invoiceId),
-    supabase.from("payment_plan_requests").select("id, requested_cents, message, created_at").eq("user_id", userId).eq("invoice_id", invoiceId).eq("status", "open").order("created_at", { ascending: false }),
+    supabase.from("payment_plan_requests").select("id, requested_cents, message, status, created_at").eq("user_id", userId).eq("invoice_id", invoiceId).order("created_at", { ascending: false }).limit(10),
   ])
 
   const rest = invoice as unknown as Record<string, unknown>
@@ -778,6 +778,6 @@ export async function getInvoiceDetail(userId: string, invoiceId: string): Promi
     offers: (offers ?? []) as unknown as SettlementOffer[],
     replies,
     disputes,
-    paymentPlans: (paymentPlans.data ?? []) as { id: string; requested_cents: number | null; message: string; created_at: string }[],
+    paymentPlans: (paymentPlans.data ?? []) as { id: string; requested_cents: number | null; message: string; status: string; created_at: string }[],
   }
 }

@@ -263,7 +263,7 @@ export function InvoiceRecoveryFlow({
                 <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Subject</div>
                 <div className="mt-1 text-[14px] font-medium text-ink">{preview?.subject ?? "Preparing preview…"}</div>
               </div>
-              <div tabIndex={0} className="max-h-[48dvh] overscroll-contain overflow-y-auto whitespace-pre-wrap px-4 py-4 text-[13px] leading-relaxed text-ink-soft">
+              <div tabIndex={0} aria-label="Scrollable email preview" className="max-h-[min(52dvh,34rem)] overflow-y-scroll overscroll-contain whitespace-pre-wrap px-4 py-4 text-[13px] leading-relaxed text-ink-soft">
                 {preview?.body ?? ""}{preview?.resolveLabel ? <div className="mt-5 rounded-md bg-moss px-4 py-3 text-center text-sm font-medium text-white">{preview.resolveLabel}</div> : null}
               </div>
             </div>

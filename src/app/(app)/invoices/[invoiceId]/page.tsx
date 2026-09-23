@@ -226,7 +226,7 @@ export default async function InvoiceDetailPage(
                       {formatDate(m.sent_at)} · rung {m.step} {m.opened_at ? "· opened" : "· not opened yet"}
                     </span>
                   </div>
-                  <div className="mt-1.5 max-h-24 overflow-hidden whitespace-pre-line text-[13px] leading-relaxed text-muted">
+                  <div tabIndex={0} className="mt-1.5 max-h-48 overflow-y-auto overscroll-contain whitespace-pre-line pr-2 text-[13px] leading-relaxed text-muted">
                     {m.body}
                   </div>
                 </li>

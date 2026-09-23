@@ -447,7 +447,7 @@ async function dispatchOne(
     .select("id")
     .eq("user_id", run.user_id)
     .eq("invoice_id", invoice.id)
-    .eq("status", "open")
+    .in("status", ["open", "accepted"])
     .limit(1)
     .maybeSingle()
   if (openPlanRequest?.id) {
@@ -458,7 +458,7 @@ async function dispatchOne(
         automation_confidence: 10,
         reply_classification: "payment_plan",
         last_reply_at: gateAt,
-        error: "paused: open payment-plan request — respond before chasing again",
+        error: "paused: payment plan in progress — complete or decline it before chasing again",
         updated_at: gateAt,
       })
       .eq("id", runId)
@@ -979,10 +979,10 @@ export async function previewRunEmail(
   const [{ data: replied }, { data: dispute }, { data: planRequest }] = await Promise.all([
     supabase.from("messages").select("id").eq("run_id", runId).eq("replied", true).limit(1),
     supabase.from("disputes").select("id").eq("user_id", userId).eq("invoice_id", invoice.id).eq("status", "open").limit(1).maybeSingle(),
-    supabase.from("payment_plan_requests").select("id").eq("user_id", userId).eq("invoice_id", invoice.id).eq("status", "open").limit(1).maybeSingle(),
+    supabase.from("payment_plan_requests").select("id").eq("user_id", userId).eq("invoice_id", invoice.id).in("status", ["open", "accepted"]).limit(1).maybeSingle(),
   ])
   if (dispute?.id) return { ok: false, error: "This invoice has an open dispute. Resolve it before sending another reminder." }
-  if (planRequest?.id) return { ok: false, error: "The client requested a payment plan. Respond before sending another reminder." }
+  if (planRequest?.id) return { ok: false, error: "A payment plan is being arranged. Keep reminders paused until it is completed or declined." }
   if (replied?.length) return { ok: false, error: "The client replied. Review the reply before continuing the ladder." }
 
   const steps = (sequence.steps as unknown as SequenceStep[]).slice().sort((a, b) => a.step_order - b.step_order)

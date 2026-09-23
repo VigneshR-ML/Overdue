@@ -9,7 +9,9 @@ export function AttachLadderButton({ invoiceId, sequenceId }: { invoiceId: strin
   async function attach() {
     setBusy(true); setError(null)
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}/sequence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sequenceId, replace: true }) })
+      // The route lives at /api/invoices/[id].  Keeping the workflow action on
+      // the invoice resource also avoids a stale, non-existent /sequence URL.
+      const res = await fetch(`/api/invoices/${invoiceId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sequenceId, replace: true }) })
       const raw = await res.text()
       let json: { error?: string } | null = null
       try { json = raw ? JSON.parse(raw) as { error?: string } : null } catch { /* a proxy/login page can return HTML */ }
