@@ -38,6 +38,7 @@ export function MarketingNav() {
         <nav className="hidden items-center gap-7 text-sm text-ink-soft md:flex" aria-label="Primary">
           <Link className="transition-colors hover:text-ink" href="/#how">How it works</Link>
           <Link className="transition-colors hover:text-ink" href="/#ladder">The ladder</Link>
+          <Link className="transition-colors hover:text-ink" href="/#ai">AI Copilot</Link>
           <Link className="transition-colors hover:text-ink" href="/#pricing">Pricing</Link>
           <Link className="transition-colors hover:text-ink" href="/templates">Templates</Link>
           <Link className="transition-colors hover:text-ink" href="/#tools">Tools</Link>
@@ -66,6 +67,7 @@ export function MarketingNav() {
             {[
               ["/#how", "How it works"],
               ["/#ladder", "The ladder"],
+              ["/#ai", "AI Copilot"],
               ["/#pricing", "Pricing"],
               ["/templates", "Templates"],
               ["/#tools", "Tools"],
@@ -103,6 +105,7 @@ export function MarketingFooter() {
             <ul className="mt-3 space-y-2 text-sm text-muted">
               <li><Link href="/#how" className="hover:text-ink">How it works</Link></li>
               <li><Link href="/#ladder" className="hover:text-ink">The ladder</Link></li>
+              <li><Link href="/#ai" className="hover:text-ink">AI Copilot</Link></li>
               <li><Link href="/pricing" className="hover:text-ink">Pricing</Link></li>
               <li><Link href="/login" className="hover:text-ink">Sign in</Link></li>
             </ul>
