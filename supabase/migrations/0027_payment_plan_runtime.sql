@@ -19,6 +19,7 @@ create index if not exists payment_plans_expiry_idx
 
 -- A provider payment may settle more than one installment. Keep the payment
 -- ledger normalized and record every applied amount separately.
+alter table public.payments add column if not exists reconciled_at timestamptz;
 create table if not exists public.payment_allocations (
   id uuid primary key default gen_random_uuid(),
   payment_id uuid not null references public.payments (id) on delete cascade,
