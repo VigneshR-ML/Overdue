@@ -27,7 +27,7 @@ npm run dev
 ```
 
 - Rotate any key if `.env.example` ever ships with values — it is meant to be blank.
-- Run migrations in order: `0001_init.sql` → `0020_maint_assert_write_boundary.sql`, then the dated workflow migrations in ascending order.
+- Run every migration in filename order: `0001_init.sql` → `0027_payment_plan_runtime.sql`, then the dated workflow migrations in ascending order. Do not skip `0021`–`0027`.
 - Enable **Email (password)** auth provider → `users` + `profiles` + `subscriptions` +
   the default ladder are auto-created by `on_auth_user_created` triggers.
 - Env keys are documented inline in `.env.example` (Supabase, App, Paddle, Dodo,
@@ -45,22 +45,15 @@ npm run dev
   current wait or next follow-up → paid.
 - A promised date remains visible on that timeline, including when the date has passed
   without a recorded payment.
-- The optional **Auto payment planner** is in Settings. When enabled, it claims a debtor's
-  plan request once, calculates one proposal within the configured maximum incentive,
-  creates one matching resolution offer, and attempts one email. The database unique key
-  prevents duplicate proposals on retries/double-clicks.
+- Payment-plan requests are owner-reviewed. The system deterministically drafts the schedule from workspace policy, stores immutable proposal versions, sends the proposal through the durable outbox, and requires debtor acceptance before activation. It does not silently discount or activate a money agreement.
 - Ladder attachment, scrollable email review/history, payment-plan history, and polite
   approval-email handling are implemented in the current `main` branch.
 
 ### Must still be completed before calling production ready
-- Apply `20260923023932_owner_notifications.sql`,
-  `20260923031059_workflow_center.sql`, and
-  `20260923040000_auto_payment_plans.sql` to the exact Supabase project used by Vercel.
+- Apply every migration through `0027_payment_plan_runtime.sql`, followed by `20260923023932_owner_notifications.sql`, `20260923031059_workflow_center.sql`, and `20260923040000_auto_payment_plans.sql`, to the exact Supabase project used by Vercel.
 - Configure and verify the Resend sending domain/API key, then make a controlled end-to-end
   send with a test inbox. Auto-plan email delivery cannot be claimed without this.
-- Connect a payment provider that can create installment/check-out schedules. The current
-  auto planner creates **one proposed resolution amount**, not a multi-installment payment
-  contract; it must never claim to collect money itself.
+- Configure a payment provider that creates installment-specific checkout attempts. The app now schedules, emails, and reconciles installment states, but a live provider must still supply a real checkout URL before a debtor can pay online.
 - Add owner approval for debtor date-change requests if the desired policy is "the client
   requests a date, then the owner approves it". Today a date is a recorded debtor promise
   and is clearly shown in the detailed timeline.
@@ -309,7 +302,7 @@ onboarding schedule (9) + timeline (7), csv, format, token, send, queries, smart
 the pre-existing analysis/auth suites. Run: `npm test`.
 
 ## File layout (condensed)
-- `supabase/migrations/` — 20 forward migrations (0001→0020); `_down.sql` rollbacks in `scripts/rollback/`.
+- `supabase/migrations/` — forward migrations 0001→0027 plus dated workflow migrations; `_down.sql` rollbacks in `scripts/rollback/`.
 - `src/app/api/` — server routes (account, ai, billing, clients, cron, health,
   integrations, invoices, r/[token], sequences, settlements, tools, webhooks).
 - `src/app/(app)/` — dashboard, invoices, clients, sequences, settings, tools, insights.
