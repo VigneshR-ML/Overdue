@@ -98,6 +98,7 @@ declare
   installment_remaining int;
   first_installment uuid := null;
   all_plan_paid boolean := false;
+  has_plan boolean := false;
 begin
   select * into pay from public.payments where id = p_payment_id for update;
   if not found then raise exception 'payment not found'; end if;
@@ -119,7 +120,8 @@ begin
   limit 1
   for update;
 
-  if found and applied > 0 then
+  has_plan := found;
+  if has_plan and applied > 0 then
     remaining := applied;
     for inst in
       select *
@@ -163,7 +165,7 @@ begin
     update public.payments set plan_installment_id = first_installment where id = pay.id;
   end if;
 
-  if found then
+  if has_plan then
     select not exists(
       select 1 from public.plan_installments
       where payment_plan_id = plan.id and status <> 'paid'
