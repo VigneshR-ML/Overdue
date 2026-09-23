@@ -227,20 +227,17 @@ export async function computeClientPaymentScores(userId: string) {
 export async function getOwnerNotifications(userId: string, limit = 20, before?: string) {
   const supabase = await createClient()
   const safeLimit = Math.min(limit, 100)
-  const { data: member } = await supabase
+  const { data: memberships } = await supabase
     .from("workspace_members")
     .select("id")
     .eq("user_id", userId)
-    .eq("role", "owner")
-    .order("created_at")
-    .limit(1)
-    .maybeSingle()
 
-  if (member?.id) {
+  const recipientIds = (memberships ?? []).map((member: { id: string }) => member.id)
+  if (recipientIds.length) {
     let query = supabase
       .from("notifications")
       .select("id, type, title, body, href, read_at, created_at")
-      .eq("recipient_member_id", member.id)
+      .in("recipient_member_id", recipientIds)
       .order("created_at", { ascending: false })
       .limit(safeLimit)
     if (before) query = query.lt("created_at", before)
