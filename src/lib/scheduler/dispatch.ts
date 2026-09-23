@@ -418,6 +418,15 @@ async function dispatchOne(
         actor_type: "system", payload: { run_id: runId, resume_at: resumeAt },
       })
     } catch { /* table may not exist pre-migration */ }
+    await notifyOwner(supabase, {
+      userId: run.user_id,
+      type: "payment_promise",
+      title: "Promised payment date missed",
+      body: "The promised date passed without a recorded payment. The recovery ladder resumes after 24 hours.",
+      href: `/invoices/${run.invoice_id}`,
+      dedupeKey: `promise-missed:${runId}:${promiseDate}`,
+      meta: { invoice_id: run.invoice_id, run_id: runId, promise_date: promiseDate },
+    })
   }
 
   const { data: replied } = await supabase
