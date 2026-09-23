@@ -9,6 +9,7 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { InvoiceRecoveryFlow } from "@/components/ledger/invoice-recovery-flow"
 import { InvoiceDetailedView } from "@/components/ledger/invoice-detailed-view"
+import { RecoveryTimeline } from "@/components/ledger/recovery-timeline"
 import { buildInvoiceTimeline, type TimelineRun } from "@/lib/onboarding/timeline"
 import { ArrowLeft } from "lucide-react"
 
@@ -84,38 +85,11 @@ export default async function InvoiceDetailPage(
               ? recipient
               : "No client email on file — reminders can't be sent until one is added."
           }
-          action={
-            paid ? (
-              <PaidBadge />
-            ) : days < 0 ? (
-              <OverdueBadge days={-days} />
-            ) : (
-              <SentBadge />
-            )
-          }
+          action={<div className="flex flex-wrap items-center justify-end gap-2">{paid ? <PaidBadge /> : days < 0 ? <OverdueBadge days={-days} /> : <SentBadge />}<InvoiceDetailedView invoiceNumber={invoice.number} currency={invoice.currency} paymentPlans={row.paymentPlans} planLedger={row.planLedger} replies={row.replies} disputes={row.disputes} messages={row.messages} workflowEvents={row.workflowEvents} /></div>}
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-paper px-4 py-3">
-        <div>
-          <p className="text-[13px] font-medium text-ink">Keep this page focused on the next recovery action.</p>
-          <p className="mt-0.5 text-[12px] text-muted">Plans, replies, email history, and the full audit trail live in Detailed view.</p>
-        </div>
-        <InvoiceDetailedView
-          invoiceNumber={invoice.number}
-          currency={invoice.currency}
-          milestones={milestones}
-          planStatus={latestLedgerPlan?.status ?? latestPlan?.status ?? null}
-          paymentPlans={row.paymentPlans}
-          planLedger={row.planLedger}
-          replies={row.replies}
-          disputes={row.disputes}
-          messages={row.messages}
-          workflowEvents={row.workflowEvents}
-        />
-      </div>
-
-      <div className="max-w-2xl">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Financial summary */}
         <Card>
           <CardHeader>
@@ -185,6 +159,15 @@ export default async function InvoiceDetailPage(
           </CardBody>
         </Card>
 
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Recovery timeline</span>
+            <span className="font-mono text-[11px] text-faint">{run?.sequenceName ? `${run.sequenceName} ladder` : "no ladder"}</span>
+          </CardHeader>
+          <CardBody>
+            {milestones.length ? <RecoveryTimeline milestones={milestones} /> : <p className="text-sm text-muted">Nothing tracked for this invoice yet.</p>}
+          </CardBody>
+        </Card>
       </div>
 
       <InvoiceRecoveryFlow
