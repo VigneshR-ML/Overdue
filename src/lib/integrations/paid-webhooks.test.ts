@@ -110,6 +110,7 @@ describe("markInvoicePaid", () => {
 
     const from = (table: string) => {
       let updated = false
+      let inserted = false
       const q = new Proxy(
         {},
         {
@@ -121,10 +122,16 @@ describe("markInvoicePaid", () => {
                 updated = true
                 return q
               }
+              if (prop === "single" && table === "payments" && inserted) {
+                return { data: { id: "payment_1" }, error: null }
+              }
               if (prop === "maybeSingle") {
                 return table === "invoices" ? { data: invoice, error: null } : { data: null, error: null }
               }
-              if (prop === "insert") return { data: { id: "evt_1" }, error: null }
+              if (prop === "insert") {
+                inserted = true
+                return q
+              }
               if (prop === "select") {
                 if (updated) {
                   if (opts?.updateError) return { data: [], error: opts.updateError }
@@ -143,26 +150,42 @@ describe("markInvoicePaid", () => {
       return q
     }
 
-    return { db: { from }, ops }
+    const appliedCents = opts?.flipRows?.length === 0 ? 0 : Number(invoice?.amount_cents ?? 1000)
+    const rpc = (name: string) => {
+      ops.push({ table: "rpc", op: name, args: [] })
+      if (name !== "reconcile_confirmed_payment") return Promise.resolve({ data: null, error: null })
+      return Promise.resolve({
+        data: {
+          invoice_id: invoice?.id ?? "inv_1",
+          user_id: "u1",
+          workspace_id: null,
+          applied_cents: appliedCents,
+          fully_paid: appliedCents > 0,
+          plan_completed: false,
+        },
+        error: opts?.updateError ?? null,
+      })
+    }
+    return { db: { from, rpc }, ops }
   }
 
   it("flips to paid with full amount by default", async () => {
     const { db, ops } = recordingDb()
     const res = await markInvoicePaid(db, "stripe", "in_1", "u1")
     expect(res).toEqual({ flipped: 1, error: null })
-    const invoiceUpdate = ops.find((o) => o.table === "invoices" && o.op === "update")
-    expect(invoiceUpdate?.args[0]).toMatchObject({ status: "paid", paid_cents: 1000 })
-    expect(invoiceUpdate?.args[0].paid_at).toBeTruthy()
+    const paymentInsert = ops.find((o) => o.table === "payments" && o.op === "insert")
+    expect(paymentInsert?.args[0]).toMatchObject({ amount_cents: 1000, source: "stripe", status: "confirmed" })
+    expect(ops.some((o) => o.table === "rpc" && o.op === "reconcile_confirmed_payment")).toBe(true)
   })
 
   it("writes the provider-sent amount and clamps to the balance", async () => {
     const { db, ops } = recordingDb({ invoice: { id: "inv_1", amount_cents: 5000 } })
     await markInvoicePaid(db, "paypal", "INV-2", "u1", { paidCents: 499994 }) // "$4999.94"
-    const invoiceUpdate = ops.find((o) => o.table === "invoices" && o.op === "update")
-    expect(invoiceUpdate?.args[0].paid_cents).toBe(5000)
+    const paymentInsert = ops.find((o) => o.table === "payments" && o.op === "insert")
+    expect(paymentInsert?.args[0].amount_cents).toBe(5000)
     await markInvoicePaid(db, "stripe", "in_3", "u1", { paidCents: 1200 })
-    const updates = ops.filter((o) => o.table === "invoices" && o.op === "update")
-    expect(updates[1].args[0].paid_cents).toBe(1200)
+    const payments = ops.filter((o) => o.table === "payments" && o.op === "insert")
+    expect(payments[1].args[0].amount_cents).toBe(1200)
   })
 
   it("reconciles runs, disputes and offers only when the flip actually happened", async () => {
@@ -174,7 +197,7 @@ describe("markInvoicePaid", () => {
     expect(offerUpdate?.args[0]).toMatchObject({ status: "paid" })
     const evtInsert = ops.find((o) => o.table === "settlement_events" && o.op === "insert")
     expect(evtInsert?.args[0]).toEqual([
-      { offer_id: "o1", user_id: "u1", event: "paid", meta: { source: "stripe_webhook" } },
+      { offer_id: "o1", user_id: "u1", event: "paid", meta: { source: "confirmed_payment" } },
     ])
   })
 
