@@ -755,6 +755,8 @@ export interface InvoiceDetailRow {
   replies: ReplyThreadItem[]
   disputes: OpenDisputeRow[]
   paymentPlans: { id: string; requested_cents: number | null; message: string; status: string; created_at: string }[]
+  planLedger: { id: string; status: string; total_cents: number; currency: string; frequency: string; starts_on: string; installment_count: number; plan_installments: { id: string; sequence_no: number; amount_cents: number; due_date: string; status: string; paid_cents: number }[] }[]
+  workflowEvents: { id: string; event_type: string; actor_type: string; payload: Record<string, unknown>; created_at: string }[]
 }
 
 /** Everything the invoice detail page needs, in one scoped read. */
@@ -792,10 +794,12 @@ export async function getInvoiceDetail(userId: string, invoiceId: string): Promi
       .limit(3),
   ])
 
-  const [replies, disputes, paymentPlans] = await Promise.all([
+  const [replies, disputes, paymentPlans, planLedger, workflowEvents] = await Promise.all([
     getReplyThread(userId, invoiceId),
     getOpenDisputesForInvoice(userId, invoiceId),
     supabase.from("payment_plan_requests").select("id, requested_cents, message, status, created_at").eq("user_id", userId).eq("invoice_id", invoiceId).order("created_at", { ascending: false }).limit(10),
+    supabase.from("payment_plans").select("id, status, total_cents, currency, frequency, starts_on, installment_count, plan_installments(id, sequence_no, amount_cents, due_date, status, paid_cents)").eq("invoice_id", invoiceId).order("created_at", { ascending: false }).limit(10),
+    supabase.from("workflow_events").select("id, event_type, actor_type, payload, created_at").eq("invoice_id", invoiceId).order("created_at", { ascending: false }).limit(100),
   ])
 
   const rest = invoice as unknown as Record<string, unknown>
@@ -810,5 +814,7 @@ export async function getInvoiceDetail(userId: string, invoiceId: string): Promi
     replies,
     disputes,
     paymentPlans: (paymentPlans.data ?? []) as { id: string; requested_cents: number | null; message: string; status: string; created_at: string }[],
+    planLedger: (planLedger.data ?? []) as InvoiceDetailRow["planLedger"],
+    workflowEvents: (workflowEvents.data ?? []) as InvoiceDetailRow["workflowEvents"],
   }
 }
