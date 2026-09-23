@@ -43,9 +43,9 @@ export default async function ResolutionPage(props: { params: Promise<{ token: s
 
   const { data: proposedPlan } = await supabase
     .from("payment_plans")
-    .select("id, status, total_cents, currency, frequency, starts_on, installment_count, plan_installments(amount_cents, due_date, status)")
+    .select("id, status, total_cents, currency, frequency, starts_on, installment_count, plan_installments(amount_cents, due_date, status, checkout_attempts(url, status, expires_at))")
     .eq("invoice_id", (offer as { invoice_id: string }).invoice_id)
-    .eq("status", "proposed")
+    .in("status", ["proposed", "active", "delinquent"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -105,13 +105,15 @@ export default async function ResolutionPage(props: { params: Promise<{ token: s
     daysOverdue: Math.max(0, daysOverdue(inv.due_date)),
     proposedPlan: proposedPlan ? {
       id: proposedPlan.id,
+      status: String(proposedPlan.status),
       totalCents: Number(proposedPlan.total_cents),
       currency: String(proposedPlan.currency ?? inv.currency).toUpperCase(),
       frequency: String(proposedPlan.frequency),
       startsOn: String(proposedPlan.starts_on),
       installmentCount: Number(proposedPlan.installment_count),
-      installments: (proposedPlan.plan_installments ?? []).map((row: { amount_cents: number; due_date: string; status: string }) => ({
+      installments: (proposedPlan.plan_installments ?? []).map((row: { amount_cents: number; due_date: string; status: string; checkout_attempts?: { url: string | null; status: string; expires_at: string | null }[] }) => ({
         amountCents: Number(row.amount_cents), dueDate: row.due_date, status: row.status,
+        checkoutUrl: (row.checkout_attempts ?? []).find((attempt) => attempt.status === "open" && attempt.url && (!attempt.expires_at || new Date(attempt.expires_at).getTime() > Date.now()))?.url ?? null,
       })),
     } : null,
   }
