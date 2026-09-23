@@ -136,7 +136,7 @@ they had no area, severity, reproduction or expected behavior. They are not coun
 closed defects and are not represented as release evidence. Any recovered source finding
 must be added back with a reproducible description and its own test.
 
-### Gates (test evidence — last recorded 2026-09-22)
+### Historical gate record (2026-09-22 baseline — rerun before release)
 | Gate | Command | Result |
 |------|---------|--------|
 | G2 unit suite | `npm test` | **229 passed, 0 failed (31 files)** |
@@ -295,7 +295,9 @@ rollback artifacts are gone, then restored. Refuses the production project ref w
   refresh that self-heals. Wrap in a DB lease if hourly cross-provider sync is ever added.
 - Ladder edits don't reset run progress (steps re-read fresh per send) — intentional.
 
-## Test inventory (229 in 31 files)
+## Test inventory
+The historical suite total below is **not release evidence for the current main commit**. Run `npm test`, `npm run lint`, `npx tsc --noEmit`, and `npm run build` after applying the current migrations, then record the exact output before release.
+
 Suites cover: ownership (`ownership.test.ts`), billing events rewrite (upsert-on-`user_id`),
 entitlement (11), settlement EV (8), thread IDs (3), paid-webhooks (17), dispatch (11),
 onboarding schedule (9) + timeline (7), csv, format, token, send, queries, smart-csv, and
