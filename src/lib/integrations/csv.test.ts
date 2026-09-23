@@ -39,4 +39,25 @@ describe("parseCsv messy headers", () => {
     expect(invoices).toHaveLength(1)
     expect(invoices[0]).toMatchObject({ client_name: "Acme", number: "INV-1", amount_cents: 1000 })
   })
+
+  it("understands representative PayPal, Stripe, QuickBooks and Xero export headers", () => {
+    const examples = [
+      `Invoice Number,Recipient Email,Recipient Name,Invoice Total,Currency,Invoice Date,Due Date,Status
+INV-PP-1,alex@example.com,Alex Co,$125.50,USD,2026-09-01,2026-09-15,SENT`,
+      `id,customer_email,customer_name,amount_due,currency,created,due_date,status,hosted_invoice_url
+in_stripe_1,blair@example.com,Blair Studio,250.00,usd,2026-09-02,2026-09-16,open,https://pay.example/stripe`,
+      `Num,Customer,Email,Open Balance,Currency,Date,Due Date,Status
+QB-1001,Cedar LLC,cedar@example.com,375.25,USD,2026-09-03,2026-09-17,Open`,
+      `InvoiceNumber,ContactName,EmailAddress,AmountDue,CurrencyCode,Date,DueDate,Status
+XERO-1001,Delta Agency,delta@example.com,480.00,USD,2026-09-04,2026-09-18,AUTHORISED`,
+    ]
+
+    for (const csv of examples) {
+      const { invoices, errors } = parseCsv(csv)
+      expect(errors).toEqual([])
+      expect(invoices).toHaveLength(1)
+      expect(invoices[0]?.amount_cents).toBeGreaterThan(0)
+      expect(invoices[0]?.number).toBeTruthy()
+    }
+  })
 })

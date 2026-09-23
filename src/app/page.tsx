@@ -28,7 +28,7 @@ const LADDER_STEPS = [
 const FAQS = [
   {
     q: "Does this send emails automatically on day one?",
-    a: "On Pro, yes — once you connect a provider (or import a CSV) and pick a ladder, each rung goes out on schedule and nothing sends until you've reviewed the draft. On Free, you send each step yourself with one tap from the ledger; every message is drafted first and editable before it ever goes out.",
+    a: "On Pro, yes — once you import a CSV (or add an invoice) and pick a ladder, each rung goes out on schedule and nothing sends until you've reviewed the draft. On Free, you send each step yourself with one tap from the ledger; every message is drafted first and editable before it ever goes out.",
   },
   {
     q: "Will clients be annoyed?",
@@ -36,7 +36,7 @@ const FAQS = [
   },
   {
     q: "Which invoice tools do you connect to?",
-    a: "PayPal and Xero sync automatically. If you bill from anywhere else, the CSV import maps your invoices in under a minute. A manual catch-all still works.",
+    a: "Direct PayPal, Stripe, QuickBooks and Xero connections are coming soon. Today, export a CSV from any of them and Smart CSV maps your invoices in under a minute. A manual catch-all still works.",
   },
   {
     q: "Who pays and where does the money go?",
@@ -83,9 +83,8 @@ export default function LandingPage() {
               </Link>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[12px] uppercase tracking-[0.12em] text-muted">
-              <span>PayPal</span><span className="text-hairline">/</span>
-              <span>Xero</span><span className="text-hairline">/</span>
-              <span>any CSV</span>
+              <span>any CSV</span><span className="text-hairline">/</span>
+              <span>platform syncs coming soon</span>
             </div>
           </div>
 
@@ -156,7 +155,7 @@ export default function LandingPage() {
             {
               n: "01",
               title: "Connect your numbers",
-              body: "PayPal, Xero — or drop in a CSV. Your unpaid invoices appear in the ledger automatically.",
+              body: "Drop in a CSV from PayPal, Stripe, QuickBooks or Xero. Your unpaid invoices appear in the ledger automatically.",
             },
             {
               n: "02",
@@ -282,7 +281,7 @@ export default function LandingPage() {
             <div className="font-display text-xl text-ink">Pro</div>
             <div className="mt-3 font-mono text-[15px] text-muted"><ProPrice className="font-display text-3xl text-ink" /> / month</div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["Unlimited clients, invoices & ladders", "PayPal + Xero sync", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
+              {["Unlimited clients, invoices & ladders", "Smart CSV imports from billing platforms", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>

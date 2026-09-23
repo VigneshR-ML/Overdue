@@ -2,7 +2,6 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { IntegrationsManager } from "@/components/settings/integrations-manager"
-import { isProviderConfigured } from "@/lib/integrations/credentials"
 import type { IntegrationRow } from "@/types"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { ArrowLeft } from "lucide-react"
@@ -31,7 +30,7 @@ export default async function IntegrationsPage(props: { searchParams?: Promise<{
     <div className="space-y-6">
       {pendingUpgrade ? (
         <div className="rounded-md border border-ember/40 bg-ember/10 p-4 text-sm text-ink-soft">
-          Automated sync from PayPal and Xero is a Pro feature.{" "}
+          CSV import is available now. Direct provider connections are coming soon.{" "}
           <Link href="/settings/billing" className="font-medium text-ink underline underline-offset-2">
             Upgrade to Pro
           </Link>{" "}
@@ -44,13 +43,13 @@ export default async function IntegrationsPage(props: { searchParams?: Promise<{
       </Link>
       <PageHeader
         title="Invoice sources"
-        description="One ledger for every place you bill. Syncs on connect and on demand."
+        description="Import invoices from any billing platform today. Direct connections are coming soon."
       />
 
       <IntegrationsManager
         rows={rows ?? []}
-        stripeConfigured={isProviderConfigured("stripe")}
-        xeroConfigured={isProviderConfigured("xero")}
+        stripeConfigured={false}
+        xeroConfigured={false}
       />
     </div>
   )

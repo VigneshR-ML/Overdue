@@ -10,7 +10,7 @@ const STEPS: { n: string; title: string; body: string; href?: string; linkLabel?
   {
     n: "1",
     title: "Invoice lands in the ledger",
-    body: "Import a CSV, connect Xero / PayPal / Stripe, or add it manually. A ladder attaches automatically.",
+    body: "Import a CSV from your billing platform, or add it manually. A ladder attaches automatically.",
   },
   {
     n: "2",

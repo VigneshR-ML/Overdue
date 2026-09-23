@@ -55,7 +55,7 @@ export default function PricingPage() {
               <ProPrice className="font-display text-3xl text-ink" /> / month <span className="text-moss">· 7-day free trial</span>
             </div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["Unlimited clients, invoices & ladders", "PayPal + Xero sync", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
+              {["Unlimited clients, invoices & ladders", "Smart CSV imports from billing platforms", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>

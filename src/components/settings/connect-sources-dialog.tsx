@@ -53,8 +53,8 @@ export function ConnectSourcesDialog({
           >
             <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-3 bg-paper pb-3">
               <div>
-                <h2 id="connect-sources-title" className="font-display text-2xl tracking-tight text-ink">Connect invoices</h2>
-                <p className="mt-1 text-sm text-muted">Choose PayPal, Xero, or CSV. QuickBooks is clearly marked as coming soon.</p>
+                <h2 id="connect-sources-title" className="font-display text-2xl tracking-tight text-ink">Import invoices</h2>
+                <p className="mt-1 text-sm text-muted">Upload a CSV now. PayPal, Stripe, QuickBooks and Xero connections are coming soon.</p>
               </div>
               <button
                 type="button"

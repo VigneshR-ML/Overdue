@@ -109,8 +109,8 @@ npm run dev
   click/cron race and never reports a paused/disputed run as sent.
 - Editable sender name now controls both the visible email From name (`Name via Overdue`)
   and the signature while retaining the deployment's verified delivery address.
-- Invoice-source dialog: PayPal, Xero and CSV stay in-context; QuickBooks is visible but
-  disabled as **Coming soon** for the post-launch Intuit integration.
+- Invoice-source dialog: Smart CSV import is available now; PayPal, Stripe, QuickBooks and
+  Xero are clearly shown as **Coming soon** until their secure self-connect flows launch.
 - Billing: Paddle checkout by default, Dodo checkout only behind the explicit
   `DODO_FALLBACK_ENABLED=true` flag, real quotas from
   `src/lib/billing/limits.ts`, no dead `ready&&ready`, no unbacked ROI claims.
@@ -172,8 +172,8 @@ must be added back with a reproducible description and its own test.
 
 ### Open decisions (fixes needing a yes/no from the owner)
 - **Sentry now** (free tier) vs Vercel-logs-first — wiring is done; ship or keep DSNs empty.
-- **QuickBooks provider** — intentionally deferred until after launch; UI is disabled and
-  labeled Coming soon, with no misleading OAuth/connect action.
+- **Direct provider connections** — PayPal, Stripe, QuickBooks and Xero are intentionally
+  deferred until after launch; Smart CSV import supports their exported invoice files now.
 - **Team seats** (D4.4 design-first, hinges on `assertOwnsResource`) remains in scope —
   confirm scope.
 - **G5/G7 lane split** (agent writes code, owner runs live/charged steps, staging-first) —

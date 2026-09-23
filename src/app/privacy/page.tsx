@@ -26,7 +26,7 @@ const SECTIONS = [
   },
   {
     h: "Subprocessors",
-    b: "Your data moves through a small number of subprocessors, and nothing more: Vercel (hosting the app), Supabase (authentication, database and row-level security), Resend (sending and receiving reminder emails), Paddle (billing, as merchant of record), the AI provider you enable for drafting reminders, and the invoice providers you connect yourself (PayPal or Xero). Each is bound to a written data-processing agreement.",
+    b: "Your data moves through a small number of subprocessors, and nothing more: Vercel (hosting the app), Supabase (authentication, database and row-level security), Resend (sending and receiving reminder emails), Paddle (billing, as merchant of record), and the AI provider you enable for drafting reminders. Each is bound to a written data-processing agreement.",
   },
   {
     h: "Your clients' data",

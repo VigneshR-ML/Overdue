@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     template: "%s · Overdue",
   },
   description:
-    "USD invoice follow-up software for US freelancers and agencies. Overdue sends polite payment reminders, pauses when clients reply, and stops when payment is recorded. Works with Xero, PayPal and CSV.",
+    "USD invoice follow-up software for US freelancers and agencies. Overdue sends polite payment reminders, pauses when clients reply, and stops when payment is recorded. Import invoice CSVs from your billing platform.",
   keywords: ["USD invoice follow-up", "overdue invoice reminders", "payment reminder software", "accounts receivable for agencies", "freelancer invoice collection"],
   alternates: { canonical: "/" },
   openGraph: {

@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
 
   const system = [
     "You map arbitrary invoice CSV headers to canonical fields.",
+    "Known exports include PayPal (Invoice Number, Recipient Email, Invoice Total), Stripe (id, customer_email, amount_due, hosted_invoice_url), QuickBooks (Num, Customer, Open Balance, Due Date), and Xero (InvoiceNumber, ContactName, AmountDue, CurrencyCode, Date, DueDate).",
     `Canonical fields: ${CANONICAL_FIELDS.join(", ")}.`,
     "Rules: amount = the money owed (total/balance/due). number = invoice id/reference. client_name = who owes. due_date = when payment was due (not issue/created). status = paid/open state. Omit a field (null) when no column fits — never guess. One source column maps to at most one field.",
     'Reply ONLY as JSON: {"client_name":0|null,"client_email":0|null,"number":0|null,"amount":0|null,"currency":0|null,"issue_date":0|null,"due_date":0|null,"status":0|null,"payment_url":0|null,"confidence":0-1,"notes":"short"}',

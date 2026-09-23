@@ -23,8 +23,8 @@ const SECTIONS = [
     b: "Every row (clients, invoices, ladders, messages) belongs to exactly one user id, enforced by Postgres Row Level Security. Users can only ever read their own ledger, even if an API bug tried otherwise.",
   },
   {
-    h: "4. Invoice integrations (OAuth scopes)",
-    b: "Xero uses OAuth2 requesting only accounting.transactions.read, accounting.contacts.read and offline_access (token refresh). PayPal uses your own API credentials, stored per-user. We request the minimum scopes needed to sync invoices — never payouts, never bank access.",
+    h: "4. Invoice imports",
+    b: "CSV imports are reviewed before they enter your ledger. Direct PayPal, Stripe, QuickBooks and Xero connections are not available yet, so no provider account credentials are requested in the product today.",
   },
   {
     h: "5. Credentials at rest",
@@ -36,7 +36,7 @@ const SECTIONS = [
   },
   {
     h: "7. Webhooks are signed",
-    b: "Every inbound webhook (Paddle, Resend, PayPal, Xero, reply detection, cron dispatch) is verified by HMAC signature or shared secret before anything happens. Unsigned or replayed requests are rejected with 401, and processed events are deduplicated in an idempotency ledger.",
+    b: "Every active inbound webhook (Paddle, Resend, reply detection and cron dispatch) is verified by HMAC signature or shared secret before anything happens. Unsigned or replayed requests are rejected with 401, and processed events are deduplicated in an idempotency ledger.",
   },
   {
     h: "8. AI drafting",

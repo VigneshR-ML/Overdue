@@ -14,7 +14,6 @@ import { AddInvoiceButton } from "@/components/ledger/add-invoice"
 import { CheckCircle2, Upload } from "lucide-react"
 import { formatDate } from "@/lib/utils/format"
 import { ConnectSourcesDialog } from "@/components/settings/connect-sources-dialog"
-import { isProviderConfigured } from "@/lib/integrations/credentials"
 
 export const metadata = { title: "Dashboard" }
 
@@ -49,8 +48,9 @@ export default async function DashboardPage() {
             {hasInvoices ? (
               <ConnectSourcesDialog
                 rows={integrations}
-                stripeConfigured={isProviderConfigured("stripe")}
-                xeroConfigured={isProviderConfigured("xero")}
+                stripeConfigured={false}
+                xeroConfigured={false}
+                label="Import / integrations"
               />
             ) : null}
             {hasInvoices ? (
@@ -73,9 +73,9 @@ export default async function DashboardPage() {
             </div>
             <ConnectSourcesDialog
               rows={integrations}
-              stripeConfigured={isProviderConfigured("stripe")}
-              xeroConfigured={isProviderConfigured("xero")}
-              label="Connect a source"
+              stripeConfigured={false}
+              xeroConfigured={false}
+              label="Import a source"
             />
           </div>
         </div>
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
           <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">First invoice</div>
           <h2 className="mt-2 font-display text-xl tracking-tight text-ink">One invoice is all it takes to see recovery working.</h2>
           <p className="mt-1.5 max-w-prose text-[14px] leading-relaxed text-muted">
-            Add it manually, import a CSV, or sync PayPal, Xero or Stripe. Overdue attaches the default reminder
+            Add it manually or import a CSV from PayPal, Stripe, QuickBooks or Xero. Overdue attaches the default reminder
             ladder and shows the exact next action — nothing is emailed until you review and confirm it.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
@@ -112,9 +112,9 @@ export default async function DashboardPage() {
             </Link>
             <ConnectSourcesDialog
               rows={integrations}
-              stripeConfigured={isProviderConfigured("stripe")}
-              xeroConfigured={isProviderConfigured("xero")}
-              label="Connect a source"
+              stripeConfigured={false}
+              xeroConfigured={false}
+              label="Import a source"
             />
           </div>
         </div>
@@ -133,9 +133,9 @@ export default async function DashboardPage() {
       ) : (
         <EmptyState
           title="No unpaid invoices on the board"
-          description="When an invoice goes out past due, it shows up here with its place on the ladder. Add one or connect a source to start."
+          description="When an invoice goes out past due, it shows up here with its place on the ladder. Add one or import a CSV to start."
           icon={<ReceiptIcon />}
-          action={<ConnectSourcesDialog rows={integrations} stripeConfigured={isProviderConfigured("stripe")} xeroConfigured={isProviderConfigured("xero")} label="Connect PayPal / Xero / CSV" />}
+          action={<ConnectSourcesDialog rows={integrations} stripeConfigured={false} xeroConfigured={false} label="Import CSV" />}
         />
       )}
 

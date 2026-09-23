@@ -9,34 +9,36 @@ import type { InboundInvoice } from "./provider"
 const HEADER_ALIASES: Record<string, string[]> = {
   client_name: [
     "clientname", "client", "customer", "customername", "billto", "billtocompany",
-    "contact", "contactname", "company", "companyname", "name", "soldto",
+    "contact", "contactname", "recipientname", "company", "companyname", "name", "soldto",
   ],
   client_email: [
     "clientemail", "email", "contactemail", "emailaddress", "emailid", "mail",
+    "customeremail", "recipientemail", "billingemail", "customeremailaddress",
   ],
   number: [
     "number", "invoicenumber", "invoiceno", "invno", "invnum", "invnumber",
     "invoice", "invoiceref", "invoicereference", "reference", "ref", "refno", "id",
+    "transactionnumber", "docnumber", "documentnumber", "num",
   ],
   amount: [
     "amount", "total", "balance", "balanceowed", "amountowed", "amountdue",
     "totaldue", "totalamount", "balancedue", "owed", "owing", "sum", "value",
     "price", "invoicetotal", "grandtotal", "dueamount", "netamount",
-    "outstanding", "openbalance",
+    "outstanding", "openbalance", "openamount", "amountremaining", "remainingbalance",
   ],
-  currency: ["currency", "curr", "ccy", "currencycode", "cur"],
+  currency: ["currency", "curr", "ccy", "currencycode", "cur", "currencycodevalue"],
   issue_date: [
     "issuedate", "issued", "issue", "created", "createdon", "raised",
-    "raisedon", "invoicedate", "dateissued", "orderdate", "date",
+    "raisedon", "invoicedate", "dateissued", "orderdate", "date", "createdutc", "createddate",
   ],
   due_date: [
     "duedate", "due", "payby", "paymentdue", "deadline", "expires", "expiry",
-    "dudate", "paymentdeadline",
+    "dudate", "paymentdeadline", "duedateutc",
   ],
-  status: ["status", "state", "paymentstatus", "invoicestatus"],
+  status: ["status", "state", "paymentstatus", "invoicestatus", "transactionstatus"],
   payment_url: [
     "paymenturl", "paylink", "paymentlink", "link", "url", "payurl",
-    "checkouturl", "paynow",
+    "checkouturl", "paynow", "hostedinvoiceurl", "invoiceurl", "viewurl",
   ],
 }
 

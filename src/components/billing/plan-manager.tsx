@@ -7,7 +7,7 @@ import { Badge, StatusDot } from "@/components/ui/badge"
 
 const PRO_FEATURES = [
   "Unlimited clients, invoices & ladders",
-  "PayPal + Xero sync",
+  "Smart CSV imports from billing platforms",
   "Autopilot: follow-ups fire on schedule",
   "AI drafts, human-voiced",
   "Reply-detection & auto-pause",

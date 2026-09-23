@@ -388,7 +388,7 @@ export default function OnboardingPage() {
                   Import a CSV →
                 </Link>
                 <Link href="/settings/integrations?next=/onboarding" className="rounded-md border border-hairline bg-paper p-3 text-[13px] text-moss hover:border-moss/40">
-                  Connect PayPal / Xero / Stripe →
+                  Import a platform CSV →
                 </Link>
                 <Button variant="ghost" size="sm" onClick={() => goto("identity")} className="justify-self-start text-[13px]">
                   ← Back

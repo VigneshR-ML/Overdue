@@ -102,14 +102,14 @@ export function truncateCell(s: string, max = 40): string {
 
 const HEURISTIC_ALIASES: Record<CanonicalField, RegExp> = {
   client_name: /client|.customer|bill.?to|contact|company|name/i,
-  client_email: /e.?mail/i,
-  number: /invoice.?n|inv.?no|number|ref(erence)?|id/i,
-  amount: /amount|total|balance|due|owed|sum|value|price/i,
+  client_email: /e.?mail|recipient.?email/i,
+  number: /invoice.?n|inv.?no|number|doc.?number|transaction.?number|ref(erence)?|id|^num$/i,
+  amount: /amount|total|balance|due|owed|sum|value|price|remaining/i,
   currency: /currency|ccy|curr/i,
-  issue_date: /issu|created|raised|invoice.?date|date.?issu/i,
+  issue_date: /issu|created|raised|invoice.?date|date.?issu|date/i,
   due_date: /due|deadline|expires?|pay.?by/i,
   status: /status|state|paid|open|closed/i,
-  payment_url: /pay.*(url|link)|link|url/i,
+  payment_url: /pay.*(url|link)|hosted.?invoice.?url|link|url/i,
 }
 
 export function heuristicMapping(headers: string[]): ColumnMapping {

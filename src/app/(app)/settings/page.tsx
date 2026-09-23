@@ -43,7 +43,7 @@ export default async function SettingsPage() {
               <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Invoice sources</span>
             </CardHeader>
             <CardBody className="space-y-3">
-              <p className="text-sm text-muted">PayPal · Xero · CSV. QuickBooks is coming soon after launch.</p>
+              <p className="text-sm text-muted">Smart CSV import now · PayPal, Stripe, QuickBooks and Xero connections coming soon.</p>
               <span className="font-mono text-[12px] text-moss">Configure →</span>
             </CardBody>
           </Card>

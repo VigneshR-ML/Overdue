@@ -161,7 +161,7 @@ export function InvoiceTable({
     return (
       <EmptyState
         title="No invoices yet"
-        description="Sync from PayPal, Xero or Stripe, or import a CSV — a manual invoice from the button above works too."
+        description="Import a CSV from PayPal, Stripe, QuickBooks or Xero — a manual invoice from the button above works too."
         icon={null}
         action={
           <Link href="/settings/integrations">
