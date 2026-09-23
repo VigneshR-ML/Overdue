@@ -41,6 +41,15 @@ export default async function ResolutionPage(props: { params: Promise<{ token: s
     )
   }
 
+  const { data: proposedPlan } = await supabase
+    .from("payment_plans")
+    .select("id, status, total_cents, currency, frequency, starts_on, installment_count, plan_installments(amount_cents, due_date, status)")
+    .eq("invoice_id", (offer as { invoice_id: string }).invoice_id)
+    .eq("status", "proposed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name")
@@ -94,6 +103,17 @@ export default async function ResolutionPage(props: { params: Promise<{ token: s
     status: o.status,
     paymentUrl: typeof offer.settlement_payment_url === "string" ? offer.settlement_payment_url : null,
     daysOverdue: Math.max(0, daysOverdue(inv.due_date)),
+    proposedPlan: proposedPlan ? {
+      id: proposedPlan.id,
+      totalCents: Number(proposedPlan.total_cents),
+      currency: String(proposedPlan.currency ?? inv.currency).toUpperCase(),
+      frequency: String(proposedPlan.frequency),
+      startsOn: String(proposedPlan.starts_on),
+      installmentCount: Number(proposedPlan.installment_count),
+      installments: (proposedPlan.plan_installments ?? []).map((row: { amount_cents: number; due_date: string; status: string }) => ({
+        amountCents: Number(row.amount_cents), dueDate: row.due_date, status: row.status,
+      })),
+    } : null,
   }
 
   return (
