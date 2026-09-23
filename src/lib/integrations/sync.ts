@@ -204,7 +204,7 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
             .eq("user_id", userId).eq("provider", provider).eq("provider_id", inv.provider_id).maybeSingle();
           flipId = (just as { id: string } | null)?.id ?? "";
         }
-        if (flipId) paidFlips.push({ invoiceId: flipId, amount: Number(inv.paid_cents ?? inv.amount_cents), currency: inv.currency });
+        if (flipId) paidFlips.push({ invoiceId: flipId, amount: Number(inv.paid_cents) > 0 ? Number(inv.paid_cents) : inv.amount_cents, currency: inv.currency });
       }
     } else {
       result.errors.push(error.message)
