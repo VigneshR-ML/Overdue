@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,7 @@ const FIELD_HINT: Record<string, string> = {
 
 export function SmartCsvImporter() {
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [headers, setHeaders] = useState<string[]>([])
   const [rows, setRows] = useState<string[][]>([])
@@ -184,7 +185,7 @@ export function SmartCsvImporter() {
   return (
     <div className="space-y-5">
       {/* Upload */}
-      <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-dashed border-hairline bg-surface p-4">
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-hairline bg-surface p-4">
         <div className="text-sm text-muted">
           {fileName ? (
             <span className="font-mono text-[13px] text-ink">{fileName}</span>
@@ -196,18 +197,20 @@ export function SmartCsvImporter() {
           </div>
         </div>
         <input
+          ref={fileInputRef}
           type="file"
           accept=".csv,text/csv"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0]
             if (f) handleFile(f)
+            e.currentTarget.value = ""
           }}
         />
-        <Button type="button" size="sm" variant="outline">
+        <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
           {fileName ? "Replace" : "Upload CSV"}
         </Button>
-      </label>
+      </div>
 
       {!fileName ? (
         <section className="rounded-lg border border-hairline bg-surface p-4">
