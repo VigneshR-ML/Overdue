@@ -10,7 +10,7 @@ import "@fontsource/ibm-plex-mono/500.css"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"),
   title: {
     default: "Overdue — Automated Invoice Follow-Up for Agencies & Freelancers",
     template: "%s · Overdue",
@@ -39,16 +39,36 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"
   const softwareJsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: "Overdue",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
-    url: "https://getoverdue.online",
+    url: siteUrl,
     description:
       "Automated invoice follow-ups that escalate gently, pause on reply, and stop on payment.",
     offers: { "@type": "Offer", price: "19", priceCurrency: "USD" },
+    publisher: { "@id": `${siteUrl}/#organization` },
+  }
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${siteUrl}/#organization`,
+    name: "Overdue",
+    url: siteUrl,
+    logo: `${siteUrl}/products/overdue-icon.png`,
+    email: "hello@getoverdue.online",
+    description: "Invoice follow-up software for freelancers and small agencies.",
+  }
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${siteUrl}/#website`,
+    name: "Overdue",
+    url: siteUrl,
+    publisher: { "@id": `${siteUrl}/#organization` },
   }
   return (
     <html lang="en">
@@ -59,6 +79,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd).replace(/</g, "\\u003c") }}
         />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd).replace(/</g, "\\u003c") }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd).replace(/</g, "\\u003c") }} />
         <SpeedInsights /><Analytics />
       </body>
     </html>

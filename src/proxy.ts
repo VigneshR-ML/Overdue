@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { updateSession } from "@/lib/supabase/middleware"
 
 const CANONICAL_HOST = (
-  process.env.NEXT_PUBLIC_APP_URL ?? "https://getoverdue.online"
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"
 ).replace(/^https?:\/\//, "")
   .replace(/\/+$/, "")
 

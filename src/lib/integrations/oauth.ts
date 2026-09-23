@@ -47,6 +47,6 @@ export function verifyState(state: string): string | null {
 
 export function appUrl() {
   const url = process.env.NEXT_PUBLIC_APP_URL
-  if (!url) console.warn("[app] NEXT_PUBLIC_APP_URL is not set — OAuth redirects and SEO metadata will use localhost:3000")
-  return url ?? "http://localhost:3000"
+  if (!url) console.warn("[app] NEXT_PUBLIC_APP_URL is not set — using the production canonical host")
+  return url ?? "https://www.getoverdue.online"
 }

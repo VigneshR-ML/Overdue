@@ -41,6 +41,7 @@ export function MarketingNav() {
           <Link className="transition-colors hover:text-ink" href="/#ai">AI Copilot</Link>
           <Link className="transition-colors hover:text-ink" href="/#pricing">Pricing</Link>
           <Link className="transition-colors hover:text-ink" href="/templates">Templates</Link>
+          <Link className="transition-colors hover:text-ink" href="/for-freelancers">For freelancers</Link>
           <Link className="transition-colors hover:text-ink" href="/#tools">Tools</Link>
         </nav>
         <div className="flex items-center gap-2">
@@ -70,6 +71,8 @@ export function MarketingNav() {
               ["/#ai", "AI Copilot"],
               ["/#pricing", "Pricing"],
               ["/templates", "Templates"],
+              ["/for-freelancers", "For freelancers"],
+              ["/for-agencies", "For agencies"],
               ["/#tools", "Tools"],
               ["/login", "Sign in"],
             ].map(([href, label]) => (

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next"
 import { EMAIL_TEMPLATES } from "@/lib/seo/email-templates"
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"
   const now = new Date()
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -15,6 +15,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/refund`, changeFrequency: "yearly", priority: 0.2, lastModified: now },
     { url: `${base}/templates`, changeFrequency: "weekly", priority: 0.8, lastModified: now },
     { url: `${base}/usd-invoice-follow-up`, changeFrequency: "monthly", priority: 0.8, lastModified: now },
+    { url: `${base}/for-freelancers`, changeFrequency: "monthly", priority: 0.85, lastModified: now },
+    { url: `${base}/for-agencies`, changeFrequency: "monthly", priority: 0.85, lastModified: now },
+    { url: `${base}/invoice-follow-up-software`, changeFrequency: "monthly", priority: 0.85, lastModified: now },
+    { url: `${base}/payment-reminder-software`, changeFrequency: "monthly", priority: 0.85, lastModified: now },
   ]
 
   const templates: MetadataRoute.Sitemap = EMAIL_TEMPLATES.map((t) => ({

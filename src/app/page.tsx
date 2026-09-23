@@ -317,7 +317,7 @@ export default function LandingPage() {
             Your next invoice goes out <em className="italic text-moss-bright">already covered.</em>
           </h2>
           <p className="mx-auto mt-4 max-w-measure text-[15px] text-paper/80">
-            Connect an invoice source, pick the ladder, and stop being the one who chases.
+            Import your invoice CSV, pick the ladder, and stop being the one who chases.
           </p>
           <div className="mt-8">
             <a href="/signup">
