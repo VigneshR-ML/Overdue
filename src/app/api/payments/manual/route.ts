@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getOwnedRecord } from "@/lib/supabase/ownership";
 import { requireWorkspaceRole } from "@/lib/supabase/workspace-guard";
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit";
+import { reconcilePaidWork } from "@/lib/recovery/paid";
 
 export const dynamic = "force-dynamic";
 
@@ -32,21 +33,25 @@ export async function POST(request: NextRequest) {
   if (body.confirm !== true) return NextResponse.json({ ok: false, error: "confirmation required", need_confirm: true }, { status: 422 });
   const supabase = createAdminClient();
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 });
-  const owned = await getOwnedRecord<{ id: string; amount_cents: number; workspace_id: string | null }>(supabase, "invoices", invoiceId, user!.id, "id, amount_cents, workspace_id");
+  const owned = await getOwnedRecord<{ id: string; amount_cents: number; paid_cents?: number; status?: string; workspace_id: string | null }>(supabase, "invoices", invoiceId, user!.id, "id, amount_cents, paid_cents, status, workspace_id");
   if (!owned.ok) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 });
   const gate = await requireWorkspaceRole(supabase, user!.id, owned.record.workspace_id ?? null, "admin");
   if (!gate.ok) return NextResponse.json({ ok: false, error: "forbidden — admin role required" }, { status: 403 });
 
   const threshold = Number(process.env.MANUAL_DUAL_CONTROL_THRESHOLD_CENTS ?? 50000);
-  const confirmerId = typeof body.confirmerId === "string" ? body.confirmerId : user!.id;
-  if (amountCents > threshold && confirmerId === user!.id) {
-    return NextResponse.json({ ok: false, error: `above ${threshold}c: creator and confirmer must differ`, need_dual_control: true }, { status: 422 });
+  const outstanding = Math.max(0, Number(owned.record.amount_cents) - Number(owned.record.paid_cents ?? 0));
+  if (amountCents > outstanding) return NextResponse.json({ ok: false, error: "payment exceeds the remaining invoice balance" }, { status: 422 });
+  // A caller cannot assert a different confirmer by sending an arbitrary UUID.
+  // The separate approval flow must authenticate the second workspace member.
+  if (amountCents > threshold) {
+    return NextResponse.json({ ok: false, error: `payments above ${threshold}c require a second authenticated workspace confirmation`, need_dual_control: true }, { status: 422 });
   }
+  const confirmerId = user!.id;
   const now = new Date().toISOString();
   const { data: payment, error: payErr } = await supabase.from("payments").insert({
-    user_id: user!.id, invoice_id: invoiceId, amount_cents: Math.round(amountCents),
+    user_id: user!.id, workspace_id: owned.record.workspace_id, invoice_id: invoiceId, amount_cents: Math.round(amountCents),
     currency: String(body.currency ?? "USD"), source, status: "confirmed",
-    recorded_by_member_id: null, paid_at: now,
+    reference, recorded_by_member_id: user!.id, paid_at: now,
   }).select("id").single();
   if (payErr || !payment) return NextResponse.json({ ok: false, error: (payErr as { message?: string } | null)?.message ?? "could not record — run 0022 migration" }, { status: 500 });
   try {
@@ -61,5 +66,15 @@ export async function POST(request: NextRequest) {
       job_type: "email", payload: { kind: "receipt", payment_id: (payment as { id: string }).id, invoice_id: invoiceId, amount_cents: amountCents }, run_after: now,
     });
   } catch { /* pre-migration */ }
-  return NextResponse.json({ ok: true, payment_id: (payment as { id: string }).id });
+  const nextPaid = Number(owned.record.paid_cents ?? 0) + Math.round(amountCents);
+  const isFullyPaid = nextPaid >= Number(owned.record.amount_cents);
+  const { error: invoiceError } = await supabase.from("invoices").update({
+    paid_cents: nextPaid,
+    status: isFullyPaid ? "paid" : "partially_paid",
+    paid_at: isFullyPaid ? now : null,
+    updated_at: now,
+  }).eq("id", invoiceId).eq("user_id", user!.id);
+  if (invoiceError) return NextResponse.json({ ok: false, error: "payment recorded but invoice reconciliation failed; retry reconciliation" }, { status: 503 });
+  if (isFullyPaid) await reconcilePaidWork(supabase, { userId: user!.id, invoiceId, source: `manual:${source}` });
+  return NextResponse.json({ ok: true, payment_id: (payment as { id: string }).id, paid_cents: nextPaid, status: isFullyPaid ? "paid" : "partially_paid" });
 }
