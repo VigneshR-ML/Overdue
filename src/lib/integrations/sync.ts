@@ -3,7 +3,6 @@ import { getCredentials, setCredentials, getOAuthConfig } from "./credentials"
 import { syncStripeInvoices } from "./stripe"
 import { syncPaypalInvoices } from "./paypal"
 import { syncXeroInvoices } from "./xero"
-import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
 import type { InboundInvoice, SyncResult } from "./provider"
 
 const refreshMutex = new Map<string, Promise<void>>()
@@ -211,7 +210,7 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
 
   // Auto-enroll new invoices in the user's default escalation ladder.
   if (added > 0) {
-    try { await attachDefaultRuns(userId) } catch { /* non-critical */ }
+  // Imported invoices wait for an explicit ladder choice in the invoice flow.
   }
 
   return { ok: true, result }

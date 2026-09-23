@@ -274,7 +274,7 @@ export function SequenceEditor({
 
                 <ToggleRow
                   title="AI draft"
-                  description="Ask the model to rewrite this rung in your voice, facts kept exact"
+                  description="Short, single-request polish; amounts, dates, and links stay deterministic"
                   checked={selected.ai_enabled}
                   disabled={readOnly}
                   onChange={(v) => patchSelected({ ai_enabled: v })}

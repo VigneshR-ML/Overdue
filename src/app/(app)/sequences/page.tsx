@@ -28,6 +28,8 @@ export default async function SequencesPage(props: { searchParams?: Promise<{ er
     ? "Free plan is limited to 1 ladder. Upgrade to Pro to add more."
     : searchParams?.error === "bad-template"
     ? "Couldn't load that template — try a different one."
+    : searchParams?.error === "create-failed"
+    ? "Couldn't create that ladder. Nothing was attached; try again."
     : null
 
   return (
@@ -93,7 +95,7 @@ export default async function SequencesPage(props: { searchParams?: Promise<{ er
               name={`${t.name} · clone`}
               description={t.description}
               steps={t.steps as unknown as SequenceStep[]}
-              href={`/sequences/new?from=${t.id}`}
+              href={`/sequences/new?from=${t.id}${searchParams?.attachTo ? `&attachTo=${encodeURIComponent(searchParams.attachTo)}` : ""}`}
               meta="template"
               active={false}
             />

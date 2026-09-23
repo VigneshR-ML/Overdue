@@ -224,15 +224,17 @@ export async function computeClientPaymentScores(userId: string) {
   return out
 }
 
-export async function getOwnerNotifications(userId: string, limit = 20) {
+export async function getOwnerNotifications(userId: string, limit = 20, before?: string) {
   const supabase = await createClient()
-  const { data } = await supabase
+  let query = supabase
     .from("owner_notifications")
     .select("id, title, body, href, read_at, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(Math.min(limit, 50))
-  return (data ?? []) as { id: string; title: string; body: string; href: string | null; read_at: string | null; created_at: string }[]
+    .limit(Math.min(limit, 100))
+  if (before) query = query.lt("created_at", before)
+  const { data } = await query
+  return (data ?? []) as { id: string; type: string; title: string; body: string; href: string | null; read_at: string | null; created_at: string }[]
 }
 
 export async function getSubscriptionsForUser(userId: string) {
@@ -721,6 +723,7 @@ export interface InvoiceDetailRow {
   offers: SettlementOffer[]
   replies: ReplyThreadItem[]
   disputes: OpenDisputeRow[]
+  paymentPlans: { id: string; requested_cents: number | null; message: string; created_at: string }[]
 }
 
 /** Everything the invoice detail page needs, in one scoped read. */
@@ -758,9 +761,10 @@ export async function getInvoiceDetail(userId: string, invoiceId: string): Promi
       .limit(3),
   ])
 
-  const [replies, disputes] = await Promise.all([
+  const [replies, disputes, paymentPlans] = await Promise.all([
     getReplyThread(userId, invoiceId),
     getOpenDisputesForInvoice(userId, invoiceId),
+    supabase.from("payment_plan_requests").select("id, requested_cents, message, created_at").eq("user_id", userId).eq("invoice_id", invoiceId).eq("status", "open").order("created_at", { ascending: false }),
   ])
 
   const rest = invoice as unknown as Record<string, unknown>
@@ -774,5 +778,6 @@ export async function getInvoiceDetail(userId: string, invoiceId: string): Promi
     offers: (offers ?? []) as unknown as SettlementOffer[],
     replies,
     disputes,
+    paymentPlans: (paymentPlans.data ?? []) as { id: string; requested_cents: number | null; message: string; created_at: string }[],
   }
 }

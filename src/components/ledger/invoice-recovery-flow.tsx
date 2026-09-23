@@ -219,9 +219,12 @@ export function InvoiceRecoveryFlow({
                 </div>
               </div>
               {hasRun ? (
-                <Button type="button" variant="ink" disabled={!canSend || sending || loadingPreview} onClick={openReview}>
-                  {loadingPreview ? "Preparing…" : sending ? "Sending…" : "Review email"}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`/sequences?attachTo=${encodeURIComponent(invoiceId)}`} className="inline-flex h-10 items-center justify-center rounded-md border border-hairline px-3 text-sm font-medium text-ink hover:border-ink-soft hover:bg-surface focus-ring">Change ladder</Link>
+                  <Button type="button" variant="ink" disabled={!canSend || sending || loadingPreview} onClick={openReview}>
+                    {loadingPreview ? "Preparing…" : sending ? "Sending…" : "Review email"}
+                  </Button>
+                </div>
               ) : (
                 <Link href={`/sequences?attachTo=${encodeURIComponent(invoiceId)}`} className="inline-flex h-10 items-center justify-center rounded-md border border-hairline px-4 text-sm font-medium text-ink hover:border-ink-soft hover:bg-surface focus-ring">Attach a ladder</Link>
               )}
@@ -238,7 +241,7 @@ export function InvoiceRecoveryFlow({
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-ink/45 p-0 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(e) => {
           if (e.target === e.currentTarget && !sending) setReviewOpen(false)
         }}>
-          <div ref={reviewRef} role="dialog" aria-modal="true" aria-labelledby="send-review-title" className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-hairline bg-surface p-5 shadow-2xl sm:max-w-lg sm:rounded-xl">
+          <div ref={reviewRef} role="dialog" aria-modal="true" aria-labelledby="send-review-title" className="max-h-[92dvh] w-full overscroll-contain overflow-y-auto rounded-t-2xl border border-hairline bg-surface p-5 shadow-2xl sm:max-w-lg sm:rounded-xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-moss">Final confirmation</div>
@@ -260,7 +263,7 @@ export function InvoiceRecoveryFlow({
                 <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Subject</div>
                 <div className="mt-1 text-[14px] font-medium text-ink">{preview?.subject ?? "Preparing preview…"}</div>
               </div>
-              <div className="max-h-[38dvh] overflow-y-auto whitespace-pre-wrap px-4 py-4 text-[13px] leading-relaxed text-ink-soft">
+              <div tabIndex={0} className="max-h-[48dvh] overscroll-contain overflow-y-auto whitespace-pre-wrap px-4 py-4 text-[13px] leading-relaxed text-ink-soft">
                 {preview?.body ?? ""}{preview?.resolveLabel ? <div className="mt-5 rounded-md bg-moss px-4 py-3 text-center text-sm font-medium text-white">{preview.resolveLabel}</div> : null}
               </div>
             </div>

@@ -14,6 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/terms`, changeFrequency: "yearly", priority: 0.2, lastModified: now },
     { url: `${base}/refund`, changeFrequency: "yearly", priority: 0.2, lastModified: now },
     { url: `${base}/templates`, changeFrequency: "weekly", priority: 0.8, lastModified: now },
+    { url: `${base}/usd-invoice-follow-up`, changeFrequency: "monthly", priority: 0.8, lastModified: now },
   ]
 
   const templates: MetadataRoute.Sitemap = EMAIL_TEMPLATES.map((t) => ({

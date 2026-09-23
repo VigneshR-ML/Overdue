@@ -1,6 +1,6 @@
 export type OwnerNotificationInput = {
   userId: string
-  type: "settlement_accepted" | "payment_promise" | "payment_plan" | "dispute" | "invoice_paid" | "reply_received" | "payment_link_needed"
+  type: "settlement_accepted" | "payment_promise" | "payment_plan" | "dispute" | "invoice_paid" | "reply_received" | "payment_link_needed" | "reminder_sent"
   title: string
   body: string
   href?: string | null

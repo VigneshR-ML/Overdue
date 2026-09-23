@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { parseCsv } from "@/lib/integrations/csv"
-import { attachDefaultRuns } from "@/lib/scheduler/dispatch"
 import { getPlan, countForUser, FREE_CLIENT_LIMIT, FREE_INVOICE_LIMIT } from "@/lib/billing/plan"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
@@ -150,15 +149,13 @@ export async function POST(request: NextRequest) {
     } else added++
   }
 
-  // Mark csv integration present + attach ladders.
+  // Mark the CSV integration present. Ladders are chosen per invoice.
   await db
     .from("integrations")
     .upsert(
       { user_id: user!.id, provider: "csv", status: "connected", display_name: "CSV import", last_synced_at: new Date().toISOString() },
       { onConflict: "user_id,provider" },
     )
-  await attachDefaultRuns(user!.id)
-
   return NextResponse.json({
     ok: true,
     result: { added, updated, errors },

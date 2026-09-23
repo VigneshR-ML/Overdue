@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { attachDefaultRuns, previewRunEmail } from "@/lib/scheduler/dispatch"
+import { previewRunEmail } from "@/lib/scheduler/dispatch"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -36,22 +36,9 @@ export async function POST(_request: Request, props: { params: Promise<{ id: str
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (!run) {
-    await attachDefaultRuns(user!.id)
-    const retry = await supabase
-      .from("runs")
-      .select("id")
-      .eq("invoice_id", id)
-      .eq("user_id", user!.id)
-      .in("status", ["queued", "paused", "failed"])
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    run = retry.data
-  }
   if (!run?.id) {
     return NextResponse.json(
-      { ok: false, error: "No active ladder is attached. Create or activate a default ladder, then return here." },
+      { ok: false, error: "No ladder is attached to this invoice. Choose one before reviewing the email." },
       { status: 400 },
     )
   }
@@ -60,4 +47,3 @@ export async function POST(_request: Request, props: { params: Promise<{ id: str
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 409 })
   return NextResponse.json({ ok: true, preview: result.preview })
 }
-

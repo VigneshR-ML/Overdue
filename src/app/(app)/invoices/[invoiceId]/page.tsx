@@ -12,6 +12,7 @@ import { RecoveryTimeline } from "@/components/ledger/recovery-timeline"
 import { InvoiceRecoveryFlow } from "@/components/ledger/invoice-recovery-flow"
 import { buildInvoiceTimeline, type TimelineRun } from "@/lib/onboarding/timeline"
 import { ArrowLeft } from "lucide-react"
+import { PaymentPlanRequest } from "@/components/ledger/payment-plan-request"
 
 export const metadata = { title: "Invoice" }
 
@@ -201,6 +202,8 @@ export default async function InvoiceDetailPage(
           status: liveOffer.status,
         } : null}
       />
+
+      {row.paymentPlans.map((request) => <PaymentPlanRequest key={request.id} request={request} currency={invoice.currency} />)}
 
       {/* Replies / disputes */}
       {row.replies.length || row.disputes.length ? (

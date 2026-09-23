@@ -610,6 +610,15 @@ async function dispatchOne(
     }
 
     await supabase.from("messages").update({ status: "sent", resend_message_id: sent.id, sent_at: sentAt }).eq("id", msgRow.id)
+    await notifyOwner(supabase, {
+      userId: run.user_id,
+      type: "reminder_sent",
+      title: "Reminder sent",
+      body: `Rung ${step.step_order} was sent to ${toEmail}.`,
+      href: `/invoices/${run.invoice_id}`,
+      dedupeKey: `reminder-sent:${msgRow.id}`,
+      meta: { invoice_id: run.invoice_id, run_id: runId, message_id: msgRow.id, rung: step.step_order },
+    })
   } catch (err) {
     // Send failure: mark the write-ahead row failed so a retry may re-send,
     // then requeue with backoff.

@@ -2,17 +2,17 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
 import { getTemplates } from "@/lib/db/queries"
-import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { ArrowLeft } from "lucide-react"
 import { TonePill } from "@/components/ledger/escalation-ladder"
 import type { SequenceStep } from "@/types"
+import { CreateLadderSubmit } from "@/components/ledger/create-ladder-submit"
 
 export const metadata = { title: "New ladder" }
 
 export const dynamic = "force-dynamic"
 
-export default async function NewSequencePage(props: { searchParams: Promise<{ from?: string }> }) {
+export default async function NewSequencePage(props: { searchParams: Promise<{ from?: string; attachTo?: string }> }) {
   const searchParams = await props.searchParams;
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
@@ -22,6 +22,7 @@ export default async function NewSequencePage(props: { searchParams: Promise<{ f
   const preset = searchParams.from
     ? templates?.find((t) => t.id === searchParams.from)
     : null
+  const attachTo = typeof searchParams.attachTo === "string" ? searchParams.attachTo : null
 
   async function createBlank(formData: FormData) {
     "use server"
@@ -38,6 +39,7 @@ export default async function NewSequencePage(props: { searchParams: Promise<{ f
       .select("id", { count: "exact", head: true })
       .eq("user_id", session.id)
       .eq("is_template", false)
+      .eq("is_default", false)
     const currentPlan = await (await import("@/lib/billing/plan")).getPlan(session.id)
     if (currentPlan === "free" && (count ?? 0) >= 1) {
       redirect("/sequences?error=free-limit")
@@ -49,7 +51,16 @@ export default async function NewSequencePage(props: { searchParams: Promise<{ f
       .select("id")
       .single()
 
-    if (!error && data) redirect(`/sequences/${data.id}`)
+    if (!error && data) {
+      if (attachTo) {
+        const { startRun } = await import("@/lib/scheduler/dispatch")
+        await supabase.from("runs").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("user_id", session.id).eq("invoice_id", attachTo).in("status", ["queued", "processing", "sent", "paused", "failed"])
+        const attached = await startRun({ userId: session.id, sequenceId: data.id, invoiceId: attachTo })
+        if (attached.ok) redirect(`/invoices/${attachTo}?ladder=attached`)
+      }
+      redirect(`/sequences/${data.id}`)
+    }
+    redirect("/sequences?error=create-failed")
   }
 
   async function createFromTemplate(formData: FormData) {
@@ -68,6 +79,7 @@ export default async function NewSequencePage(props: { searchParams: Promise<{ f
       .select("id", { count: "exact", head: true })
       .eq("user_id", session.id)
       .eq("is_template", false)
+      .eq("is_default", false)
     const currentPlan = await (await import("@/lib/billing/plan")).getPlan(session.id)
     if (currentPlan === "free" && (count ?? 0) >= 1) {
       redirect("/sequences?error=free-limit")
@@ -93,7 +105,16 @@ export default async function NewSequencePage(props: { searchParams: Promise<{ f
       .select("id")
       .single()
 
-    if (!error && data) redirect(`/sequences/${data.id}`)
+    if (!error && data) {
+      if (attachTo) {
+        const { startRun } = await import("@/lib/scheduler/dispatch")
+        await supabase.from("runs").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("user_id", session.id).eq("invoice_id", attachTo).in("status", ["queued", "processing", "sent", "paused", "failed"])
+        const attached = await startRun({ userId: session.id, sequenceId: data.id, invoiceId: attachTo })
+        if (attached.ok) redirect(`/invoices/${attachTo}?ladder=attached`)
+      }
+      redirect(`/sequences/${data.id}`)
+    }
+    redirect("/sequences?error=create-failed")
   }
 
   return (
@@ -124,7 +145,7 @@ export default async function NewSequencePage(props: { searchParams: Promise<{ f
             />
           </div>
           <div className="mt-5">
-            <Button type="submit" variant="moss">Create ladder</Button>
+            <CreateLadderSubmit>Create ladder</CreateLadderSubmit>
           </div>
         </form>
       ) : (
@@ -138,7 +159,7 @@ export default async function NewSequencePage(props: { searchParams: Promise<{ f
                 className="h-10 w-full rounded-md border border-hairline bg-surface px-3 text-sm text-ink focus:border-ink-soft focus:outline-none focus:ring-2 focus:ring-ink/10"
               />
             </label>
-            <Button type="submit" variant="ink">Blank ladder</Button>
+            <CreateLadderSubmit variant="ink">Blank ladder</CreateLadderSubmit>
           </div>
         </form>
       )}
@@ -150,7 +171,7 @@ export default async function NewSequencePage(props: { searchParams: Promise<{ f
             return (
               <a
                 key={t.id}
-                href={`/sequences/new?from=${t.id}`}
+                href={`/sequences/new?from=${t.id}${attachTo ? `&attachTo=${encodeURIComponent(attachTo)}` : ""}`}
                 className="group rounded-lg border border-hairline bg-surface p-5 shadow-ledger transition-all duration-150 hover:-translate-y-0.5 hover:border-ink-soft"
               >
                 <div className="font-display text-lg text-ink group-hover:text-moss">{t.name}</div>

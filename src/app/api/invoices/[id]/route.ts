@@ -132,14 +132,23 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
   const { user, error } = await requireUser()
   if (error) return error
 
+  const rl = await rateLimit(`invoices-attach:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) return NextResponse.json({ ok: false, error: "Too many ladder changes. Try again shortly." }, { status: 429 })
+
   let postBody: any
   try { postBody = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
   const sequenceId = String(postBody.sequenceId ?? "").slice(0, 45)
   if (!sequenceId) return NextResponse.json({ ok: false, error: "sequenceId required" }, { status: 400 })
 
+  const supabase = createAdminClient()
+  if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
+  // Validate the target before changing an existing workflow. Previously an
+  // invalid/inactive target could cancel the working ladder first.
+  const { data: target } = await supabase.from("sequences").select("id, user_id, is_template, is_active").eq("id", sequenceId).maybeSingle()
+  if (!target || (!target.is_template && target.user_id !== user!.id)) return NextResponse.json({ ok: false, error: "That ladder is unavailable." }, { status: 404 })
+  if (!target.is_active) return NextResponse.json({ ok: false, error: "Activate this ladder before attaching it." }, { status: 409 })
+
   if (postBody.replace === true) {
-    const supabase = createAdminClient()
-    if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
     await supabase.from("runs").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("user_id", user!.id).eq("invoice_id", params.id).in("status", ["queued", "processing", "sent", "paused", "failed"])
   }
 
