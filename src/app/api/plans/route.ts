@@ -36,6 +36,11 @@ export async function POST(request: NextRequest) {
 
   const { data: req } = await supabase.from("payment_plan_requests").select("id, user_id, invoice_id, status, workspace_id").eq("id", requestId).eq("user_id", user!.id).maybeSingle();
   if (!req) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 });
+  const { data: invoice } = await supabase.from("invoices").select("id, amount_cents, paid_cents, paid_at, status, currency").eq("id", (req as { invoice_id: string }).invoice_id).eq("user_id", user!.id).maybeSingle();
+  if (!invoice) return NextResponse.json({ ok: false, error: "invoice not found" }, { status: 404 });
+  const outstandingCents = Math.max(0, Number(invoice.amount_cents) - Number(invoice.paid_cents));
+  if (!outstandingCents || invoice.paid_at || invoice.status === "paid") return NextResponse.json({ ok: false, error: "invoice has no outstanding balance" }, { status: 409 });
+  if (totalCents !== outstandingCents) return NextResponse.json({ ok: false, error: "totalCents must equal the current outstanding invoice balance" }, { status: 422 });
   // Workspace role enforcement (matrix: reviewPlan = admin+). Null workspace → owner fallback (single-user compat).
   const gate = await requireWorkspaceRole(supabase, user!.id, (req as { workspace_id?: string | null }).workspace_id ?? null, "admin");
   if (!gate.ok) return NextResponse.json({ ok: false, error: "forbidden — admin role required" }, { status: 403 });
@@ -44,11 +49,11 @@ export async function POST(request: NextRequest) {
   await supabase.from("settlement_offers").update({ status: "suspended", suspended_reason: "plan_proposed", updated_at: new Date().toISOString() })
     .eq("invoice_id", (req as { invoice_id: string }).invoice_id).eq("user_id", user!.id).in("status", ["approved", "sent"]);
 
-  const { data: settings } = await supabase.from("payment_plan_settings").select("*").limit(1).maybeSingle();
+  const { data: settings } = await supabase.from("payment_plan_settings").select("*").eq("workspace_id", (req as { workspace_id?: string | null }).workspace_id ?? "").maybeSingle();
   const s = (settings ?? {}) as { min_installment_cents?: number; max_installments?: number; max_duration_days?: number; version?: number; timezone?: string };
-  const minCents = Number(body.minCents ?? s.min_installment_cents ?? 10000);
-  const maxCount = Number(body.maxCount ?? s.max_installments ?? 12);
-  const maxDurationDays = Number(body.maxDurationDays ?? s.max_duration_days ?? 365);
+  const minCents = Number(s.min_installment_cents ?? 10000);
+  const maxCount = Number(s.max_installments ?? 12);
+  const maxDurationDays = Number(s.max_duration_days ?? 365);
 
   const result = buildInstallments({ totalCents, preferredCents, minCents, maxCount, maxDurationDays, frequency });
   if (result.kind === "no_plan") return NextResponse.json({ ok: false, error: result.reason }, { status: 422 });
@@ -67,8 +72,9 @@ export async function POST(request: NextRequest) {
   const version = Number((prior as { proposal_version?: number } | null)?.proposal_version ?? 0) + 1;
   const now = new Date().toISOString();
   const { data: plan, error: planErr } = await supabase.from("payment_plans").insert({
-    user_id: user!.id, invoice_id: (req as { invoice_id: string }).invoice_id, request_id: requestId,
-    total_cents: totalCents, currency: String(body.currency ?? "USD"), installment_count: finalCount,
+    user_id: user!.id, workspace_id: (req as { workspace_id?: string | null }).workspace_id ?? null,
+    invoice_id: (req as { invoice_id: string }).invoice_id, request_id: requestId,
+    total_cents: outstandingCents, currency: String(invoice.currency ?? "USD"), installment_count: finalCount,
     frequency, starts_on: startsOn, status: "proposed", proposal_version: version,
     supersedes_plan_id: (prior as { id?: string } | null)?.id ?? null,
     policy_snapshot: { version: s.version ?? 1, min_installment_cents: minCents, max_installments: maxCount, max_duration_days: maxDurationDays, timezone: s.timezone ?? "UTC" },
@@ -79,7 +85,8 @@ export async function POST(request: NextRequest) {
 
   const dates = buildDueDates(startsOn, frequency, finalCount);
   const rows = finalInstallments.map((amount_cents, i) => ({
-    payment_plan_id: (plan as { id: string }).id, sequence_no: i + 1, amount_cents, currency: String(body.currency ?? "USD"), due_date: dates[i], status: "scheduled",
+    payment_plan_id: (plan as { id: string }).id, workspace_id: (req as { workspace_id?: string | null }).workspace_id ?? null,
+    sequence_no: i + 1, amount_cents, currency: String(invoice.currency ?? "USD"), due_date: dates[i], status: "scheduled",
   }));
   const { error: instErr } = await supabase.from("plan_installments").insert(rows);
   if (instErr) return NextResponse.json({ ok: false, error: instErr.message }, { status: 500 });
