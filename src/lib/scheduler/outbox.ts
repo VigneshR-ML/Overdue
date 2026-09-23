@@ -1,7 +1,6 @@
 import { appUrl } from "@/lib/integrations/oauth"
 import { signResolutionToken } from "@/lib/recovery/token"
 import { renderPlanEmail, sendEmail, type PlanEmailKind } from "@/lib/resend/send"
-import { formatMoney } from "@/lib/utils/format"
 
 type OutboxJob = {
   id: string
