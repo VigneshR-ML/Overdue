@@ -44,6 +44,7 @@ export default async function InvoiceDetailPage(
   ) ?? null
   const promiseDate = run?.promise_date ?? null
   const latestPlan = row.paymentPlans[0] ?? null
+  const latestLedgerPlan = row.planLedger[0] ?? null
 
   const milestones = buildInvoiceTimeline({
     created_at: invoice.created_at,
@@ -64,7 +65,7 @@ export default async function InvoiceDetailPage(
     lastReply: latestReply ? { classification: latestReply.classification, created_at: latestReply.created_at } : null,
     promiseDate,
     promiseMissed: Boolean(run?.promise_missed),
-    paymentPlanStatus: latestPlan?.status ?? null,
+    paymentPlanStatus: latestLedgerPlan?.status ?? latestPlan?.status ?? null,
     disputeOpen: row.disputes.length > 0,
     paidAt: invoice.paid_at,
     paidCents: invoice.paid_cents,
@@ -204,6 +205,27 @@ export default async function InvoiceDetailPage(
       />
 
       {row.paymentPlans.map((request) => <PaymentPlanRequest key={request.id} request={request} currency={invoice.currency} />)}
+
+      {latestLedgerPlan ? (
+        <Card>
+          <CardHeader>
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Payment plan · {latestLedgerPlan.status}</span>
+          </CardHeader>
+          <CardBody>
+            <p className="text-sm text-muted">
+              {latestLedgerPlan.installment_count} {latestLedgerPlan.frequency} payments from {formatDate(latestLedgerPlan.starts_on)} · {formatMoney(latestLedgerPlan.total_cents, latestLedgerPlan.currency)}
+            </p>
+            <div className="mt-3 max-h-60 divide-y divide-hairline overflow-y-auto rounded-md border border-hairline">
+              {latestLedgerPlan.plan_installments.slice().sort((a, b) => a.sequence_no - b.sequence_no).map((installment) => (
+                <div key={installment.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]">
+                  <span>Installment {installment.sequence_no} · {formatDate(installment.due_date)} · {installment.status.replace("_", " ")}</span>
+                  <span className="font-mono text-ink">{formatMoney(installment.amount_cents, latestLedgerPlan.currency)}</span>
+                </div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      ) : null}
 
       {/* Replies / disputes */}
       {row.replies.length || row.disputes.length ? (
