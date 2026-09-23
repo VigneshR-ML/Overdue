@@ -7,12 +7,10 @@ import { PaidBadge, OverdueBadge, SentBadge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { PageHeader } from "@/components/app-shell/page-header"
-import { ReplyThread } from "@/components/ledger/reply-thread"
-import { RecoveryTimeline } from "@/components/ledger/recovery-timeline"
 import { InvoiceRecoveryFlow } from "@/components/ledger/invoice-recovery-flow"
+import { InvoiceDetailedView } from "@/components/ledger/invoice-detailed-view"
 import { buildInvoiceTimeline, type TimelineRun } from "@/lib/onboarding/timeline"
 import { ArrowLeft } from "lucide-react"
-import { PaymentPlanRequest } from "@/components/ledger/payment-plan-request"
 
 export const metadata = { title: "Invoice" }
 
@@ -98,7 +96,26 @@ export default async function InvoiceDetailPage(
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-paper px-4 py-3">
+        <div>
+          <p className="text-[13px] font-medium text-ink">Keep this page focused on the next recovery action.</p>
+          <p className="mt-0.5 text-[12px] text-muted">Plans, replies, email history, and the full audit trail live in Detailed view.</p>
+        </div>
+        <InvoiceDetailedView
+          invoiceNumber={invoice.number}
+          currency={invoice.currency}
+          milestones={milestones}
+          planStatus={latestLedgerPlan?.status ?? latestPlan?.status ?? null}
+          paymentPlans={row.paymentPlans}
+          planLedger={row.planLedger}
+          replies={row.replies}
+          disputes={row.disputes}
+          messages={row.messages}
+          workflowEvents={row.workflowEvents}
+        />
+      </div>
+
+      <div className="max-w-2xl">
         {/* Financial summary */}
         <Card>
           <CardHeader>
@@ -168,20 +185,6 @@ export default async function InvoiceDetailPage(
           </CardBody>
         </Card>
 
-        {/* Recovery timeline */}
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Recovery timeline</span>
-            <span className="font-mono text-[11px] text-faint">{run?.sequenceName ? `${run.sequenceName} ladder` : "no ladder"}</span>
-          </CardHeader>
-          <CardBody>
-            {milestones.length ? (
-              <RecoveryTimeline milestones={milestones} />
-            ) : (
-              <p className="text-sm text-muted">Nothing tracked for this invoice yet.</p>
-            )}
-          </CardBody>
-        </Card>
       </div>
 
       <InvoiceRecoveryFlow
@@ -203,60 +206,6 @@ export default async function InvoiceDetailPage(
           status: liveOffer.status,
         } : null}
       />
-
-      {row.paymentPlans.map((request) => <PaymentPlanRequest key={request.id} request={request} currency={invoice.currency} />)}
-
-      {latestLedgerPlan ? (
-        <Card>
-          <CardHeader>
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Payment plan · {latestLedgerPlan.status}</span>
-          </CardHeader>
-          <CardBody>
-            <p className="text-sm text-muted">
-              {latestLedgerPlan.installment_count} {latestLedgerPlan.frequency} payments from {formatDate(latestLedgerPlan.starts_on)} · {formatMoney(latestLedgerPlan.total_cents, latestLedgerPlan.currency)}
-            </p>
-            <div className="mt-3 max-h-60 divide-y divide-hairline overflow-y-auto rounded-md border border-hairline">
-              {latestLedgerPlan.plan_installments.slice().sort((a, b) => a.sequence_no - b.sequence_no).map((installment) => (
-                <div key={installment.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[13px]">
-                  <span>Installment {installment.sequence_no} · {formatDate(installment.due_date)} · {installment.status.replace("_", " ")}</span>
-                  <span className="font-mono text-ink">{formatMoney(installment.amount_cents, latestLedgerPlan.currency)}</span>
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {/* Replies / disputes */}
-      {row.replies.length || row.disputes.length ? (
-        <ReplyThread replies={row.replies} disputes={row.disputes} />
-      ) : null}
-
-      {/* Message history */}
-      {row.messages.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Reminder history · {row.messages.length}</span>
-          </CardHeader>
-          <CardBody>
-            <ul className="divide-y divide-hairline">
-              {row.messages.map((m) => (
-                <li key={m.id} className="py-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                    <span className="text-[14px] font-medium text-ink">{m.subject}</span>
-                    <span className="font-mono text-[11px] text-faint">
-                      {formatDate(m.sent_at)} · rung {m.step} {m.opened_at ? "· opened" : "· not opened yet"}
-                    </span>
-                  </div>
-                  <div tabIndex={0} className="mt-1.5 max-h-48 overflow-y-auto overscroll-contain whitespace-pre-line pr-2 text-[13px] leading-relaxed text-muted">
-                    {m.body}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
-      ) : null}
 
       <Link href={`/invoices?focus=${invoice.id}`}>
         <Button variant="outline">Open in ledger</Button>
