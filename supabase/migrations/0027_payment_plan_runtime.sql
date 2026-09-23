@@ -77,3 +77,114 @@ end;
 $$;
 revoke all on function public.claim_due_outbox_jobs(int) from public;
 grant execute on function public.claim_due_outbox_jobs(int) to service_role;
+
+
+-- Reconcile a confirmed ledger payment exactly once. This database transaction
+-- is the single authority for invoice balances and installment allocations.
+create or replace function public.reconcile_confirmed_payment(p_payment_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  pay public.payments%rowtype;
+  inv public.invoices%rowtype;
+  plan public.payment_plans%rowtype;
+  inst public.plan_installments%rowtype;
+  remaining int;
+  applied int;
+  allocation int;
+  installment_remaining int;
+  first_installment uuid := null;
+  all_plan_paid boolean := false;
+begin
+  select * into pay from public.payments where id = p_payment_id for update;
+  if not found then raise exception 'payment not found'; end if;
+  if pay.status <> 'confirmed' then raise exception 'payment is not confirmed'; end if;
+  if pay.reconciled_at is not null then
+    return jsonb_build_object('already_reconciled', true, 'invoice_id', pay.invoice_id);
+  end if;
+
+  select * into inv from public.invoices where id = pay.invoice_id for update;
+  if not found then raise exception 'invoice not found'; end if;
+  remaining := greatest(0, inv.amount_cents - coalesce(inv.paid_cents, 0));
+  applied := least(pay.amount_cents, remaining);
+
+  select * into plan
+  from public.payment_plans
+  where invoice_id = pay.invoice_id
+    and status in ('active', 'delinquent')
+  order by created_at desc
+  limit 1
+  for update;
+
+  if found and applied > 0 then
+    remaining := applied;
+    for inst in
+      select *
+      from public.plan_installments
+      where payment_plan_id = plan.id
+        and status in ('scheduled', 'due', 'partially_paid', 'overdue')
+      order by due_date asc, sequence_no asc
+      for update
+    loop
+      exit when remaining <= 0;
+      installment_remaining := greatest(0, inst.amount_cents - coalesce(inst.paid_cents, 0));
+      if installment_remaining = 0 then continue; end if;
+      allocation := least(remaining, installment_remaining);
+      insert into public.payment_allocations(payment_id, plan_installment_id, workspace_id, amount_cents)
+        values (pay.id, inst.id, coalesce(pay.workspace_id, plan.workspace_id), allocation)
+        on conflict (payment_id, plan_installment_id) do nothing;
+      update public.plan_installments
+      set paid_cents = coalesce(paid_cents, 0) + allocation,
+          paid_at = case when coalesce(paid_cents, 0) + allocation >= amount_cents then now() else paid_at end,
+          status = case
+            when coalesce(paid_cents, 0) + allocation >= amount_cents then 'paid'
+            else 'partially_paid'
+          end
+      where id = inst.id;
+      if first_installment is null then first_installment := inst.id; end if;
+      remaining := remaining - allocation;
+    end loop;
+  end if;
+
+  update public.invoices
+  set paid_cents = coalesce(paid_cents, 0) + applied,
+      paid_at = case when coalesce(paid_cents, 0) + applied >= amount_cents then now() else paid_at end,
+      status = case
+        when coalesce(paid_cents, 0) + applied >= amount_cents then 'paid'
+        else 'partially_paid'
+      end,
+      updated_at = now()
+  where id = inv.id;
+
+  if first_installment is not null then
+    update public.payments set plan_installment_id = first_installment where id = pay.id;
+  end if;
+
+  if found then
+    select not exists(
+      select 1 from public.plan_installments
+      where payment_plan_id = plan.id and status <> 'paid'
+    ) into all_plan_paid;
+    if all_plan_paid then
+      update public.payment_plans
+      set status = 'completed', completion_source = 'final_installment_paid', updated_at = now()
+      where id = plan.id and status in ('active', 'delinquent');
+    end if;
+  end if;
+
+  update public.payments set reconciled_at = now() where id = pay.id;
+  return jsonb_build_object(
+    'invoice_id', inv.id,
+    'user_id', inv.user_id,
+    'workspace_id', inv.workspace_id,
+    'applied_cents', applied,
+    'fully_paid', coalesce(inv.paid_cents, 0) + applied >= inv.amount_cents,
+    'plan_completed', all_plan_paid
+  );
+end;
+$$;
+revoke all on function public.reconcile_confirmed_payment(uuid) from public;
+grant execute on function public.reconcile_confirmed_payment(uuid) to service_role;
