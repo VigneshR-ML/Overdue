@@ -240,7 +240,7 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
         )}
       </div>
 
-      {offer.proposedPlan ? (
+      {offer.proposedPlan && !done?.startsWith("plan_") ? (
         <div className="rounded-lg border border-moss/40 bg-moss-soft p-5">
           <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-moss">Payment plan ready</p>
           <h2 className="mt-1 font-display text-xl text-ink">Review your proposed schedule</h2>
