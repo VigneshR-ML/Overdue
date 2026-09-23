@@ -112,7 +112,15 @@ begin
   if not found then raise exception 'payment not found'; end if;
   if pay.status <> 'confirmed' then raise exception 'payment is not confirmed'; end if;
   if pay.reconciled_at is not null then
-    return jsonb_build_object('already_reconciled', true, 'invoice_id', pay.invoice_id);
+    return jsonb_build_object(
+      'already_reconciled', true,
+      'invoice_id', pay.invoice_id,
+      'user_id', pay.user_id,
+      'workspace_id', pay.workspace_id,
+      'applied_cents', 0,
+      'fully_paid', false,
+      'plan_completed', false
+    );
   end if;
 
   select * into inv from public.invoices where id = pay.invoice_id for update;
@@ -182,6 +190,11 @@ begin
       update public.payment_plans
       set status = 'completed', completion_source = 'final_installment_paid', updated_at = now()
       where id = plan.id and status in ('active', 'delinquent');
+    elsif plan.status = 'delinquent' and not exists (
+      select 1 from public.plan_installments
+      where payment_plan_id = plan.id and status = 'overdue'
+    ) then
+      update public.payment_plans set status = 'active', updated_at = now() where id = plan.id;
     end if;
   end if;
 
