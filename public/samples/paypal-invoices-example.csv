@@ -1,3 +1,0 @@
-Invoice Number,Recipient Email,Recipient Name,Invoice Total,Currency,Invoice Date,Due Date,Status,Invoice URL
-INV-PP-1001,alex@example.com,Alex Morgan LLC,125.50,USD,2026-09-01,2026-09-15,SENT,https://example.com/paypal/INV-PP-1001
-INV-PP-1002,blair@example.com,Blair Studio,840.00,USD,2026-08-20,2026-09-05,OVERDUE,https://example.com/paypal/INV-PP-1002

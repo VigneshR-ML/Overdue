@@ -1,3 +1,0 @@
-id,customer_email,customer_name,amount_due,currency,created,due_date,status,hosted_invoice_url
-in_example_1001,casey@example.com,Casey Design,250.00,usd,2026-09-02,2026-09-16,open,https://example.com/stripe/in_example_1001
-in_example_1002,drew@example.com,Drew Media,1500.00,usd,2026-08-18,2026-09-01,open,https://example.com/stripe/in_example_1002

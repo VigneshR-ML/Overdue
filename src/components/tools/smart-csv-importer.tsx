@@ -212,25 +212,6 @@ export function SmartCsvImporter() {
         </Button>
       </div>
 
-      {!fileName ? (
-        <section className="rounded-lg border border-hairline bg-surface p-4">
-          <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Try a sample export</div>
-          <p className="mt-1 text-[13px] text-muted">These contain fictional data and use the header style from each platform. Upload one to review the AI mapping.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {[
-              ["PayPal", "/samples/paypal-invoices-example.csv"],
-              ["Stripe", "/samples/stripe-invoices-example.csv"],
-              ["QuickBooks", "/samples/quickbooks-invoices-example.csv"],
-              ["Xero", "/samples/xero-invoices-example.csv"],
-            ].map(([label, href]) => (
-              <a key={label} href={href} download className="rounded-md border border-hairline bg-paper px-3 py-2 font-mono text-[11px] text-moss hover:border-moss/40">
-                Download {label} CSV
-              </a>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
       {error ? (
         <div role="alert" className="rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson">
           {error}
