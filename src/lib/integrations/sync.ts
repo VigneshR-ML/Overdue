@@ -161,13 +161,16 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
     // Check for an existing invoice to distinguish added vs updated.
     const { data: exists } = await admin
       .from("invoices")
-      .select("id, payment_url, status")
+.select("id, payment_url, status, paid_cents, paid_at")
       .eq("user_id", userId)
       .eq("provider", provider)
       .eq("provider_id", inv.provider_id)
       .maybeSingle()
 
-    const existing = exists as { id: string; payment_url?: string | null; status?: string } | null
+    const existing = exists as { id: string; payment_url?: string | null; status?: string; paid_cents?: number | null; paid_at?: string | null } | null
+    const isPaidFlip = inv.status === "paid" && existing?.status !== "paid"
+    // A paid sync must flow through payments + reconciliation, otherwise the
+    // invoice can be marked paid with no ledger or installment allocation.
     const { error } = await admin.from("invoices").upsert(
       {
         user_id: userId,
@@ -175,13 +178,13 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
         provider: inv.provider,
         provider_id: inv.provider_id,
         number: inv.number,
-        status: inv.status,
+        status: isPaidFlip ? (existing?.status ?? "sent") : inv.status,
         amount_cents: inv.amount_cents,
-        paid_cents: inv.paid_cents,
+        paid_cents: isPaidFlip ? Number(existing?.paid_cents ?? 0) : inv.paid_cents,
         currency: inv.currency,
         issue_date: inv.issue_date,
         due_date: inv.due_date,
-        paid_at: inv.paid_at,
+        paid_at: isPaidFlip ? (existing?.paid_at ?? null) : inv.paid_at,
         line_item_summary: inv.line_item_summary,
         // Never wipe a hand-entered pay link with a provider null.
         payment_url: inv.payment_url ?? existing?.payment_url ?? null,
@@ -194,14 +197,14 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
       // PayPal manual-verify visibility: a sync-observed paid flip is a real
       // confirmation (webhook may be unconfigured). Record it so the owner sees
       // source + timeline instead of a silent status change.
-      if (inv.status === "paid" && existing?.status !== "paid") {
+      if (isPaidFlip) {
         let flipId = (existing as { id: string } | null)?.id ?? "";
         if (!flipId) {
           const { data: just } = await admin.from("invoices").select("id")
             .eq("user_id", userId).eq("provider", provider).eq("provider_id", inv.provider_id).maybeSingle();
           flipId = (just as { id: string } | null)?.id ?? "";
         }
-        if (flipId) paidFlips.push({ invoiceId: flipId, amount: inv.amount_cents, currency: inv.currency });
+        if (flipId) paidFlips.push({ invoiceId: flipId, amount: Number(inv.paid_cents ?? inv.amount_cents), currency: inv.currency });
       }
     } else {
       result.errors.push(error.message)
@@ -213,22 +216,18 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
   // polling when webhooks are missing or delayed. Never fails the sync itself.
   if (paidFlips.length) {
     try {
-      const { reconcilePaidWork } = await import("@/lib/recovery/paid");
+      const { reconcileConfirmedPayment } = await import("@/lib/recovery/payment-ledger");
       for (const flip of paidFlips) {
         if (!flip.invoiceId) continue;
-        try {
-          await admin.from("payments").insert({
-            user_id: userId, invoice_id: flip.invoiceId,
-            amount_cents: flip.amount, currency: flip.currency,
-            source: provider === "xero" ? "xero_sync" : provider === "paypal" ? "paypal" : "stripe",
-            status: "confirmed", paid_at: new Date().toISOString(),
-          });
-        } catch { /* payments table may predate migration — reconcile still runs */ }
-        try {
-          await reconcilePaidWork(admin, { userId, invoiceId: flip.invoiceId, source: `${provider}_sync` });
-        } catch { /* non-critical */ }
+        const { data: payment } = await admin.from("payments").insert({
+          user_id: userId, invoice_id: flip.invoiceId,
+          amount_cents: flip.amount, currency: flip.currency,
+          source: provider === "xero" ? "xero_sync" : provider === "paypal" ? "paypal" : "stripe",
+          status: "confirmed", paid_at: new Date().toISOString(),
+        }).select("id").maybeSingle();
+        if (payment?.id) await reconcileConfirmedPayment(admin, payment.id);
       }
-    } catch { /* non-critical */ }
+    } catch { /* a provider sync must not fail because an optional ledger migration is absent */ }
   }
 
   // Update integration metadata.
