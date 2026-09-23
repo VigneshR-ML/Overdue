@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
-    "launch-check": "bash scripts/launch-check.sh"
+    "launch-check": "bash scripts/launch-check.sh",
+    "db:backfill-check": "psql \"$DATABASE_URL\" -f scripts/check-workspace-backfill.sql"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",

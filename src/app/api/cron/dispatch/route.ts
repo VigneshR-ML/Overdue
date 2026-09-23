@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { runDispatcher } from "@/lib/scheduler/dispatch"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -26,6 +27,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const report = await runDispatcher()
+    // Dead-man heartbeat: every tick (success or fail) writes cron_heartbeats
+    // so /api/cron/health can alert when the single GitHub path misses runs.
+    try {
+      const admin = createAdminClient();
+      if (admin) await (admin.from("cron_heartbeats") as unknown as { insert: (r: unknown) => Promise<unknown> }).insert({
+        job: "dispatch", ok: Boolean(report.ok), detail: JSON.stringify({ dispatched: (report as { dispatched?: number }).dispatched ?? 0, failed: (report as { failed?: number }).failed ?? 0 }).slice(0, 500),
+      });
+    } catch { /* heartbeat never blocks dispatch */ }
     // Hard-fail on a meaningful dispatcher error (e.g. service-role key
     // missing) so a healthy run is never mistaken for a healthy cron tick.
     if (!report.ok) {

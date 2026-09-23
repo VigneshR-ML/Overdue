@@ -14,8 +14,8 @@ type ProviderName = "stripe" | "paypal" | "xero" | "csv"
 
 const PROVIDER_META: Record<ProviderName, { label: string; blurb: string }> = {
   stripe: { label: "Stripe", blurb: "Auto-sync unpaid invoices + late payments" },
-  paypal: { label: "PayPal", blurb: "Sync invoices via the Invoicing API" },
-  xero: { label: "Xero", blurb: "Sync receivables via OAuth2" },
+  paypal: { label: "PayPal", blurb: "Sync invoices via the Invoicing API — requires live API credentials" },
+  xero: { label: "Xero", blurb: "Sync receivables via OAuth2 — requires live client ID/secret" },
   csv: { label: "CSV import", blurb: "Drop a spreadsheet of anything" },
 }
 
@@ -208,7 +208,7 @@ export function IntegrationsManager({
       </div>
 
       <p className="font-mono text-[11px] leading-relaxed text-faint">
-        Credentials are stored encrypted-side server-only, used only to fetch your invoices.
+        PayPal sync works per-workspace; PayPal webhooks require server PAYPAL_WEBHOOK_ID to auto-mark paid (else manual verify). Credentials are stored encrypted-side server-only, used only to fetch your invoices.
         OAuth tokens refresh automatically where supported; CSVs never leave your session on import.
       </p>
     </div>

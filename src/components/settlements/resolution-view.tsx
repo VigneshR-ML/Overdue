@@ -92,6 +92,10 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
   const [category, setCategory] = useState(DISPUTE_CATS[0])
   const [showPromise, setShowPromise] = useState(false)
   const [showDispute, setShowDispute] = useState(false)
+  const [showPlan, setShowPlan] = useState(false)
+  const [preferredCents, setPreferredCents] = useState("")
+  const [frequency, setFrequency] = useState("monthly")
+  const [startDate, setStartDate] = useState("")
 
   const expired = new Date(offer.expiresAt).getTime() <= currentTimeMs()
 
@@ -157,7 +161,7 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
     return (
       <div className="rounded-lg border border-hairline bg-surface p-6 text-center">
         <h1 className="font-display text-2xl text-ink">Request received.</h1>
-        <p className="mt-2 text-sm text-muted">The business will propose a payment schedule shortly.</p>
+        <p className="mt-2 text-sm text-muted">The business will propose a payment schedule shortly. You will get a fresh link — reminders pause for 72h while they review.</p>
       </div>
     )
   }
@@ -209,13 +213,40 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
       <div className="rounded-lg border border-hairline bg-surface p-5">
         <h2 className="font-display text-lg text-ink">Can&apos;t pay today?</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Button type="button" variant="outline" onClick={() => { setShowPromise((s) => !s); setShowDispute(false) }}>
+          <Button type="button" variant="outline" onClick={() => { setShowPromise((s) => !s); setShowDispute(false); setShowPlan(false) }}>
             I can pay on another date
           </Button>
-          <Button type="button" variant="outline" onClick={() => act("plan_request")}>
+          <Button type="button" variant="outline" onClick={() => { setShowPlan((s) => !s); setShowPromise(false); setShowDispute(false) }}>
             {busy === "plan_request" ? "Sending…" : "Request a payment plan"}
           </Button>
         </div>
+
+        {showPlan ? (
+          <div className="mt-3 space-y-2 rounded-md border border-hairline bg-paper p-3">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <label className="text-[12px] text-muted">Per installment (cents)
+                <input value={preferredCents} onChange={(e) => setPreferredCents(e.target.value)} inputMode="numeric" placeholder="e.g. 30000" className="mt-1 h-9 w-full rounded-md border border-hairline bg-paper px-2 font-mono text-[13px]" />
+              </label>
+              <label className="text-[12px] text-muted">Frequency
+                <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="mt-1 h-9 w-full rounded-md border border-hairline bg-paper px-2 font-mono text-[13px]">
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </label>
+              <label className="text-[12px] text-muted">First payment
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 h-9 w-full rounded-md border border-hairline bg-paper px-2 font-mono text-[13px]" />
+              </label>
+            </div>
+            <p className="font-mono text-[11px] text-faint">Your amount is treated as a preferred maximum — we never silently increase it. If policy limits require larger payments, the counter-proposal will say so explicitly.</p>
+            <Button type="button" size="sm" variant="ink" disabled={busy !== null} onClick={() => act("plan_request", {
+              requestedCents: preferredCents ? Number(preferredCents) : undefined,
+              frequency, preferredStartDate: startDate || undefined,
+            })}>
+              {busy === "plan_request" ? "Sending…" : "Send plan request"}
+            </Button>
+          </div>
+        ) : null}
 
         {showPromise ? (
           <div className="mt-3 flex flex-wrap items-end gap-2">

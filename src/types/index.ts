@@ -172,7 +172,7 @@ export interface IntegrationRow {
 }
 
 export type SettlementBasis = "discount" | "fee_waiver"
-export type SettlementStatus = "approved" | "sent" | "accepted" | "expired" | "paid" | "cancelled"
+export type SettlementStatus = "draft" | "approved" | "sent" | "suspended" | "accepted" | "expired" | "paid" | "cancelled"
 
 export interface SettlementOffer {
   id: string
@@ -199,6 +199,30 @@ export interface UserProfile {
   avatar_url: string | null
   onboarding_completed: boolean
   created_at: string
+}
+
+export type PlanRequestStatus = "submitted" | "under_review" | "converted" | "closed" | "expired"
+export type PlanRequestCloseReason = "owner_declined" | "debtor_withdrew" | "invoice_paid_directly" | "owner_cancelled" | "expired_no_decision"
+export type PaymentPlanStatus = "proposed" | "active" | "delinquent" | "completed" | "cancelled"
+export type PlanFrequency = "weekly" | "biweekly" | "monthly"
+export type PaymentSource = "stripe" | "paypal" | "xero_sync" | "manual" | "bank_transfer"
+
+export interface PaymentPlan {
+  id: string
+  invoice_id: string
+  request_id: string | null
+  total_cents: number
+  currency: string
+  installment_count: number
+  frequency: PlanFrequency
+  starts_on: string
+  status: PaymentPlanStatus
+  proposal_version: number
+  supersedes_plan_id: string | null
+  completion_source: "final_installment_paid" | "direct_invoice_payment" | null
+  cancellation_reason: "owner_cancelled" | "debtor_declined" | "default_after_missed_installments" | "replaced" | "invoice_paid_directly" | null
+  is_counter_proposal: boolean
+  exceeds_debtor_preference: boolean
 }
 
 export interface AgingTotals {

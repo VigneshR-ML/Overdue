@@ -9,7 +9,7 @@ import { createAutoPaymentPlanProposal } from "@/lib/recovery/auto-payment-plan"
 
 export const dynamic = "force-dynamic"
 
-type Action = "accept" | "promise" | "plan_request" | "dispute"
+type Action = "accept" | "promise" | "plan_request" | "dispute" | "withdraw"
 
 async function loadOffer(offerId: string) {
   const supabase = createAdminClient()
@@ -48,6 +48,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
     note?: unknown
     category?: unknown
     requestedCents?: unknown
+    frequency?: unknown
+    preferredStartDate?: unknown
   }
   try {
     body = (await request.json()) as typeof body
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
     return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 })
   }
   const action = body.action as Action
-  if (!["accept", "promise", "plan_request", "dispute"].includes(action)) {
+  if (!["accept", "promise", "plan_request", "dispute", "withdraw"].includes(action)) {
     return NextResponse.json({ ok: false, error: "unknown action" }, { status: 400 })
   }
 
@@ -142,31 +144,58 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
   }
 
   if (action === "plan_request") {
-    // (D24) Payment-plan requests get a real row the owner can see and act on,
-    // and the ladder pauses so autopilot never chases a client mid-negotiation.
+    // Canonical request lifecycle: submitted -> under_review -> converted/closed/expired.
+    // converted = debtor accepts a proposal AND an active plan exists (set by proposal API, not here).
+    // Rate limit stalling vector: max 2 requests per invoice per 30 days, 72h review window.
     const requestedCents = typeof body.requestedCents === "number" && Number.isFinite(body.requestedCents)
       ? Math.round(body.requestedCents)
       : null
     if (requestedCents !== null && (requestedCents <= 0 || requestedCents > Number(offer.outstanding_cents))) {
       return NextResponse.json({ ok: false, error: "requested amount must be within the outstanding balance" }, { status: 400 })
     }
+    const frequency = body.frequency === "weekly" || body.frequency === "biweekly" || body.frequency === "monthly"
+      ? String(body.frequency)
+      : null
+    const preferredStartDate = typeof body.preferredStartDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.preferredStartDate)
+      ? body.preferredStartDate
+      : null
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const { data: recentPlans } = await supabase
+      .from("payment_plan_requests")
+      .select("id")
+      .eq("invoice_id", offer.invoice_id as string)
+      .gte("created_at", thirtyDaysAgo)
+      .limit(3);
+    if ((recentPlans ?? []).length >= 2) {
+      return NextResponse.json({ ok: false, error: "payment-plan request limit reached for this invoice — contact the business directly" }, { status: 429 })
+    }
     const { data: existingPlan } = await supabase
       .from("payment_plan_requests")
       .select("id")
       .eq("invoice_id", offer.invoice_id as string)
-      .eq("status", "open")
+      .in("status", ["submitted", "under_review", "open"])
       .limit(1)
       .maybeSingle()
     if (!existingPlan) {
+      const expiresAt = new Date(Date.now() + 72 * 3600 * 1000).toISOString();
       const { data: plan, error: planError } = await supabase.from("payment_plan_requests").insert({
         user_id: userId,
         offer_id: offer.id as string,
         invoice_id: offer.invoice_id as string,
         requested_cents: requestedCents,
+        preferred_amount_cents: requestedCents,
+        frequency,
+        preferred_start_date: preferredStartDate,
         message: note ?? "",
-        status: "open",
+        status: "under_review",
+        expires_at: expiresAt,
       }).select("id").single()
       if (planError) return NextResponse.json({ ok: false, error: "couldn't save the payment-plan request — please retry" }, { status: 503 })
+      // Mutual exclusivity: live settlement offer becomes suspended (not cancelled).
+      await supabase.from("settlement_offers")
+        .update({ status: "suspended", suspended_reason: "plan_request_open", updated_at: new Date().toISOString() })
+        .eq("id", offer.id)
+        .in("status", ["approved", "sent"]);
       if (plan?.id) await createAutoPaymentPlanProposal(supabase, { requestId: plan.id, userId, invoiceId: offer.invoice_id as string })
     }
     const { error: pauseError } = await supabase
@@ -191,6 +220,20 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
     })
     if (!existingPlan) await notifyOwner(supabase, { userId, type: "payment_plan", title: "Payment plan requested", body: "The client requested a payment plan; reminders are paused until you respond.", href: `/invoices/${offer.invoice_id}`, dedupeKey: `payment-plan:${offer.invoice_id}`, meta: { offer_id: offer.id, invoice_id: offer.invoice_id } })
     return NextResponse.json({ ok: true, status: "plan_request" })
+  }
+
+  // withdraw → debtor closes their own open request via token auth (no workspace role needed)
+  if ((action as string) === "withdraw") {
+    const now = new Date().toISOString();
+    const resumeAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const { data: open } = await supabase.from("payment_plan_requests").select("id")
+      .eq("invoice_id", offer.invoice_id as string)
+      .in("status", ["submitted", "under_review", "open"]).limit(1).maybeSingle();
+    if (!open) return NextResponse.json({ ok: false, error: "no open request to withdraw" }, { status: 404 });
+    await supabase.from("payment_plan_requests").update({ status: "closed", close_reason: "debtor_withdrew", decided_at: now }).eq("id", (open as { id: string }).id);
+    await supabase.from("runs").update({ status: "queued", next_run_at: resumeAt, updated_at: now })
+      .eq("invoice_id", offer.invoice_id as string).eq("user_id", userId).eq("status", "paused");
+    return NextResponse.json({ ok: true, status: "withdrawn", resume_at: resumeAt });
   }
 
   // dispute → open a dispute row (blocks automated chasing until resolved)

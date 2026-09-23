@@ -10,9 +10,14 @@ export type OwnedRecordResult<T> =
  *
  * After 0019_api_write_boundary.sql the client (`authenticated`) role is locked
  * to selects + profile updates, so every by-id mutation runs through the admin
- * client. With RLS off the `user_id` predicate is the ONLY guard against
- * cross-tenant writes — call this BEFORE any `.update()` / `.delete()` that
- * targets `id`, and treat `ok:false` as your 404.
+ * client. With RLS off the `user_id` predicate is the tenancy guard — call this
+ * BEFORE any `.update()` / `.delete()` that targets `id`, and treat `ok:false`
+ * as your 404.
+ *
+ * Role enforcement lives in `workspace-guard.ts` (requireWorkspaceRole) and is
+ * applied on top of this in money/team routes (plans, requests, disputes,
+ * manual payments, settlements, team). Single-user rows with NULL workspace_id
+ * fall back to owner so legacy flows keep working.
  */
 export async function getOwnedRecord<T>(
   supabase: SupabaseClient,

@@ -153,6 +153,7 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
   // Upsert invoices with client linkage.
   let added = 0
   let updated = 0
+  const paidFlips: { invoiceId: string; amount: number; currency: string }[] = []
   for (const inv of fetched.invoices) {
     const clientKey = inv.client_email ? `email:${inv.client_email.toLowerCase()}` : inv.client_name ? `name:${inv.client_name.toLowerCase()}` : null
     const clientId = clientKey ? clientIds.get(clientKey) ?? null : null
@@ -160,13 +161,13 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
     // Check for an existing invoice to distinguish added vs updated.
     const { data: exists } = await admin
       .from("invoices")
-      .select("id, payment_url")
+      .select("id, payment_url, status")
       .eq("user_id", userId)
       .eq("provider", provider)
       .eq("provider_id", inv.provider_id)
       .maybeSingle()
 
-    const existing = exists as { id: string; payment_url?: string | null } | null
+    const existing = exists as { id: string; payment_url?: string | null; status?: string } | null
     const { error } = await admin.from("invoices").upsert(
       {
         user_id: userId,
@@ -190,9 +191,44 @@ export async function syncUserProvider(userId: string, provider: "stripe" | "pay
     if (!error) {
       if (exists) updated++
       else added++
+      // PayPal manual-verify visibility: a sync-observed paid flip is a real
+      // confirmation (webhook may be unconfigured). Record it so the owner sees
+      // source + timeline instead of a silent status change.
+      if (inv.status === "paid" && existing?.status !== "paid") {
+        let flipId = (existing as { id: string } | null)?.id ?? "";
+        if (!flipId) {
+          const { data: just } = await admin.from("invoices").select("id")
+            .eq("user_id", userId).eq("provider", provider).eq("provider_id", inv.provider_id).maybeSingle();
+          flipId = (just as { id: string } | null)?.id ?? "";
+        }
+        if (flipId) paidFlips.push({ invoiceId: flipId, amount: inv.amount_cents, currency: inv.currency });
+      }
     } else {
       result.errors.push(error.message)
     }
+  }
+
+  // Reconcile sync-observed payments (ledger + chase-stop + workflow), best-effort.
+  // Webhook path does the same via markInvoicePaid; sync covers PayPal/Xero/Stripe
+  // polling when webhooks are missing or delayed. Never fails the sync itself.
+  if (paidFlips.length) {
+    try {
+      const { reconcilePaidWork } = await import("@/lib/recovery/paid");
+      for (const flip of paidFlips) {
+        if (!flip.invoiceId) continue;
+        try {
+          await admin.from("payments").insert({
+            user_id: userId, invoice_id: flip.invoiceId,
+            amount_cents: flip.amount, currency: flip.currency,
+            source: provider === "xero" ? "xero_sync" : provider === "paypal" ? "paypal" : "stripe",
+            status: "confirmed", paid_at: new Date().toISOString(),
+          });
+        } catch { /* payments table may predate migration — reconcile still runs */ }
+        try {
+          await reconcilePaidWork(admin, { userId, invoiceId: flip.invoiceId, source: `${provider}_sync` });
+        } catch { /* non-critical */ }
+      }
+    } catch { /* non-critical */ }
   }
 
   // Update integration metadata.

@@ -198,7 +198,11 @@ export async function resolveInvoiceOwner(
   return owners.length === 1 ? owners[0] : null
 }
 
-/** Idempotency ledger shared with the billing webhooks (provider + event_id). */
+/** Idempotency ledger shared with the billing webhooks (provider + event_id).
+ * Canonical dedupe table is webhook_events. webhook_receipts (0023) is
+ * observability metadata only (signature_valid, attempt counts) and never
+ * gates processing — exactly one table governs idempotency.
+ */
 export async function alreadyHandled(supabase: any, provider: string, eventId: string): Promise<boolean> {
   if (!eventId) return false
   const { data } = await supabase
@@ -210,7 +214,7 @@ export async function alreadyHandled(supabase: any, provider: string, eventId: s
   return Boolean(data)
 }
 
-export async function recordEvent(supabase: any, provider: string, eventId: string, payload: unknown): Promise<void> {
+export async function recordEvent(supabase: any, provider: string, eventId: string, payload: unknown, signatureValid = true): Promise<void> {
   if (!eventId) return
   try {
     const { error } = await supabase.from("webhook_events").insert({ provider, event_id: eventId, payload: payload ?? {} })
@@ -222,6 +226,12 @@ export async function recordEvent(supabase: any, provider: string, eventId: stri
   } catch (e) {
     console.error(`[${provider}-webhook] ledger insert threw:`, e)
   }
+  try {
+    await supabase.from("webhook_receipts").upsert(
+      { provider, provider_event_id: eventId, signature_valid: signatureValid, received_at: new Date().toISOString() },
+      { onConflict: "provider,provider_event_id" },
+    );
+  } catch { /* observability only — never blocks */ }
 }
 
 // ── Xero helpers: tenant → user → fresh token → invoice status ──────────────

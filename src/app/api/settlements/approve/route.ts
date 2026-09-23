@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireWorkspaceRole } from "@/lib/supabase/workspace-guard"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 import { appUrl } from "@/lib/integrations/oauth"
 import { daysOverdue, defaultExpiry, recommendSettlement } from "@/lib/recovery/settlement"
@@ -61,11 +62,13 @@ export async function POST(request: NextRequest) {
 
   const { data: invoice } = await supabase
     .from("invoices")
-    .select("id, amount_cents, paid_cents, currency, due_date, status, paid_at, client_id, number, payment_url")
+    .select("id, amount_cents, paid_cents, currency, due_date, status, paid_at, client_id, number, payment_url, workspace_id")
     .eq("id", body.invoiceId)
     .eq("user_id", user!.id)
     .single()
   if (!invoice) return NextResponse.json({ ok: false, error: "invoice not found" }, { status: 404 })
+  const gate = await requireWorkspaceRole(supabase, user!.id, (invoice as { workspace_id?: string | null }).workspace_id ?? null, "admin");
+  if (!gate.ok) return NextResponse.json({ ok: false, error: "forbidden — admin role required" }, { status: 403 })
   if (invoice.status === "paid" || invoice.paid_at) {
     return NextResponse.json({ ok: false, error: "invoice already paid" }, { status: 400 })
   }

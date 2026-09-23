@@ -57,15 +57,15 @@ export async function sendEmail(payload: EmailPayload) {
 }
 
 export function renderEscalationEmail(opts: {
-  subject: string
-  body: string
-  senderName: string
-  companyName: string
-  paymentUrl?: string | null
-  amountLabel?: string | null
+  subject: string;
+  body: string;
+  senderName: string;
+  companyName: string;
+  paymentUrl?: string | null;
+  amountLabel?: string | null;
   /** Live settlement offer: rendered as a "Resolve for X" button (ladder-attached). */
-  resolutionUrl?: string | null
-  resolutionLabel?: string | null
+  resolutionUrl?: string | null;
+  resolutionLabel?: string | null;
 }) {
   const paragraphs = opts.body
     .split(/\n+/)
@@ -100,6 +100,40 @@ export function renderEscalationEmail(opts: {
     </table>
   </body>
 </html>`
+}
+
+export type PlanEmailKind =
+  | "proposal"
+  | "accepted"
+  | "due"
+  | "overdue"
+  | "receipt"
+  | "revision"
+  | "cancellation"
+  | "fresh_link";
+
+/** Plan-lifecycle debtor emails share the escalation shell with plan-specific copy. */
+export function renderPlanEmail(opts: {
+  kind: PlanEmailKind;
+  senderName: string;
+  companyName: string;
+  body: string;
+  portalUrl?: string | null;
+  disclosure?: string | null;
+}) {
+  const cta =
+    opts.portalUrl && /^https?:\/\//i.test(opts.portalUrl)
+      ? `<p style="margin:22px 0 6px 0;"><a href="${esc(opts.portalUrl)}" style="display:inline-block;background:#2F5D50;color:#FFFFFF;text-decoration:none;font-family:monospace;font-size:13px;letter-spacing:0.5px;padding:12px 26px;border-radius:8px;">View payment plan →</a></p>`
+      : "";
+  const note = opts.disclosure ? `<p style="margin:0 0 14px 0;font-size:12px;color:#6E685D;">${esc(opts.disclosure)}</p>` : "";
+  return renderEscalationEmail({
+    subject: `Payment plan ${opts.kind}`,
+    body: `${opts.body}${opts.disclosure ? `\n\n${opts.disclosure}` : ""}`,
+    senderName: opts.senderName,
+    companyName: opts.companyName,
+    resolutionUrl: opts.portalUrl,
+    resolutionLabel: "View payment plan",
+  }).replace("</body>", `${cta}${note}</body>`);
 }
 
 function esc(s: string) {

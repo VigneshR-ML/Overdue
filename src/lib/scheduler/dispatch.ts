@@ -384,9 +384,9 @@ async function dispatchOne(
   const profile = (profileRow ?? { full_name: null }) as { full_name: string | null; email?: string }
 
   // Promise-to-pay: a client-named date waits in 'queued' with next_run_at set
-  // to the promise. Future promise → hold (no send). Reached date → clear the
-  // promise and the reply flag it came with, then continue the ladder as the
-  // missed-promise follow-up (payment is checked first on every pass anyway).
+  // to the promise. Future promise → hold (no send). Reached date → record
+  // promise_missed, emit audit, notify owner path via workflow event, resume
+  // ladder after 24h at prior rung (no dead end).
   const promiseDate = (run as unknown as { promise_date?: string | null }).promise_date ?? null
   if (promiseDate) {
     if (new Date(promiseDate).getTime() > Date.now()) {
@@ -397,11 +397,19 @@ async function dispatchOne(
         .eq("id", runId)
       return "paused"
     }
+    const missedAt = new Date().toISOString()
+    const resumeAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString()
     await supabase
       .from("runs")
-      .update({ promise_date: null, promise_note: null, promise_amount_cents: null, updated_at: new Date().toISOString() })
+      .update({ promise_date: null, promise_note: null, promise_amount_cents: null, promise_missed: true, status: "queued", next_run_at: resumeAt, updated_at: missedAt })
       .eq("id", runId)
     await supabase.from("messages").update({ replied: false }).eq("run_id", runId).eq("replied", true)
+    try {
+      await (supabase as unknown as { from: (t: string) => { insert: (r: unknown) => Promise<unknown> } }).from("workflow_events").insert({
+        user_id: run.user_id, invoice_id: run.invoice_id, event_type: "promise_missed",
+        actor_type: "system", payload: { run_id: runId, resume_at: resumeAt },
+      })
+    } catch { /* table may not exist pre-migration */ }
   }
 
   const { data: replied } = await supabase
@@ -417,9 +425,15 @@ async function dispatchOne(
   }
 
   // (D05/D24) A client-declared dispute or payment-plan request must never be
-  // auto-chased. These are raised from the token resolution flow (and from
-  // classified replies); while open, the run stays paused for human review.
+  // auto-chased. Expired plan requests resume after 24h at prior rung.
   const gateAt = new Date().toISOString()
+  // Expire stale plan requests opportunistically (72h review window).
+  try {
+    const { data: staleReq } = await supabase.from("payment_plan_requests").select("id").eq("invoice_id", invoice.id).in("status", ["submitted", "under_review", "open"]).lt("expires_at", gateAt).limit(1).maybeSingle()
+    if ((staleReq as { id?: string } | null)?.id) {
+      await supabase.from("payment_plan_requests").update({ status: "expired", close_reason: "expired_no_decision", decided_at: gateAt }).eq("id", (staleReq as { id: string }).id)
+    }
+  } catch { /* pre-migration column may not exist */ }
   const { data: openDispute } = await supabase
     .from("disputes")
     .select("id")
@@ -447,7 +461,8 @@ async function dispatchOne(
     .select("id")
     .eq("user_id", run.user_id)
     .eq("invoice_id", invoice.id)
-    .in("status", ["open", "accepted"])
+    .in("status", ["submitted", "under_review", "open", "accepted"])
+    .in("status", ["submitted", "under_review", "open"])
     .limit(1)
     .maybeSingle()
   if (openPlanRequest?.id) {
@@ -979,7 +994,7 @@ export async function previewRunEmail(
   const [{ data: replied }, { data: dispute }, { data: planRequest }] = await Promise.all([
     supabase.from("messages").select("id").eq("run_id", runId).eq("replied", true).limit(1),
     supabase.from("disputes").select("id").eq("user_id", userId).eq("invoice_id", invoice.id).eq("status", "open").limit(1).maybeSingle(),
-    supabase.from("payment_plan_requests").select("id").eq("user_id", userId).eq("invoice_id", invoice.id).in("status", ["open", "accepted"]).limit(1).maybeSingle(),
+    supabase.from("payment_plan_requests").select("id").eq("user_id", userId).eq("invoice_id", invoice.id).in("status", ["submitted", "under_review", "open", "accepted"]).limit(1).maybeSingle(),
   ])
   if (dispute?.id) return { ok: false, error: "This invoice has an open dispute. Resolve it before sending another reminder." }
   if (planRequest?.id) return { ok: false, error: "A payment plan is being arranged. Keep reminders paused until it is completed or declined." }
