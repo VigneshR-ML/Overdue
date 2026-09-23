@@ -9,6 +9,8 @@ import { planForSubscription } from "@/lib/billing/entitlement"
 import { extractMessageIdTokens } from "@/lib/scheduler/thread-ids"
 import { signEmailPreview } from "@/lib/scheduler/email-preview"
 import { notifyOwner } from "@/lib/notifications/owner"
+import { processOutboxJobs } from "@/lib/scheduler/outbox"
+import { advancePaymentPlans } from "@/lib/scheduler/payment-plans"
 import type { Sequence, SequenceStep, Invoice, Client, Run, ReplyClassification } from "@/types"
 
 const CUMULATIVE_DAYS = (steps: SequenceStep[], throughIndex: number) =>
@@ -55,6 +57,12 @@ export async function runDispatcher() {
     return { ok: false, error: "missing SUPABASE_SERVICE_ROLE_KEY — refusing to dispatch", dispatched: 0 }
   }
 
+  // Durable plan-email jobs and installment state advance on the same healthy
+  // hourly path as ladder dispatch. A failed outbox must be surfaced to cron.
+  const outbox = await processOutboxJobs(supabase)
+  if (!outbox.ok) return { ok: false, error: outbox.error ?? "outbox processing failed", dispatched: 0 }
+  const planLifecycle = await advancePaymentPlans(supabase)
+
   // Recover stranded 'processing' runs BEFORE the batch selection so a crashed
   // batch never waits for new due work to exist before healing itself.
   await requeueStaleProcessing(supabase)
@@ -80,7 +88,7 @@ export async function runDispatcher() {
   if (selErr) return { ok: false, error: selErr.message, dispatched: 0 }
 
   const ids = (dueIds ?? []).map((r) => r.id as string)
-  if (ids.length === 0) return { ok: true, dispatched: 0 }
+  if (ids.length === 0) return { ok: true, dispatched: 0, outboxSent: outbox.sent, outboxFailed: outbox.failed, planLifecycle }
 
   const { data: claimed, error: claimErr } = await supabase
     .from("runs")
@@ -91,7 +99,7 @@ export async function runDispatcher() {
 
   if (claimErr) return { ok: false, error: claimErr.message, dispatched: 0 }
 
-  if (!claimed || claimed.length === 0) return { ok: true, dispatched: 0 }
+  if (!claimed || claimed.length === 0) return { ok: true, dispatched: 0, outboxSent: outbox.sent, outboxFailed: outbox.failed, planLifecycle }
 
   // Autopilot is a Pro feature: Free users send manually ("Send now" in the
   // ledger). Service-role plan lookup — the cookie-bound getPlan() helper
@@ -185,7 +193,7 @@ export async function runDispatcher() {
     }
   }
 
-  return { ok: true, dispatched, failed }
+  return { ok: true, dispatched, failed, outboxSent: outbox.sent, outboxFailed: outbox.failed, planLifecycle }
 }
 
 /** Requeue 'processing' runs stranded by a crashed batch (older than 5 min). */
