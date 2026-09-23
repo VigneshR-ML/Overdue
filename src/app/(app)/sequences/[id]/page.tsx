@@ -27,6 +27,7 @@ export default async function SequenceDetailPage(props: { params: Promise<{ id: 
     description: string | null
     is_active: boolean
     is_template: boolean
+    is_default: boolean
     user_id: string
     steps: unknown
   } | null
@@ -53,6 +54,7 @@ export default async function SequenceDetailPage(props: { params: Promise<{ id: 
       <SequenceEditor
         id={seq.id}
         readOnly={seq.is_template}
+        canDelete={!seq.is_default && !seq.is_template}
         initial={{
           name: seq.name,
           is_active: seq.is_active,

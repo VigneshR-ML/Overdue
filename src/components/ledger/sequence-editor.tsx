@@ -44,10 +44,12 @@ export function SequenceEditor({
   id,
   initial,
   readOnly = false,
+  canDelete = true,
 }: {
   id: string
   initial: { name: string; is_active: boolean; steps: SequenceStep[] }
   readOnly?: boolean
+  canDelete?: boolean
 }) {
   const router = useRouter()
   const [name, setName] = useState(initial.name)
@@ -58,6 +60,7 @@ export function SequenceEditor({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const savedTimer = useRef<number | null>(null)
 
   useEffect(() => {
@@ -155,6 +158,12 @@ export function SequenceEditor({
     }
   }
 
+  async function deleteLadder() {
+    if (!window.confirm("Delete this ladder and stop its attached reminders? This cannot be undone.")) return
+    setDeleting(true); setError(null)
+    try { const res = await fetch(`/api/sequences?id=${encodeURIComponent(id)}`, { method: "DELETE" }); const json = await res.json(); if (!res.ok) throw new Error(json?.error ?? "Delete failed"); router.push("/sequences") } catch (e) { setError(e instanceof Error ? e.message : "Delete failed"); setDeleting(false) }
+  }
+
   const previewBody = renderTemplate(selected?.body_template ?? "", SAMPLE)
 
   return (
@@ -194,13 +203,14 @@ export function SequenceEditor({
                 </Field>
                 <ToggleRow
                   title="Active"
-                  description="Attaching this ladder auto-runs it"
+                  description="Available to attach to an invoice"
                   checked={isActive}
                   onChange={toggleActive}
                 />
                 <Button onClick={save} disabled={saving} variant="moss" className="w-full">
                   {saving ? "Saving…" : saved ? "Saved ✓" : "Save ladder"}
                 </Button>
+                {canDelete ? <Button onClick={deleteLadder} disabled={deleting} variant="outline" className="w-full border-rust/40 text-crimson hover:bg-rust/10">{deleting ? "Deleting…" : "Delete ladder"}</Button> : null}
               </div>
             </div>
           )}

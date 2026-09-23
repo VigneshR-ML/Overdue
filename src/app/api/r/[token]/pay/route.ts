@@ -6,9 +6,8 @@ import { verifyResolutionToken } from "@/lib/recovery/token"
 export const dynamic = "force-dynamic"
 
 /**
- * An invoice's payment_url does NOT prove it charges the accepted settlement
- * amount. Fail closed until a provider-specific discounted checkout has been
- * created and its exact amount/currency independently verified server-side.
+ * Only a settlement-specific checkout may be returned here. The invoice URL
+ * is deliberately never used because it can charge the original balance.
  */
 export async function POST(request: NextRequest, props: { params: Promise<{ token: string }> }) {
   const params = await props.params;
@@ -29,7 +28,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
 
   const { data: offer, error: offerError } = await supabase
     .from("settlement_offers")
-    .select("id, user_id, invoice_id, offer_cents, status, expires_at")
+    .select("id, user_id, invoice_id, offer_cents, status, expires_at, settlement_payment_url")
     .eq("id", verified.offerId)
     .single()
   if (offerError || !offer) return NextResponse.json({ ok: false, error: "offer not found" }, { status: 404 })
@@ -59,23 +58,18 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
     return NextResponse.json({ ok: false, error: "invalid offer amount" }, { status: 409 })
   }
 
-  // This is a request for payment instructions, not evidence of a payment.
-  // Do not return invoice.payment_url: it may charge the undiscounted amount.
+  const paymentUrl = typeof offer.settlement_payment_url === "string" && /^https:\/\//i.test(offer.settlement_payment_url)
+    ? offer.settlement_payment_url : null
   const { error: eventError } = await supabase.from("settlement_events").insert({
     offer_id: offer.id,
     user_id: offer.user_id,
     event: "viewed",
-    meta: { action: "discounted_payment_requested", checkout_available: false },
+    meta: { action: "discounted_payment_requested", checkout_available: Boolean(paymentUrl) },
   })
   if (eventError) {
     return NextResponse.json({ ok: false, error: "Unable to record payment request. Please retry." }, { status: 503 })
   }
 
-  return NextResponse.json({
-    ok: false,
-    no_payment_url: true,
-    offer_cents: offerCents,
-    currency: String(invoice.currency || "USD").toUpperCase(),
-    error: "Online payment for this discounted offer is not available yet. Contact the business for a payment link that charges the agreed amount. No payment has been taken.",
-  }, { status: 409 })
+  if (!paymentUrl) return NextResponse.json({ ok: false, no_payment_url: true, offer_cents: offerCents, currency: String(invoice.currency || "USD").toUpperCase(), error: "The business is preparing an exact payment link. No payment has been taken." }, { status: 409 })
+  return NextResponse.json({ ok: true, payUrl: paymentUrl })
 }

@@ -213,13 +213,26 @@ export async function computeClientPaymentScores(userId: string) {
 
   const out = ((clients ?? []) as unknown as Client[]).map((c) => {
     const deltas = byClient.get(c.id) ?? []
-    if (deltas.length === 0) return { ...c, score: 50, avgDays: null }
+    // A neutral-looking 50 implied evidence we do not have. Keep new clients
+    // explicitly unscored until an invoice is actually paid.
+    if (deltas.length === 0) return { ...c, score: null, avgDays: null }
     const avgDays = Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length)
     const score = Math.max(5, Math.min(100, Math.round(100 - avgDays * 3)))
     return { ...c, score, avgDays }
   })
   out.sort((a, b) => (a.avgDays !== null && b.avgDays !== null ? a.avgDays - b.avgDays : 0))
   return out
+}
+
+export async function getOwnerNotifications(userId: string, limit = 20) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("owner_notifications")
+    .select("id, title, body, href, read_at, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(Math.min(limit, 50))
+  return (data ?? []) as { id: string; title: string; body: string; href: string | null; read_at: string | null; created_at: string }[]
 }
 
 export async function getSubscriptionsForUser(userId: string) {

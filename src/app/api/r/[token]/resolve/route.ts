@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 import { verifyResolutionToken } from "@/lib/recovery/token"
 import { dateOnlyToUtcMs, DAY_MS, utcStartOfDay } from "@/lib/utils/format"
+import { formatMoney } from "@/lib/utils/format"
+import { notifyOwner } from "@/lib/notifications/owner"
 
 export const dynamic = "force-dynamic"
 
@@ -13,7 +15,7 @@ async function loadOffer(offerId: string) {
   if (!supabase) return { supabase: null, offer: null as unknown }
   const { data } = await supabase
     .from("settlement_offers")
-    .select("id, user_id, invoice_id, outstanding_cents, offer_cents, incentive_cents, basis, expires_at, status")
+    .select("id, user_id, invoice_id, outstanding_cents, offer_cents, incentive_cents, basis, expires_at, status, settlement_payment_url")
     .eq("id", offerId)
     .single()
   return { supabase, offer: data as Record<string, unknown> | null }
@@ -87,6 +89,17 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
     if (acceptError) return NextResponse.json({ ok: false, error: "couldn't accept the offer — please retry" }, { status: 503 })
     if (!accepted) return NextResponse.json({ ok: false, error: "offer state changed — refresh and try again" }, { status: 409 })
     await supabase.from("settlement_events").insert({ offer_id: offer.id, user_id: userId, event: "accepted", meta: {} })
+    const { data: invoice } = await supabase.from("invoices").select("number, currency").eq("id", offer.invoice_id as string).single()
+    const amount = formatMoney(Number(offer.offer_cents), invoice?.currency ?? "USD")
+    await notifyOwner(supabase, {
+      userId,
+      type: offer.settlement_payment_url ? "settlement_accepted" : "payment_link_needed",
+      title: offer.settlement_payment_url ? "Settlement accepted" : "Settlement accepted — add payment link",
+      body: offer.settlement_payment_url ? `${invoice?.number ?? "Invoice"} was accepted for ${amount}.` : `${invoice?.number ?? "Invoice"} was accepted for ${amount}. Add the exact settlement payment link so the client can pay.`,
+      href: `/invoices/${offer.invoice_id}#settlement`,
+      dedupeKey: `settlement-accepted:${offer.id}`,
+      meta: { offer_id: offer.id, invoice_id: offer.invoice_id },
+    })
     return NextResponse.json({ ok: true, status: "accepted" })
   }
 
@@ -123,6 +136,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
       event: "promise",
       meta: { promise_date: body.promiseDate, note },
     })
+    await notifyOwner(supabase, { userId, type: "payment_promise", title: "Payment date promised", body: `The client promised ${body.promiseDate}. Reminders pause until then.`, href: `/invoices/${offer.invoice_id}`, dedupeKey: `promise:${offer.id}:${body.promiseDate}`, meta: { offer_id: offer.id, invoice_id: offer.invoice_id, promise_date: body.promiseDate } })
     return NextResponse.json({ ok: true, status: "promise", promiseDate: body.promiseDate })
   }
 
@@ -173,6 +187,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
       event: "plan_request",
       meta: { note, requested_cents: requestedCents },
     })
+    if (!existingPlan) await notifyOwner(supabase, { userId, type: "payment_plan", title: "Payment plan requested", body: "The client requested a payment plan; reminders are paused until you respond.", href: `/invoices/${offer.invoice_id}`, dedupeKey: `payment-plan:${offer.invoice_id}`, meta: { offer_id: offer.id, invoice_id: offer.invoice_id } })
     return NextResponse.json({ ok: true, status: "plan_request" })
   }
 
@@ -218,5 +233,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
     event: "dispute",
     meta: { category, note },
   })
+  if (!existingDispute) await notifyOwner(supabase, { userId, type: "dispute", title: "Invoice issue reported", body: "The client reported an issue; reminders are paused for review.", href: `/invoices/${offer.invoice_id}`, dedupeKey: `dispute:${offer.invoice_id}`, meta: { offer_id: offer.id, invoice_id: offer.invoice_id } })
   return NextResponse.json({ ok: true, status: "dispute" })
 }

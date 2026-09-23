@@ -3,6 +3,7 @@ import { getPlan } from "@/lib/billing/plan"
 import { getSessionUser } from "@/lib/auth/session"
 import { AppTopBar } from "@/components/app-shell/topbar"
 import { AppDock } from "@/components/app-shell/dock"
+import { getOwnerNotifications } from "@/lib/db/queries"
 
 export const metadata = { title: "App" }
 
@@ -21,11 +22,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
 
-  const plan = await getPlan(session.id)
+  const [plan, notifications] = await Promise.all([getPlan(session.id), getOwnerNotifications(session.id)])
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      <AppTopBar email={session.email} plan={plan} />
+      <AppTopBar email={session.email} plan={plan} notifications={notifications} />
       <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-6xl px-4 pb-32 pt-5 sm:px-6 md:pb-12 md:pt-6 lg:px-10">{children}</div>
       </main>

@@ -52,4 +52,15 @@ export async function reconcilePaidWork(
       })),
     )
   }
+
+  await notifyOwner(supabase, {
+    userId: opts.userId,
+    type: "invoice_paid",
+    title: "Payment recorded",
+    body: "An invoice was marked paid and its reminders were stopped.",
+    href: `/invoices/${opts.invoiceId}`,
+    dedupeKey: `invoice-paid:${opts.invoiceId}`,
+    meta: { invoice_id: opts.invoiceId, source: opts.source },
+  })
 }
+import { notifyOwner } from "@/lib/notifications/owner"

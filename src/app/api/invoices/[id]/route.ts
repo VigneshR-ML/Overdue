@@ -137,6 +137,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
   const sequenceId = String(postBody.sequenceId ?? "").slice(0, 45)
   if (!sequenceId) return NextResponse.json({ ok: false, error: "sequenceId required" }, { status: 400 })
 
+  if (postBody.replace === true) {
+    const supabase = createAdminClient()
+    if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 })
+    await supabase.from("runs").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("user_id", user!.id).eq("invoice_id", params.id).in("status", ["queued", "processing", "sent", "paused", "failed"])
+  }
+
   const res = await startRun({ userId: user!.id, sequenceId, invoiceId: params.id })
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 400 })
 

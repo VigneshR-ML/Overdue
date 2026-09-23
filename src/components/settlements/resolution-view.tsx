@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { currentTimeMs } from "@/lib/utils/format"
+import { formatMoney } from "@/lib/utils/format"
 
 function PayButton({ offer }: { offer: PublicOffer }) {
   const [busy, setBusy] = useState(false)
@@ -60,8 +61,7 @@ export interface PublicOffer {
   daysOverdue: number
 }
 
-const money = (c: number, cur: string) =>
-  `${(c / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })} ${cur}`
+const money = (c: number, cur: string) => formatMoney(c, cur)
 
 const DISPUTE_CATS = [
   "Incorrect amount",
@@ -129,11 +129,7 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
         <h1 className="font-display text-2xl text-ink">Offer accepted.</h1>
         <p className="mt-2 text-sm text-ink-soft">
           {money(offer.offerCents, offer.currency)} resolves invoice {offer.invoiceNumber ?? ""}.{" "}
-          {offer.paymentUrl ? (
-            <>Complete payment through the secure payment link below — the business is notified automatically.</>
-          ) : (
-            <>The business has been notified and will confirm payment.</>
-          )}
+          {offer.paymentUrl ? <>Complete payment through the secure link below.</> : <>The business has been notified and will send an exact payment link.</>}
         </p>
         <PayButton offer={offer} />
         {error ? (
@@ -196,7 +192,7 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
         {!expired ? (
           <div className="mt-5 space-y-2">
             <Button size="lg" variant="moss" className="w-full" disabled={busy !== null} onClick={() => act("accept")}>
-              {busy === "accept" ? "Reserving…" : `Resolve for ${money(offer.offerCents, offer.currency)}`}
+              {busy === "accept" ? "Accepting…" : `Accept offer for ${money(offer.offerCents, offer.currency)}`}
             </Button>
             {offer.paymentUrl ? (
               <p className="font-mono text-[11px] text-faint">Secure payment via the business&apos;s payment link after accepting.</p>

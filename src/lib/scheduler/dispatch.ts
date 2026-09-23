@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/utils/format"
 import { planForSubscription } from "@/lib/billing/entitlement"
 import { extractMessageIdTokens } from "@/lib/scheduler/thread-ids"
 import { signEmailPreview } from "@/lib/scheduler/email-preview"
+import { notifyOwner } from "@/lib/notifications/owner"
 import type { Sequence, SequenceStep, Invoice, Client, Run, ReplyClassification } from "@/types"
 
 const CUMULATIVE_DAYS = (steps: SequenceStep[], throughIndex: number) =>
@@ -867,6 +868,15 @@ export async function handleInboundReply(
           })
         }
       }
+      await notifyOwner(supabase, {
+        userId,
+        type: "reply_received",
+        title: "Client reply received",
+        body: `A client replied${classification === "promise" && intel?.date ? ` with a payment date of ${intel.date}` : ` (${classification.replace("_", " ")})`}. Reminders were paused for review.`,
+        href: `/invoices/${entry.invoiceId}`,
+        dedupeKey: `reply:${ids[0]}:${t}`,
+        meta: { invoice_id: entry.invoiceId, classification },
+      })
     }
   }
 
@@ -906,6 +916,7 @@ export type RunEmailPreview = {
   rung: number
   sequenceName: string
   resolveLabel: string | null
+  resolutionUrl: string | null
 }
 
 /** Builds the exact draft shown in the final confirmation dialog. */
@@ -1005,7 +1016,7 @@ export async function previewRunEmail(
     .order("expires_at", { ascending: true })
     .limit(1)
     .maybeSingle()
-  const offer = offerRow as { id: string; offer_cents: number } | null
+  const offer = offerRow as { id: string; offer_cents: number; expires_at: string } | null
   const offerId = offer?.id ?? null
   const token = signEmailPreview({
     userId,
@@ -1028,6 +1039,7 @@ export async function previewRunEmail(
       rung: step.step_order,
       sequenceName: sequence.name,
       resolveLabel: offer ? `Resolve for ${formatMoney(Number(offer.offer_cents), invoice.currency)}` : null,
+      resolutionUrl: offer ? `${appUrl()}/r/${signResolutionToken(offer.id, new Date(offer.expires_at).getTime())}` : null,
     },
   }
 }

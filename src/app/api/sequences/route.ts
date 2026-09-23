@@ -114,23 +114,7 @@ export async function PUT(request: NextRequest) {
   if (err) return NextResponse.json({ ok: false, error: err.message }, { status: 400 })
   if (!updated) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 })
 
-  // If activated, attach it to any open invoices that lack a run.
-  if (body.is_active === true) {
-    const admin = createAdminClient()
-    if (!admin) return NextResponse.json({ ok: true })
-    const { startRun } = await import("@/lib/scheduler/dispatch")
-    const { data: invoices } = await admin
-      .from("invoices")
-      .select("id, status, paid_cents, amount_cents, paid_at")
-      .eq("user_id", user!.id)
-      .in("status", ["pending", "sent", "overdue", "partially_paid"])
-    for (const inv of invoices ?? []) {
-      const amount = Number(inv.amount_cents ?? 0)
-      const paid = Number(inv.paid_cents ?? 0)
-      if (inv.paid_at || (inv.status === "paid" && amount > 0 && paid >= amount)) continue
-      await startRun({ userId: user!.id, sequenceId: id, invoiceId: inv.id })
-    }
-  }
+  // Saving a ladder never starts reminders. Attachment is explicit per invoice.
 
   return NextResponse.json({ ok: true })
 }

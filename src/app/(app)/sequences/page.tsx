@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { Plus } from "lucide-react"
 import type { SequenceStep } from "@/types"
+import { AttachLadderButton } from "@/components/ledger/attach-ladder-button"
 
 export const metadata = { title: "Ladders" }
 
 export const dynamic = "force-dynamic"
 
-export default async function SequencesPage(props: { searchParams?: Promise<{ error?: string }> }) {
+export default async function SequencesPage(props: { searchParams?: Promise<{ error?: string; attachTo?: string }> }) {
   const searchParams = await props.searchParams;
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
@@ -40,7 +41,7 @@ export default async function SequencesPage(props: { searchParams?: Promise<{ er
       <PageHeader
         kicker="Escalation"
         title="Ladders"
-        description="Four rungs. Gentle to final. The flame only gets warmer when it has to."
+        description="A ladder is a saved set of reminder emails. It starts only when you attach it to an invoice."
         action={
           <Link href="/sequences/new">
             <Button className="gap-2">
@@ -49,6 +50,7 @@ export default async function SequencesPage(props: { searchParams?: Promise<{ er
           </Link>
         }
       />
+      {searchParams?.attachTo ? <div className="rounded-lg border border-moss/30 bg-moss-soft p-4 text-sm text-ink-soft">Choose a ladder below. It will attach to this invoice, then return to its workflow.</div> : null}
 
       {mine.length === 0 && (
         <div className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
@@ -76,6 +78,7 @@ export default async function SequencesPage(props: { searchParams?: Promise<{ er
                   href={`/sequences/${s.id}`}
                   meta={`${(s.steps as unknown as SequenceStep[]).length} rungs · ${s.runs.length} activ${s.runs.length === 1 ? "e" : "es"}`}
                   active={s.is_active}
+                  attachTo={searchParams?.attachTo}
                 />
               ))}
         </div>
@@ -108,6 +111,7 @@ function SequenceCard({
   href,
   meta,
   active,
+  attachTo,
 }: {
   name: string
   description: string | null
@@ -115,18 +119,16 @@ function SequenceCard({
   href: string
   meta: string
   active: boolean
+  attachTo?: string
 }) {
   const sorted = [...steps].sort((a, b) => a.step_order - b.step_order)
   return (
-    <Link
-      href={href}
-      className="group rounded-lg border border-hairline bg-surface p-5 shadow-ledger transition-all duration-150 hover:-translate-y-0.5 hover:border-ink-soft"
-    >
+    <div className="group rounded-lg border border-hairline bg-surface p-5 shadow-ledger transition-all duration-150 hover:-translate-y-0.5 hover:border-ink-soft">
       <div className="flex items-start justify-between gap-3">
         <div className="font-display text-lg text-ink group-hover:text-moss">{name}</div>
         {active ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-moss/30 bg-moss-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-moss">
-            <span className="h-1.5 w-1.5 rounded-full bg-moss" /> live
+            <span className="h-1.5 w-1.5 rounded-full bg-moss" /> ready
           </span>
         ) : null}
       </div>
@@ -135,8 +137,9 @@ function SequenceCard({
         {sorted.map((s) => (
           <TonePill key={s.id} tone={s.tone} />
         ))}
-        <span className="ml-auto font-mono text-[11px] text-faint">{meta}</span>
+        <span className="ml-auto font-mono text-[11px] text-faint">{meta.replace("active", "attached")}</span>
       </div>
-    </Link>
+      {attachTo ? <AttachLadderButton invoiceId={attachTo} sequenceId={href.split("/").pop()!} /> : <Link href={href} className="mt-3 inline-block text-[12px] font-medium text-moss hover:underline">Edit ladder →</Link>}
+    </div>
   )
 }

@@ -9,7 +9,8 @@ import type { ClientHealth } from "@/lib/analysis/health"
 
 export const metadata = { title: "Clients" }
 
-function ScoreBar({ score }: { score: number }) {
+function ScoreBar({ score }: { score: number | null }) {
+  if (score === null) return <span className="font-mono text-[12px] text-faint">— no paid history</span>
   const color = score >= 70 ? "#2F5D50" : score >= 40 ? "#C29A43" : "#C14E2B"
   return (
     <div className="flex items-center gap-2.5">

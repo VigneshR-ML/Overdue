@@ -118,7 +118,8 @@ export async function draftEmail(input: DraftInput): Promise<DraftOutput> {
         { role: "user", content: user },
       ],
       temperature: 0.7,
-      maxTokens: 600,
+      // A short subject/body rewrite does not need a large completion budget.
+      maxTokens: 280,
     },
     (parsed: unknown) => {
       const p = parsed as Record<string, unknown>

@@ -6,6 +6,7 @@ import { LayoutDashboard, Receipt, Users, Waypoints, ChartNoAxesCombined, LogOut
 import { cn } from "@/lib/utils/format"
 import { createClient } from "@/lib/supabase/client"
 import { Wordmark } from "@/components/marketing/site"
+import { NotificationBell, type OwnerNotification } from "@/components/app-shell/notification-bell"
 
 /**
  * Slim workspace top bar. Brand on the left with a clearly labeled desktop
@@ -20,7 +21,7 @@ const DESKTOP_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/insights", label: "Insights", icon: ChartNoAxesCombined },
 ]
 
-export function AppTopBar({ email, plan }: { email: string; plan: string }) {
+export function AppTopBar({ email, plan, notifications }: { email: string; plan: string; notifications: OwnerNotification[] }) {
   const pathname = usePathname()
 
   async function signOut() {
@@ -64,6 +65,7 @@ export function AppTopBar({ email, plan }: { email: string; plan: string }) {
         </nav>
 
         <div className="flex items-center gap-3">
+          <NotificationBell initial={notifications} />
           <Link
             href="/settings"
             aria-label="Settings"

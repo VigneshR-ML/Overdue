@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic"
 /**
  * Owner approves a settlement offer (manual approval always in V1).
  * Creates the offer row, cancels superseded ones, returns the shareable
- * resolution link. Payment still moves over the invoice's existing
- * payment_url / provider — acceptance is a tracked commitment, not a charge.
+ * resolution link. A discounted checkout must be supplied explicitly: an
+ * invoice payment URL may charge the original amount.
  */
 export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     maxIncentiveBps?: unknown
     feeBasisConfirmed?: unknown
     expiresAt?: unknown
+    settlementPaymentUrl?: unknown
   }
   try {
     body = (await request.json()) as typeof body
@@ -45,6 +46,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "offerCents must be a positive amount" }, { status: 400 })
   }
   const basis = body.basis === "fee_waiver" ? "fee_waiver" : "discount"
+  const rawSettlementUrl = typeof body.settlementPaymentUrl === "string" ? body.settlementPaymentUrl.trim().slice(0, 500) : ""
+  const settlementPaymentUrl = rawSettlementUrl && /^https:\/\//i.test(rawSettlementUrl) ? rawSettlementUrl : null
+  if (rawSettlementUrl && !settlementPaymentUrl) return NextResponse.json({ ok: false, error: "Settlement payment link must be a secure https URL" }, { status: 400 })
   if (basis === "fee_waiver" && body.feeBasisConfirmed !== true) {
     return NextResponse.json(
       { ok: false, error: "fee waivers need explicit confirmation that the fee basis exists in your terms" },
@@ -135,6 +139,7 @@ export async function POST(request: NextRequest) {
       fee_basis_confirmed: basis === "fee_waiver",
       expires_at: expiresAt,
       status: "approved",
+      settlement_payment_url: settlementPaymentUrl,
       recommend_meta: {
         recommended_bps: snapshot.recommended.incentiveBps,
         reason: snapshot.reason,

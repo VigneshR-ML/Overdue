@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { formatMoney } from "@/lib/utils/format"
 
 interface Option {
   kind: "wait" | "settle"
@@ -20,8 +21,7 @@ interface Recommend {
   reason: string
 }
 
-const money = (c: number, cur: string) =>
-  `${(c / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })} ${cur}`
+const money = (c: number, cur: string) => formatMoney(c, cur)
 
 const formatEnd = (iso: string) => {
   const d = new Date(iso)
@@ -58,6 +58,7 @@ export function SettlementCard({
   const [link, setLink] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [settlementPaymentUrl, setSettlementPaymentUrl] = useState("")
 
   async function load(minCents: number | null, maxIncentive: number | null) {
     setLoading(true)
@@ -120,6 +121,7 @@ export function SettlementCard({
           minAcceptableCents: minAccept ? Math.round(parseFloat(minAccept) * 100) : null,
           maxIncentiveBps: Math.round(parseFloat(maxIncentivePct || "5") * 100),
           feeBasisConfirmed: basis === "fee_waiver" ? true : undefined,
+          settlementPaymentUrl: settlementPaymentUrl || undefined,
         }),
       })
       const json = await res.json()
@@ -172,6 +174,7 @@ export function SettlementCard({
         </span>
       </div>
       <p className="mt-1 text-[13px] text-muted">{data.reason}</p>
+      <label className="mt-4 block text-[12px] text-muted">Exact settlement payment link <span className="text-faint">(optional, secure https)</span><input value={settlementPaymentUrl} onChange={(e) => setSettlementPaymentUrl(e.target.value)} placeholder="https://checkout.example.com/settlement" className="mt-1 h-9 w-full rounded-md border border-hairline bg-paper px-2 text-sm text-ink" /></label>
 
       <div className="mt-3 space-y-2">
         {waitOpt ? (

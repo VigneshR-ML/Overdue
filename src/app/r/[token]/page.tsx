@@ -19,14 +19,14 @@ export default async function ResolutionPage(props: { params: Promise<{ token: s
 
   const { data: offer } = await supabase
     .from("settlement_offers")
-    .select("id, user_id, invoice_id, outstanding_cents, offer_cents, incentive_cents, basis, expires_at, status")
+    .select("id, user_id, invoice_id, outstanding_cents, offer_cents, incentive_cents, basis, expires_at, status, settlement_payment_url")
     .eq("id", verified.offerId)
     .single()
   if (!offer) notFound()
 
   const { data: invoice } = await supabase
     .from("invoices")
-    .select("number, currency, due_date, payment_url, status, paid_at")
+    .select("number, currency, due_date, status, paid_at")
     .eq("id", (offer as { invoice_id: string }).invoice_id)
     .single()
   if (!invoice) notFound()
@@ -56,12 +56,12 @@ export default async function ResolutionPage(props: { params: Promise<{ token: s
     basis: "discount" | "fee_waiver"
     expires_at: string
     status: string
+    settlement_payment_url: string | null
   }
   const inv = invoice as {
     number: string | null
     currency: string
     due_date: string | null
-    payment_url: string | null
   }
 
   // Record the view (best-effort, never blocks rendering). The offer's
@@ -92,7 +92,7 @@ export default async function ResolutionPage(props: { params: Promise<{ token: s
     basis: o.basis,
     expiresAt: o.expires_at,
     status: o.status,
-    paymentUrl: inv.payment_url,
+    paymentUrl: typeof offer.settlement_payment_url === "string" ? offer.settlement_payment_url : null,
     daysOverdue: Math.max(0, daysOverdue(inv.due_date)),
   }
 
