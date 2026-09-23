@@ -1,6 +1,6 @@
-# Overdue — Detailed LLD (codebase-accurate, 2026-09-23)
+# Overdue — Detailed LLD (codebase-accurate, 2026-09-23, runtime update)
 
-## 1. Database (0001–0024)
+## 1. Database (0001–0027 plus dated workflow migrations)
 
 ### 1.1 Core ledger
 - `profiles(id PK auth.users, email UNIQUE CI, full_name, avatar_url, onboarding_completed, created_at)` RLS SELECT+UPDATE.
@@ -32,7 +32,7 @@
 - `notifications(id,workspace_id,recipient_member_id→members,type,entity_type,entity_id,dedupe_key,channel in_app|email,read_at,sent_at, UNIQUE ws+dedupe)` keys: reminder run+step, installment id+stage, proposal request+version, receipt payment_id, digest ws+date.
 - `debtor_portal_sessions(id,workspace_id,invoice_id NOT NULL,plan_id NULL,token_hash sha256,issued_to_email,expires_at 30d,revoked_at,last_used_at,issued_reason resolve_link|fresh_link|plan_portal|renewal)`.
 - `webhook_receipts(provider,provider_event_id PK,signature_valid,payload_hash,received_at,processed_at,attempt_count)`; `webhook_events(provider,event_id UNIQUE,payload,processed_at)` legacy idempotency.
-- `outbox_jobs(id,event_id→workflow,job_type email|webhook_retry|reminder|digest,payload,run_after,attempt_count,last_error,dead_lettered_at)` + run_after idx.
+- `outbox_jobs(id,event_id→workflow,job_type email|webhook_retry|reminder|digest,payload,run_after,attempt_count,last_error,locked_at,sent_at,dead_lettered_at)` + atomic claim RPC (`claim_due_outbox_jobs`).\n- `payment_allocations(payment_id→payments,plan_installment_id→plan_installments,workspace_id,amount_cents)` is the normalized split ledger for one payment across multiple installments.
 - `manual_payment_approvals(payment_id PK→payments,created_by,confirmed_by,threshold_cents,created_at)`.
 - `integration_credentials(id,user_id,provider,vault_secret_id,payload)` RLS deny-all + Vault RPC; `ai_usage(user_id,month PK,count)`; `webhook_events` locked.
 
@@ -56,7 +56,7 @@ Ex 114000/30000/10000→[30000×3,24000]; 120000/30000→4×30000.
 - runs: queued→processing→sent/queued (advance) / paused (promise-hold/dispute/plan/human/bounce/no-email) / completed (paid/steps-exhausted) / failed (cap/no-email) / cancelled (paid/dispute-credit). current_step=rung.
 - settlement_offers: draft→approved→sent→accepted→paid (via offer) | suspended (plan open/proposed) →sent (request closed) or cancelled (direct pay superseded) | expired | cancelled.
 - payment_plan_requests: submitted→under_review→converted (debtor_accept+active only) / closed (owner_declined/owner_cancelled/debtor_withdrew-token/invoice_paid_directly) / expired 72h terminal (new row at [*]).
-- payment_plans: proposed→active (debtor_accept) →delinquent (misses≥policy) →active (paid) / completed (final or direct_invoice_payment) / cancelled (debtor_declined/owner_cancelled/default/replaced). Immutable versions via supersedes_plan_id.
+- payment_plans: proposed (expires_at) →active (signed debtor acceptance) →delinquent (misses≥policy) →active (payment) / completed (final installment or direct invoice payment) / cancelled (declined/owner cancel/default/replaced). Immutable versions via supersedes_plan_id.
 - installments: scheduled→due→partially_paid→paid / overdue→paid / waived / cancelled. Derived from payments sum; cached paid_cents reconciled.
 - disputes: open→resolved + outcome; promise: queued hold→missed (promise_missed + resume +24h).
 - checkout: open→completed/expired/cancelled + regenerated_from chain; payments pending→confirmed/failed/refunded; notifications unread→read/sent; outbox pending→sent/dead-letter.
@@ -93,7 +93,7 @@ sequenceDiagram
 
 ## 7. Ops
 
-Timing: reminders 09:00, digest 09:15 ws time; review 72h, proposal 7d, resume +24h, promise ≤60d, settlement ≤14d, portal 30d. Scripts: launch-check (env + 0001–0024 + dispatch.yml), verify-gates (test/type/lint/build/audit), assert-write-boundary, tenant-precheck, sql-rollback-drill + rollback/, dodo-e2e (manual), probe-computes. Tests: 32 files/238 pass — payment-plan (7), money-rules (8), paid-webhooks idempotency, dispatch/inbound, settlement, token, csv, billing, reply/draft/promise/quota, ownership. Paddle live-tested primary; Dodo fallback; Stripe secret present, PayPal/Xero empty (manual+Stripe scope).
+Timing: the hourly dispatcher also claims durable outbox email jobs and advances plan due/overdue/delinquent state; review 72h, proposal expiry policy default 7d, resume +24h, promise ≤60d, settlement ≤14d, portal 30d. Scripts: launch-check (env + 0001–0027 + dated migrations + dispatch.yml), verify-gates (test/type/lint/build/audit), assert-write-boundary, tenant-precheck, sql-rollback-drill + rollback/, dodo-e2e (manual), probe-computes. Tests: 32 files/238 pass — payment-plan (7), money-rules (8), paid-webhooks idempotency, dispatch/inbound, settlement, token, csv, billing, reply/draft/promise/quota, ownership. Paddle live-tested primary; Dodo fallback; Stripe secret present, PayPal/Xero empty (manual+Stripe scope).
 
 ## 8. Launch-blocker fixes (0025 + guards)
 
