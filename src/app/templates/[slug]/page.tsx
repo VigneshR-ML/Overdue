@@ -40,9 +40,24 @@ export default async function TemplatePage(props: Props) {
     { id: "d", step_order: 4, delay_days: 7, tone: "final" as const, ai_enabled: true, subject_template: "", body_template: "" },
   ]
 
+  const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online").replace(/\/$/, "")
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: `${siteUrl}/` },
+      { "@type": "ListItem", position: 2, name: "Templates", item: `${siteUrl}/templates` },
+      { "@type": "ListItem", position: 3, name: t.name, item: `${siteUrl}/templates/${t.slug}` },
+    ],
+  }
+
   return (
     <div className="min-h-screen bg-paper">
       <MarketingNav />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c") }}
+      />
       <main className="mx-auto max-w-4xl px-5 py-14">
         <nav className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">
           <Link href="/templates" className="hover:text-ink">Templates</Link>

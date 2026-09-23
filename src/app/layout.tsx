@@ -9,8 +9,10 @@ import "@fontsource/ibm-plex-mono/400.css"
 import "@fontsource/ibm-plex-mono/500.css"
 import "./globals.css"
 
+const configuredSiteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online").replace(/\/$/, "")
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"),
+  metadataBase: new URL(configuredSiteUrl),
   title: {
     default: "Overdue — Automated Invoice Follow-Up for Agencies & Freelancers",
     template: "%s · Overdue",
@@ -39,7 +41,7 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"
+  const siteUrl = configuredSiteUrl
   const softwareJsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
