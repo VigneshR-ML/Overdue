@@ -8,6 +8,12 @@ create index if not exists outbox_claimable_idx
   on public.outbox_jobs (run_after)
   where sent_at is null and dead_lettered_at is null;
 
+
+-- Calendar adjustment is a distinct, auditable counter-proposal reason.
+alter table public.payment_plans drop constraint if exists payment_plans_counter_reason_check;
+alter table public.payment_plans add constraint payment_plans_counter_reason_check
+  check (counter_reason is null or counter_reason in ('exceeds_allowed_count','final_below_minimum','duration_adjusted'));
+
 -- A proposal has its own expiry; it must not inherit an unrelated settlement
 -- expiry forever.
 alter table public.payment_plans add column if not exists expires_at timestamptz;
