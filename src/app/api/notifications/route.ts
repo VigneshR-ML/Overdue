@@ -18,29 +18,24 @@ export async function POST(request: NextRequest) {
   if (body.all !== true && ids.length === 0) {
     return NextResponse.json({ ok: false, error: "notification ids required" }, { status: 400 })
   }
-
   const now = new Date().toISOString()
-  const { data: member } = await supabase
+  const { data: memberships } = await supabase
     .from("workspace_members")
     .select("id")
     .eq("user_id", user!.id)
-    .eq("role", "owner")
-    .order("created_at")
-    .limit(1)
-    .maybeSingle()
+  const memberIds = (memberships ?? []).map((member: { id: string }) => member.id)
 
-  if (member?.id) {
+  if (memberIds.length) {
     let q = supabase
       .from("notifications")
       .update({ read_at: now })
-      .eq("recipient_member_id", member.id)
+      .in("recipient_member_id", memberIds)
       .is("read_at", null)
     if (body.all !== true) q = q.in("id", ids)
     const { error: notificationError } = await q
     if (notificationError) return NextResponse.json({ ok: false, error: "couldn't update notifications" }, { status: 503 })
   }
 
-  // Compatibility for notifications created before the workspace migration.
   let legacy = supabase
     .from("owner_notifications")
     .update({ read_at: now })
