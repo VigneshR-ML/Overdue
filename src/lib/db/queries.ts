@@ -226,14 +226,38 @@ export async function computeClientPaymentScores(userId: string) {
 
 export async function getOwnerNotifications(userId: string, limit = 20, before?: string) {
   const supabase = await createClient()
-  let query = supabase
+  const safeLimit = Math.min(limit, 100)
+  const { data: member } = await supabase
+    .from("workspace_members")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("role", "owner")
+    .order("created_at")
+    .limit(1)
+    .maybeSingle()
+
+  if (member?.id) {
+    let query = supabase
+      .from("notifications")
+      .select("id, type, title, body, href, read_at, created_at")
+      .eq("recipient_member_id", member.id)
+      .order("created_at", { ascending: false })
+      .limit(safeLimit)
+    if (before) query = query.lt("created_at", before)
+    const { data, error } = await query
+    if (!error && data && data.length > 0) {
+      return data as { id: string; type: string; title: string; body: string; href: string | null; read_at: string | null; created_at: string }[]
+    }
+  }
+
+  let legacy = supabase
     .from("owner_notifications")
-    .select("id, title, body, href, read_at, created_at")
+    .select("id, type, title, body, href, read_at, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(Math.min(limit, 100))
-  if (before) query = query.lt("created_at", before)
-  const { data } = await query
+    .limit(safeLimit)
+  if (before) legacy = legacy.lt("created_at", before)
+  const { data } = await legacy
   return (data ?? []) as { id: string; type: string; title: string; body: string; href: string | null; read_at: string | null; created_at: string }[]
 }
 
