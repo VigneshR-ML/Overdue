@@ -1,5 +1,5 @@
 import { appUrl } from "@/lib/integrations/oauth"
-import { signResolutionToken } from "@/lib/recovery/token"
+import { signPlanPortalToken, signResolutionToken } from "@/lib/recovery/token"
 import { renderPlanEmail, sendEmail, type PlanEmailKind } from "@/lib/resend/send"
 
 type OutboxJob = {
@@ -68,9 +68,11 @@ async function emailContext(supabase: any, payload: Record<string, unknown>): Pr
       .limit(1)
       .maybeSingle(),
   ])
-  const portalUrl = offer?.id
-    ? `${appUrl()}/r/${signResolutionToken(offer.id, new Date(offer.expires_at).getTime())}`
-    : null
+  const portalUrl = plan?.id
+    ? `${appUrl()}/p/${signPlanPortalToken(String(plan.id), Date.now() + 1000 * 60 * 60 * 24 * 30)}`
+    : offer?.id
+      ? `${appUrl()}/r/${signResolutionToken(offer.id, new Date(offer.expires_at).getTime())}`
+      : null
   return {
     invoiceId,
     userId,
