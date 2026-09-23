@@ -439,7 +439,19 @@ async function dispatchOne(
   try {
     const { data: staleReq } = await supabase.from("payment_plan_requests").select("id").eq("invoice_id", invoice.id).in("status", ["submitted", "under_review", "open"]).lt("expires_at", gateAt).limit(1).maybeSingle()
     if ((staleReq as { id?: string } | null)?.id) {
+      const resumeAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
       await supabase.from("payment_plan_requests").update({ status: "expired", close_reason: "expired_no_decision", decided_at: gateAt }).eq("id", (staleReq as { id: string }).id)
+      await supabase.from("runs").update({ status: "queued", next_run_at: resumeAt, updated_at: gateAt })
+        .eq("id", runId).eq("status", "processing")
+      await supabase.from("settlement_offers").update({ status: "sent", suspended_reason: null, updated_at: gateAt })
+        .eq("invoice_id", invoice.id).eq("user_id", run.user_id).eq("status", "suspended")
+      await notifyOwner(supabase, {
+        userId: run.user_id, type: "payment_plan", title: "Payment-plan request expired",
+        body: "The client did not receive or respond to a plan in time. Reminders resume after 24 hours.",
+        href: `/invoices/${invoice.id}`, dedupeKey: `payment-plan-expired:${(staleReq as { id: string }).id}`,
+        meta: { invoice_id: invoice.id, request_id: (staleReq as { id: string }).id },
+      })
+      return "paused"
     }
   } catch { /* pre-migration column may not exist */ }
   const { data: openDispute } = await supabase
