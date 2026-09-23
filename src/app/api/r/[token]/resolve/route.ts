@@ -158,6 +158,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
     const preferredStartDate = typeof body.preferredStartDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.preferredStartDate)
       ? body.preferredStartDate
       : null
+    const { data: invoiceScope } = await supabase
+      .from("invoices")
+      .select("workspace_id")
+      .eq("id", offer.invoice_id as string)
+      .eq("user_id", userId)
+      .maybeSingle()
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
     const { data: recentPlans } = await supabase
       .from("payment_plan_requests")
@@ -179,6 +185,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
       const expiresAt = new Date(Date.now() + 72 * 3600 * 1000).toISOString();
       const { error: planError } = await supabase.from("payment_plan_requests").insert({
         user_id: userId,
+        workspace_id: invoiceScope?.workspace_id ?? null,
         offer_id: offer.id as string,
         invoice_id: offer.invoice_id as string,
         requested_cents: requestedCents,
