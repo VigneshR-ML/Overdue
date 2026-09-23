@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
 
   const threshold = Number(process.env.MANUAL_DUAL_CONTROL_THRESHOLD_CENTS ?? 50000);
   const needsSecondConfirmation = amountCents > threshold;
+  if (needsSecondConfirmation && !owned.record.workspace_id) {
+    return NextResponse.json({ ok: false, error: "high-value payments require a backfilled workspace before dual confirmation" }, { status: 409 });
+  }
   const now = new Date().toISOString();
   const { data: payment, error: payErr } = await supabase.from("payments").insert({
     user_id: user!.id,
