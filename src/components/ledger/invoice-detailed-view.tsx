@@ -1,13 +1,11 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Activity, BrainCircuit, ChevronRight, ClipboardList, Mail, MessageSquare, X } from "lucide-react"
+import { ChevronRight, ClipboardList, Mail, MessageSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PaymentPlanRequest } from "@/components/ledger/payment-plan-request"
-import { RecoveryTimeline } from "@/components/ledger/recovery-timeline"
 import { ReplyThread } from "@/components/ledger/reply-thread"
 import { formatDate, formatMoney } from "@/lib/utils/format"
-import type { Milestone } from "@/lib/onboarding/timeline"
 import type { InvoiceDetailRow } from "@/lib/db/queries"
 
 type DetailProps = Pick<InvoiceDetailRow, "paymentPlans" | "planLedger" | "replies" | "disputes" | "messages" | "workflowEvents">
@@ -24,14 +22,10 @@ function planStatusLabel(status: string | null | undefined) {
 export function InvoiceDetailedView({
   invoiceNumber,
   currency,
-  milestones,
-  planStatus,
   ...detail
 }: DetailProps & {
   invoiceNumber: string | null
   currency: string
-  milestones: Milestone[]
-  planStatus: string | null
 }) {
   const [open, setOpen] = useState(false)
   const dialogRef = useRef<HTMLDivElement | null>(null)
@@ -51,7 +45,6 @@ export function InvoiceDetailedView({
     }
   }, [open])
 
-  const nextMilestone = milestones.find((milestone) => milestone.state === "current")
   const latestPlan = detail.planLedger[0] ?? null
 
   return (
@@ -78,27 +71,6 @@ export function InvoiceDetailedView({
             </header>
 
             <div className="space-y-5 p-5">
-              <section className="rounded-lg border border-moss/25 bg-moss-soft/40 p-4">
-                <div className="flex gap-3">
-                  <BrainCircuit className="mt-0.5 shrink-0 text-moss" size={19} aria-hidden />
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-moss">Recovery briefing</div>
-                    <p className="mt-1 text-[14px] leading-relaxed text-ink">
-                      {nextMilestone ? <><strong>{nextMilestone.label}.</strong> {nextMilestone.note ?? "Review the timeline below for the next step."}</> : "This invoice has no pending recovery action."}
-                    </p>
-                    <p className="mt-2 text-[12px] leading-relaxed text-muted">This briefing is built from recorded invoice facts. AI can help draft and classify communication, but never changes money, dates, or sends on its own.</p>
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-lg border border-hairline bg-paper p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2"><Activity size={16} className="text-moss" aria-hidden /><h3 className="font-medium text-ink">Recovery timeline</h3></div>
-                  {planStatus ? <span className="rounded-full border border-hairline px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{planStatusLabel(planStatus)}</span> : null}
-                </div>
-                {milestones.length ? <RecoveryTimeline milestones={milestones} /> : <p className="text-sm text-muted">Nothing tracked for this invoice yet.</p>}
-              </section>
-
               {detail.workflowEvents.length ? (
                 <section className="rounded-lg border border-hairline bg-paper p-4">
                   <h3 className="font-medium text-ink">Recorded workflow events</h3>
