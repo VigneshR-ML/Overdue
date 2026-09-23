@@ -5,7 +5,7 @@ import { MarketingNav, MarketingFooter } from "@/components/marketing/site"
 import { ReceiptTicker } from "@/components/ledger/receipt-ticker"
 import { EscalationLadder } from "@/components/ledger/escalation-ladder"
 import { Button } from "@/components/ui/button"
-import { Check } from "lucide-react"
+import { BrainCircuit, Check, MessageSquareText, ShieldCheck } from "lucide-react"
 import { AuthNotice } from "@/components/auth/auth-notice"
 import { ProPrice } from "@/components/billing/pro-price"
 import { TOOL_CALCULATORS } from "@/lib/seo/tool-calculators"
@@ -62,7 +62,7 @@ export default function LandingPage() {
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-moss" />
-              Autopilot for your invoice follow-ups
+              AI-assisted, owner-controlled invoice follow-ups
             </div>
             <h1 className="font-display text-[44px] leading-[1.02] tracking-tight text-ink sm:text-6xl lg:text-[76px]">
               Get paid without
@@ -113,6 +113,33 @@ export default function LandingPage() {
               <div className="mt-1 text-[13px] text-muted">{v}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* AI — clear value, explicit human controls */}
+      <section id="ai" className="border-y border-hairline bg-moss-soft/35 py-20">
+        <div className="mx-auto grid max-w-6xl items-start gap-10 px-5 lg:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">AI Recovery Copilot</div>
+            <h2 className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">AI for the awkward words. <em className="italic">You keep control.</em></h2>
+            <p className="mt-5 max-w-measure text-lg leading-relaxed text-ink-soft">Overdue uses small, focused AI requests to make chasing clearer and more human. The ledger, amounts, due dates, payment plans, and sending rules always stay deterministic.</p>
+            <div className="mt-7 rounded-lg border border-moss/25 bg-paper p-4 text-[13px] leading-relaxed text-muted">
+              <span className="font-medium text-ink">No black-box collection decisions.</span> AI never changes a payment amount, accepts a plan, moves a due date, or sends an email without an owner-approved workflow.
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              { icon: MessageSquareText, title: "Write in your voice", body: "Draft a short reminder that matches the ladder’s tone. You review the exact email before it sends." },
+              { icon: BrainCircuit, title: "Turn replies into next steps", body: "Spot a promise, plan request, payment claim, or dispute—then show the owner the right action." },
+              { icon: ShieldCheck, title: "Explain, don’t decide", body: "Summarise the invoice timeline and payment risk from recorded facts so nothing important gets missed." },
+            ].map((item) => (
+              <article key={item.title} className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
+                <item.icon size={20} className="text-moss" aria-hidden />
+                <h3 className="mt-4 font-display text-xl text-ink">{item.title}</h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted">{item.body}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
