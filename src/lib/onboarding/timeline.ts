@@ -30,6 +30,7 @@ export interface TimelineInput {
   lastReply: TimelineReply | null
   promiseDate: string | null
   promiseMissed: boolean
+  paymentPlanStatus?: string | null
   disputeOpen: boolean
   paidAt: string | null
   paidCents: number
@@ -128,12 +129,12 @@ export function buildInvoiceTimeline(input: TimelineInput): Milestone[] {
   } else if (input.promiseDate) {
     milestones.push({
       id: "reply",
-      label: "Payment promised",
+      label: "Client promised a payment date",
       state: "current",
       date: input.promiseDate,
-      note: input.promiseMissed
-        ? "The promised date passed unpaid — follow-ups resume."
-        : "Reminders pause until this date; they resume if it passes unpaid.",
+      note: input.promiseMissed || new Date(input.promiseDate).getTime() <= Date.now()
+        ? "This date passed without a recorded payment. The next follow-up is ready to be scheduled."
+        : "This date is recorded. Automated reminders wait until then.",
     })
   } else if (input.lastReply?.classification) {
     milestones.push({
@@ -142,6 +143,20 @@ export function buildInvoiceTimeline(input: TimelineInput): Milestone[] {
       state: "done",
       date: input.lastReply.created_at,
       note: `Classified as “${input.lastReply.classification}”.`,
+    })
+  }
+
+  if (input.paymentPlanStatus) {
+    milestones.push({
+      id: "payment-plan",
+      label: input.paymentPlanStatus === "accepted" ? "Payment proposal prepared" : "Payment plan requested",
+      state: input.paymentPlanStatus === "declined" ? "done" : "current",
+      date: null,
+      note: input.paymentPlanStatus === "accepted"
+        ? "A proposal is recorded for this request. Reminders stay paused while payment is arranged."
+        : input.paymentPlanStatus === "declined"
+          ? "The request was declined; the normal reminder workflow may continue."
+          : "The client asked to arrange payment. Review it before further follow-ups.",
     })
   }
 

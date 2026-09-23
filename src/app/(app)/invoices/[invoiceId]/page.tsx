@@ -42,9 +42,8 @@ export default async function InvoiceDetailPage(
   const liveOffer = row.offers.find((offer) =>
     ["approved", "sent", "accepted"].includes(offer.status) && new Date(offer.expires_at).getTime() > currentTimeMs(),
   ) ?? null
-  const promiseDate = run?.promise_date && dateOnlyToUtcMs(run.promise_date.slice(0, 10)) > utcStartOfDay()
-    ? run.promise_date
-    : null
+  const promiseDate = run?.promise_date ?? null
+  const latestPlan = row.paymentPlans[0] ?? null
 
   const milestones = buildInvoiceTimeline({
     created_at: invoice.created_at,
@@ -65,6 +64,7 @@ export default async function InvoiceDetailPage(
     lastReply: latestReply ? { classification: latestReply.classification, created_at: latestReply.created_at } : null,
     promiseDate,
     promiseMissed: Boolean(run?.promise_missed),
+    paymentPlanStatus: latestPlan?.status ?? null,
     disputeOpen: row.disputes.length > 0,
     paidAt: invoice.paid_at,
     paidCents: invoice.paid_cents,

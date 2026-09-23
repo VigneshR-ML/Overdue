@@ -318,7 +318,7 @@ export function InvoiceTable({
                 Mark paid
               </Button>
               <Link href={`/invoices/${sheetInvoice.id}#settlement`} onClick={closeSheet} className="inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium text-moss hover:bg-hairline/60">Add resolve option</Link>
-              <Link href={`/invoices/${sheetInvoice.id}`} onClick={closeSheet} className="inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium text-ink-soft hover:bg-hairline/60">View invoice</Link>
+              <Link href={`/invoices/${sheetInvoice.id}`} onClick={closeSheet} className="inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium text-ink-soft hover:bg-hairline/60">Detailed view</Link>
             </div>
           )}
         </div>

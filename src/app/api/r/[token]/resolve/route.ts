@@ -5,6 +5,7 @@ import { verifyResolutionToken } from "@/lib/recovery/token"
 import { dateOnlyToUtcMs, DAY_MS, utcStartOfDay } from "@/lib/utils/format"
 import { formatMoney } from "@/lib/utils/format"
 import { notifyOwner } from "@/lib/notifications/owner"
+import { createAutoPaymentPlanProposal } from "@/lib/recovery/auto-payment-plan"
 
 export const dynamic = "force-dynamic"
 
@@ -157,15 +158,16 @@ export async function POST(request: NextRequest, props: { params: Promise<{ toke
       .limit(1)
       .maybeSingle()
     if (!existingPlan) {
-      const { error: planError } = await supabase.from("payment_plan_requests").insert({
+      const { data: plan, error: planError } = await supabase.from("payment_plan_requests").insert({
         user_id: userId,
         offer_id: offer.id as string,
         invoice_id: offer.invoice_id as string,
         requested_cents: requestedCents,
         message: note ?? "",
         status: "open",
-      })
+      }).select("id").single()
       if (planError) return NextResponse.json({ ok: false, error: "couldn't save the payment-plan request — please retry" }, { status: 503 })
+      if (plan?.id) await createAutoPaymentPlanProposal(supabase, { requestId: plan.id, userId, invoiceId: offer.invoice_id as string })
     }
     const { error: pauseError } = await supabase
       .from("runs")

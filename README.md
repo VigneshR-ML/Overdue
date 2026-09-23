@@ -27,7 +27,7 @@ npm run dev
 ```
 
 - Rotate any key if `.env.example` ever ships with values — it is meant to be blank.
-- Run migrations in order: `0001_init.sql` → `0020_maint_assert_write_boundary.sql`.
+- Run migrations in order: `0001_init.sql` → `0020_maint_assert_write_boundary.sql`, then the dated workflow migrations in ascending order.
 - Enable **Email (password)** auth provider → `users` + `profiles` + `subscriptions` +
   the default ladder are auto-created by `on_auth_user_created` triggers.
 - Env keys are documented inline in `.env.example` (Supabase, App, Paddle, Dodo,
@@ -36,6 +36,36 @@ npm run dev
 ---
 
 # Project Status — Done · Pending · To Do
+
+## Release truth — updated 2026-09-23
+
+### Implemented in the repository
+- Invoice workflow now has a **Detailed view** with a plain-language timeline: invoice
+  created → ladder attached → reminders sent → debtor reply/promise/plan request →
+  current wait or next follow-up → paid.
+- A promised date remains visible on that timeline, including when the date has passed
+  without a recorded payment.
+- The optional **Auto payment planner** is in Settings. When enabled, it claims a debtor's
+  plan request once, calculates one proposal within the configured maximum incentive,
+  creates one matching resolution offer, and attempts one email. The database unique key
+  prevents duplicate proposals on retries/double-clicks.
+- Ladder attachment, scrollable email review/history, payment-plan history, and polite
+  approval-email handling are implemented in the current `main` branch.
+
+### Must still be completed before calling production ready
+- Apply `20260923023932_owner_notifications.sql`,
+  `20260923031059_workflow_center.sql`, and
+  `20260923040000_auto_payment_plans.sql` to the exact Supabase project used by Vercel.
+- Configure and verify the Resend sending domain/API key, then make a controlled end-to-end
+  send with a test inbox. Auto-plan email delivery cannot be claimed without this.
+- Connect a payment provider that can create installment/check-out schedules. The current
+  auto planner creates **one proposed resolution amount**, not a multi-installment payment
+  contract; it must never claim to collect money itself.
+- Add owner approval for debtor date-change requests if the desired policy is "the client
+  requests a date, then the owner approves it". Today a date is a recorded debtor promise
+  and is clearly shown in the detailed timeline.
+- Run live OAuth, provider-webhook, cron, mobile navigation, and database-policy checks on
+  the real project after configuration.
 
 ## ✅ Done (with evidence)
 
@@ -94,14 +124,14 @@ npm run dev
 - Multi-currency reporting: dashboard aging totals, Insights aging/DSO, cash forecasts
   and fast-cash lines are calculated and displayed independently per currency.
 
-### Defect register (D01–D42) — every described defect fixed on HEAD
+### Historical defect register (D01–D42)
 | Severity | Fixed | Open |
 |----------|-------|------|
 | Cri | D13, D33, D38 | — |
 | Hi | D01, D05, D06, D07, D08, D09, D14, D15, D25, D34, D35, D36, D37, D39 | — |
 | Med | D02, D03, D04, D10, D11, D12, D16, D17, D18, D19, D20, D24, D29, D31 | — |
 | Low | D27, D30, D32, D40, D41, D42 | — |
-| —    | — | None among the 37 defects that had a description and reproduction |
+| —    | — | New workflow work is tracked in the Release truth above; live verification remains open. |
 
 Key fixes in the master pass (D29–D32): paid webhooks record real provider amounts and
 drive the shared `reconcilePaidWork` (`src/lib/recovery/paid.ts`) returning 500 on

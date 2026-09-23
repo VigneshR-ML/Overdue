@@ -1,11 +1,12 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getSessionUser } from "@/lib/auth/session"
-import { getProfile } from "@/lib/db/queries"
+import { getPaymentPlanAutomationSettings, getProfile } from "@/lib/db/queries"
 import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { AccountDataControls } from "@/components/settings/account-data-controls"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { SenderNameForm } from "@/components/settings/sender-name-form"
+import { PaymentPlannerForm } from "@/components/settings/payment-planner-form"
 
 export const metadata = { title: "Settings" }
 
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic"
 export default async function SettingsPage() {
   const session = await getSessionUser()
   if (!session) redirect("/?signin=1")
-  const profile = await getProfile(session.id)
+  const [profile, paymentPlanner] = await Promise.all([getProfile(session.id), getPaymentPlanAutomationSettings(session.id)])
 
   return (
     <div className="space-y-6">
@@ -60,6 +61,13 @@ export default async function SettingsPage() {
           </Card>
         </Link>
       </div>
+
+      <Card>
+        <CardHeader><span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Auto payment planner</span></CardHeader>
+        <CardBody>
+          <PaymentPlannerForm initialEnabled={paymentPlanner.enabled} initialBps={paymentPlanner.maxIncentiveBps} />
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader><span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Your data</span></CardHeader>

@@ -255,6 +255,16 @@ export async function getProfile(userId: string) {
   return (data ?? null) as { full_name: string | null; email: string | null; onboarding_completed: boolean | null } | null
 }
 
+export async function getPaymentPlanAutomationSettings(userId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("payment_plan_automation_settings")
+    .select("enabled, max_incentive_bps")
+    .eq("user_id", userId)
+    .maybeSingle()
+  return { enabled: Boolean(data?.enabled), maxIncentiveBps: Number(data?.max_incentive_bps ?? 500) }
+}
+
 export async function getIntegrations(userId: string) {
   const supabase = await createClient()
   const { data } = await supabase
