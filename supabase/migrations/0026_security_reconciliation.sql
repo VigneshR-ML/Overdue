@@ -11,6 +11,12 @@ alter table public.checkout_attempts enable row level security;
 alter table public.workflow_events enable row level security;
 alter table public.notifications enable row level security;
 
+-- Store renderable copy alongside the normalized notification target. These
+-- fields keep the feed useful even if the originating invoice changes later.
+alter table public.notifications add column if not exists title text not null default 'Workflow update';
+alter table public.notifications add column if not exists body text not null default '';
+alter table public.notifications add column if not exists href text;
+
 alter table public.payments add column if not exists reference text;
 alter table public.payments add column if not exists proof_url text;
 
