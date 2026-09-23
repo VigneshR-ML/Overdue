@@ -36,6 +36,12 @@ export async function POST(request: NextRequest) {
 
   const { data: req } = await supabase.from("payment_plan_requests").select("id, user_id, invoice_id, status, workspace_id").eq("id", requestId).eq("user_id", user!.id).maybeSingle();
   if (!req) return NextResponse.json({ ok: false, error: "not found" }, { status: 404 });
+  if (!["submitted", "under_review"].includes(String((req as { status: string }).status))) {
+    return NextResponse.json({ ok: false, error: "this request is already closed or converted" }, { status: 409 });
+  }
+  if (preferredCents <= 0 || totalCents <= 0) {
+    return NextResponse.json({ ok: false, error: "amounts must be greater than zero" }, { status: 422 });
+  }
   const { data: invoice } = await supabase.from("invoices").select("id, amount_cents, paid_cents, paid_at, status, currency").eq("id", (req as { invoice_id: string }).invoice_id).eq("user_id", user!.id).maybeSingle();
   if (!invoice) return NextResponse.json({ ok: false, error: "invoice not found" }, { status: 404 });
   const outstandingCents = Math.max(0, Number(invoice.amount_cents) - Number(invoice.paid_cents));
