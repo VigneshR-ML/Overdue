@@ -59,6 +59,15 @@ export interface PublicOffer {
   status: string
   paymentUrl: string | null
   daysOverdue: number
+  proposedPlan?: {
+    id: string
+    totalCents: number
+    currency: string
+    frequency: string
+    startsOn: string
+    installmentCount: number
+    installments: { amountCents: number; dueDate: string; status: string }[]
+  } | null
 }
 
 const money = (c: number, cur: string) => formatMoney(c, cur)
@@ -96,8 +105,29 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
   const [preferredCents, setPreferredCents] = useState("")
   const [frequency, setFrequency] = useState("monthly")
   const [startDate, setStartDate] = useState("")
+  const [planBusy, setPlanBusy] = useState<"accept" | "decline" | null>(null)
 
   const expired = new Date(offer.expiresAt).getTime() <= currentTimeMs()
+
+  async function decidePlan(action: "accept" | "decline") {
+    if (!offer.proposedPlan) return
+    setPlanBusy(action)
+    setError(null)
+    try {
+      const res = await fetch(`/api/r/${encodeURIComponent(offer.token)}/plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: offer.proposedPlan.id, action }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) throw new Error(json?.error ?? "Could not update payment plan")
+      setDone(action === "accept" ? "plan_accepted" : "plan_declined")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed.")
+    } finally {
+      setPlanBusy(null)
+    }
+  }
 
   async function act(action: string, extra: Record<string, unknown> = {}) {
     setBusy(action)
@@ -209,6 +239,40 @@ export function ResolutionView({ offer }: { offer: PublicOffer }) {
           </p>
         )}
       </div>
+
+      {offer.proposedPlan ? (
+        <div className="rounded-lg border border-moss/40 bg-moss-soft p-5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-moss">Payment plan ready</p>
+          <h2 className="mt-1 font-display text-xl text-ink">Review your proposed schedule</h2>
+          <p className="mt-2 text-sm text-ink-soft">
+            {offer.proposedPlan.installmentCount} {offer.proposedPlan.frequency} payments starting {offer.proposedPlan.startsOn}.
+            Total: {money(offer.proposedPlan.totalCents, offer.proposedPlan.currency)}.
+          </p>
+          <div className="mt-3 max-h-40 overflow-y-auto rounded-md border border-moss/20 bg-paper">
+            {offer.proposedPlan.installments.map((installment, index) => (
+              <div key={`${installment.dueDate}-${index}`} className="flex items-center justify-between border-b border-hairline px-3 py-2 text-sm last:border-0">
+                <span>Payment {index + 1} · {installment.dueDate}</span>
+                <span className="font-mono">{money(installment.amountCents, offer.proposedPlan!.currency)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <Button type="button" variant="moss" disabled={planBusy !== null} onClick={() => decidePlan("accept")}>
+              {planBusy === "accept" ? "Accepting…" : "Accept payment plan"}
+            </Button>
+            <Button type="button" variant="outline" disabled={planBusy !== null} onClick={() => decidePlan("decline")}>
+              {planBusy === "decline" ? "Declining…" : "Decline"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {done === "plan_accepted" ? (
+        <div className="rounded-lg border border-moss/40 bg-moss-soft p-4 text-sm text-ink">Payment plan accepted. Your first payment is scheduled for {offer.proposedPlan?.startsOn}.</div>
+      ) : null}
+      {done === "plan_declined" ? (
+        <div className="rounded-lg border border-hairline bg-surface p-4 text-sm text-muted">The proposal was declined. The business has been notified.</div>
+      ) : null}
 
       <div className="rounded-lg border border-hairline bg-surface p-5">
         <h2 className="font-display text-lg text-ink">Can&apos;t pay today?</h2>
