@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Field, Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils/format"
+import { GoogleIdentityButton } from "@/components/auth/google-identity-button"
 
 function isConfigured() {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -28,37 +29,35 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [newPassword, setNewPassword] = useState("")
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("")
 
-  async function signInWithGoogle() {
+  const handleGoogleError = useCallback((message: string) => {
+    setError(message)
+    setLoading(false)
+  }, [])
+
+  const handleGoogleCredential = useCallback(async (token: string, nonce: string) => {
     if (!isConfigured()) {
-      setError("Supabase isn't configured on this deploy yet.")
+      handleGoogleError("Supabase isn't configured on this deploy yet.")
       return
     }
     setError(null)
     setLoading(true)
     try {
       const supabase = createClient()
-      // Supabase may fall back to the configured Site URL when an allowlist is
-      // incomplete. Preserve the provider locally so any callback failure is
-      // still explained as Google OAuth, never as an email-confirmation link.
-      window.sessionStorage.setItem("overdue:oauth-provider", "google")
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?source=google`,
-          queryParams: { prompt: "select_account" },
-        },
+        token,
+        nonce,
       })
       if (error) {
-        window.sessionStorage.removeItem("overdue:oauth-provider")
-        setError(error.message)
+        handleGoogleError(error.message)
+        return
       }
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/auth/callback?source=google")
     } catch {
-      window.sessionStorage.removeItem("overdue:oauth-provider")
-      setError("Couldn't reach the sign-in service. Please try again.")
-    } finally {
-      setLoading(false)
+      handleGoogleError("Couldn't reach the sign-in service. Please try again.")
     }
-  }
+  }, [handleGoogleError])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -270,12 +269,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </div>
       ) : null}
 
+      <GoogleIdentityButton
+        disabled={loading}
+        onCredential={handleGoogleCredential}
+        onError={handleGoogleError}
+      />
+
       <Button
         type="button"
         variant="outline"
         size="lg"
-        className="w-full"
-        onClick={signInWithGoogle}
+        className="hidden"
+        onClick={() => {}}
         disabled={loading}
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
