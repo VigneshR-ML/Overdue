@@ -101,9 +101,18 @@ export function GoogleIdentityButton({
 
   if (!clientId) {
     return (
-      <p className="rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft" role="alert">
-        Google sign-in is not configured on this deployment yet.
-      </p>
+      <div className="space-y-2" role="group" aria-label="Google sign in">
+        <button
+          type="button"
+          disabled
+          className="flex h-11 w-full items-center justify-center rounded-md border border-hairline bg-paper px-4 text-sm font-medium text-muted opacity-70"
+        >
+          Continue with Google
+        </button>
+        <p className="rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft" role="alert">
+          Google sign-in is not configured on this deployment yet. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID in Vercel and redeploy.
+        </p>
+      </div>
     )
   }
 
