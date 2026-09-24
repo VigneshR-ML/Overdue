@@ -33,10 +33,9 @@ function createNonce(): string {
 
 async function hashNonce(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "")
+  // Google puts this hashed nonce in the ID token. Supabase verifies it by
+  // hashing the raw nonce with SHA-256 and comparing the lowercase hex form.
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
 }
 
 export function GoogleIdentityButton({
