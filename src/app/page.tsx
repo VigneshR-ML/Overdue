@@ -5,16 +5,27 @@ import { MarketingNav, MarketingFooter } from "@/components/marketing/site"
 import { ReceiptTicker } from "@/components/ledger/receipt-ticker"
 import { EscalationLadder } from "@/components/ledger/escalation-ladder"
 import { Button } from "@/components/ui/button"
-import { BrainCircuit, Check, MessageSquareText, ShieldCheck } from "lucide-react"
+import { Check } from "lucide-react"
 import { AuthNotice } from "@/components/auth/auth-notice"
 import { ProPrice } from "@/components/billing/pro-price"
 import { TOOL_CALCULATORS } from "@/lib/seo/tool-calculators"
 import { LandingToolTeaser } from "@/components/marketing/landing-tool-teaser"
+import { TestimonialMarquee } from "@/components/marketing/testimonial-marquee"
 
 export const metadata: Metadata = {
-  title: "Overdue — Get paid without the awkward conversation",
+  title: "Overdue — Recover overdue invoices without awkward chasing",
   description:
-    "Automated invoice follow-ups with a tone ladder that gets warmer as it gets firmer. Built for freelancers and small agencies.",
+    "Recover overdue invoices with human payment reminder emails, a clear recovery ladder, reply detection, and a payment ledger for freelancers and small agencies.",
+  keywords: [
+    "overdue invoice follow-up",
+    "unpaid invoice reminders",
+    "late invoice payment",
+    "invoice payment tracking",
+    "payment ledger",
+    "invoice email",
+    "send invoices and get paid",
+    "AI invoice follow-up",
+  ],
   alternates: { canonical: "/" },
 }
 
@@ -28,7 +39,7 @@ const LADDER_STEPS = [
 const FAQS = [
   {
     q: "Does this send emails automatically on day one?",
-    a: "On Pro, yes — once you import a CSV (or add an invoice) and pick a ladder, each rung goes out on schedule and nothing sends until you've reviewed the draft. On Free, you send each step yourself with one tap from the ledger; every message is drafted first and editable before it ever goes out.",
+    a: "On Pro, yes — once you import a CSV and pick a ladder, each rung goes out on schedule and nothing sends until you've reviewed the draft. On Free, you send each step yourself with one tap from the ledger; every message is drafted first and editable before it ever goes out.",
   },
   {
     q: "Will clients be annoyed?",
@@ -36,7 +47,7 @@ const FAQS = [
   },
   {
     q: "Which invoice tools do you connect to?",
-    a: "Direct PayPal, Stripe, QuickBooks and Xero connections are coming soon. Today, export a CSV from any of them and Smart CSV maps your invoices in under a minute. A manual catch-all still works.",
+    a: "Smart CSV import is available today. It maps exports from PayPal, Stripe, QuickBooks, Xero, and other invoice systems into one ledger. Direct connections are coming soon.",
   },
   {
     q: "Who pays and where does the money go?",
@@ -44,9 +55,19 @@ const FAQS = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Plans are monthly, cancellable in two clicks from the billing page, there's a 7-day free trial, and a 30-day money-back policy on Pro.",
+    a: "Yes. Plans are monthly, cancellable in two clicks from the billing page, and covered by our 30-day refund policy on Pro.",
   },
 ]
+
+const FAQ_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+}
 
 export default function LandingPage() {
   return (
@@ -62,17 +83,17 @@ export default function LandingPage() {
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-moss" />
-              AI-assisted, owner-controlled invoice follow-ups
+              Recovery workflow for overdue invoices
             </div>
             <h1 className="font-display text-[44px] leading-[1.02] tracking-tight text-ink sm:text-6xl lg:text-[76px]">
-              Get paid without
+              Your client missed the due date.
               <br />
-              the <em className="font-display italic text-moss">awkward</em> conversation.
+              <em className="font-display italic text-moss">Overdue takes it from here.</em>
             </h1>
             <p className="mt-6 max-w-measure text-lg leading-relaxed text-ink-soft">
-              The first reminder goes the day after the due date. The last one arrives with
-              a deadline. Everything in between is drafted in your voice, escalated on a
-              schedule, and designed to protect the client relationship.
+              Import your invoice list, choose a recovery ladder, and let Overdue handle the
+              uncomfortable follow-up. Messages start polite, get firmer only when needed,
+              pause when a client replies, and stop when payment is recorded.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/signup">
@@ -83,8 +104,11 @@ export default function LandingPage() {
               </Link>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[12px] uppercase tracking-[0.12em] text-muted">
-              <span>any CSV</span><span className="text-hairline">/</span>
-              <span>platform syncs coming soon</span>
+              <span>Smart CSV today</span><span className="text-hairline">/</span>
+              <span>PayPal</span><span className="text-hairline">/</span>
+              <span>Stripe</span><span className="text-hairline">/</span>
+              <span>QuickBooks</span><span className="text-hairline">/</span>
+              <span>Xero · coming soon</span>
             </div>
           </div>
 
@@ -115,32 +139,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* AI — clear value, explicit human controls */}
-      <section id="ai" className="border-y border-hairline bg-moss-soft/35 py-20">
-        <div className="mx-auto grid max-w-6xl items-start gap-10 px-5 lg:grid-cols-[0.85fr_1.15fr]">
-          <div>
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">AI Recovery Copilot</div>
-            <h2 className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">AI for the awkward words. <em className="italic">You keep control.</em></h2>
-            <p className="mt-5 max-w-measure text-lg leading-relaxed text-ink-soft">Overdue uses small, focused AI requests to make chasing clearer and more human. The ledger, amounts, due dates, payment plans, and sending rules always stay deterministic.</p>
-            <div className="mt-7 rounded-lg border border-moss/25 bg-paper p-4 text-[13px] leading-relaxed text-muted">
-              <span className="font-medium text-ink">No black-box collection decisions.</span> AI never changes a payment amount, accepts a plan, moves a due date, or sends an email without an owner-approved workflow.
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              { icon: MessageSquareText, title: "Write in your voice", body: "Draft a short reminder that matches the ladder’s tone. You review the exact email before it sends." },
-              { icon: BrainCircuit, title: "Turn replies into next steps", body: "Spot a promise, plan request, payment claim, or dispute—then show the owner the right action." },
-              { icon: ShieldCheck, title: "Explain, don’t decide", body: "Summarise the invoice timeline and payment risk from recorded facts so nothing important gets missed." },
-            ].map((item) => (
-              <article key={item.title} className="rounded-lg border border-hairline bg-surface p-5 shadow-ledger">
-                <item.icon size={20} className="text-moss" aria-hidden />
-                <h3 className="mt-4 font-display text-xl text-ink">{item.title}</h3>
-                <p className="mt-2 text-[13px] leading-relaxed text-muted">{item.body}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TestimonialMarquee />
 
       {/* HOW IT WORKS */}
       <section id="how" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20">
@@ -154,18 +153,18 @@ export default function LandingPage() {
           {[
             {
               n: "01",
-              title: "Connect your numbers",
-              body: "Drop in a CSV from PayPal, Stripe, QuickBooks or Xero. Your unpaid invoices appear in the ledger automatically.",
+              title: "Import your invoices",
+              body: "Upload a CSV export from PayPal, Stripe, QuickBooks, Xero, or any billing tool. Smart CSV maps the columns and keeps the original amounts and currencies visible.",
             },
             {
               n: "02",
               title: "Pick a ladder",
-              body: "Start from a proven template or build your own. Each step has a delay, a tone, and an AI draft you can edit.",
+              body: "Start from a proven template or build your own. Each step has a delay, a tone, and an AI draft you can review before it is sent.",
             },
             {
               n: "03",
               title: "Get paid, quietly",
-              body: "Messages go out on schedule. Any reply pauses the ladder. The moment payment hits, the flame goes out.",
+              body: "Messages go out on schedule. Any reply pauses the ladder. Promise a date, record payment, or take over the conversation whenever you need to.",
             },
           ].map((s) => (
             <div key={s.n} className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
@@ -256,7 +255,8 @@ export default function LandingPage() {
           </h2>
           <p className="mt-4 text-[15px] text-muted">
             Free while you're getting set up. Pro when there's real money on the line.
-            30-day refund, cancel in two clicks.
+            30-day refund, cancel in two clicks. Direct invoice connections are on the roadmap;
+            Smart CSV works today.
           </p>
         </div>
 
@@ -281,7 +281,7 @@ export default function LandingPage() {
             <div className="font-display text-xl text-ink">Pro</div>
             <div className="mt-3 font-mono text-[15px] text-muted"><ProPrice className="font-display text-3xl text-ink" /> / month</div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["Unlimited clients, invoices & ladders", "Smart CSV imports from billing platforms", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
+              {["Unlimited clients, invoices & ladders", "Smart CSV import from any invoice system", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>
@@ -317,7 +317,7 @@ export default function LandingPage() {
             Your next invoice goes out <em className="italic text-moss-bright">already covered.</em>
           </h2>
           <p className="mx-auto mt-4 max-w-measure text-[15px] text-paper/80">
-            Import your invoice CSV, pick the ladder, and stop being the one who chases.
+            Import an invoice list, pick the ladder, and stop being the one who chases.
           </p>
           <div className="mt-8">
             <a href="/signup">
@@ -328,6 +328,10 @@ export default function LandingPage() {
       </section>
 
       <MarketingFooter />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD).replace(/</g, "\\u003c") }}
+      />
     </div>
   )
 }

@@ -153,6 +153,56 @@ textarea,
   animation: count-up 0.4s ease-out both;
 }
 
+/* Two-way feedback marquee. The duplicated rows make the loop seamless. */
+@keyframes testimonial-scroll-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes testimonial-scroll-right {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+.testimonial-track {
+  display: flex;
+  width: max-content;
+  gap: 1rem;
+  will-change: transform;
+}
+
+.testimonial-track-left {
+  animation: testimonial-scroll-left 80s linear infinite;
+}
+
+.testimonial-track-right {
+  animation: testimonial-scroll-right 86s linear infinite;
+}
+
+.testimonial-track:hover {
+  animation-play-state: paused;
+}
+
+.testimonial-edge {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  width: min(14vw, 180px);
+  pointer-events: none;
+  backdrop-filter: blur(5px);
+}
+
+.testimonial-edge-left {
+  left: 0;
+  background: linear-gradient(90deg, var(--surface) 12%, rgba(255, 255, 255, 0.72) 45%, transparent);
+}
+
+.testimonial-edge-right {
+  right: 0;
+  background: linear-gradient(270deg, var(--surface) 12%, rgba(255, 255, 255, 0.72) 45%, transparent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
