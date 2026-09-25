@@ -16,14 +16,16 @@ export const revalidate = 0
 
 export default function SignupPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-paper">
-      <header className="border-b border-hairline">
-        <div className="mx-auto flex h-16 max-w-sm items-center px-5">
-          <Wordmark />
+    <div className="flex min-h-screen flex-col bg-[#faf9f5] lg:h-dvh lg:min-h-0 lg:overflow-hidden">
+      <header className="shrink-0 border-b border-[#e8e6df] bg-[#faf9f5]">
+        <div className="mx-auto grid h-16 w-full max-w-sm items-center px-5 lg:max-w-7xl lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:px-0">
+          <div className="lg:px-16">
+            <Wordmark />
+          </div>
         </div>
       </header>
-      <main className="mx-auto grid w-full max-w-7xl flex-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-        <section className="mx-auto w-full max-w-sm px-5 py-16 lg:mx-0 lg:max-w-xl lg:px-16 lg:py-24">
+      <main className="mx-auto grid w-full max-w-7xl flex-1 lg:min-h-0 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:overflow-hidden">
+        <section className="mx-auto flex w-full max-w-sm flex-col justify-center px-5 py-16 lg:mx-0 lg:max-w-xl lg:px-16 lg:py-5">
           <h1 className="font-display text-3xl tracking-tight text-ink">
             Start your 14-day trial. Get paid <em className="italic">without the cringe.</em>
           </h1>
