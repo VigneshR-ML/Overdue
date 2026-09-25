@@ -25,7 +25,7 @@ export default function SignupPage() {
         </div>
       </header>
       <main className="mx-auto grid w-full max-w-7xl flex-1 lg:min-h-0 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:overflow-hidden">
-        <section className="mx-auto flex w-full max-w-sm flex-col justify-center px-5 py-16 lg:mx-0 lg:max-w-xl lg:px-16 lg:py-5">
+        <section className="mx-auto flex w-full max-w-sm flex-col justify-center px-5 py-16 lg:mx-0 lg:max-w-xl lg:px-16 lg:py-2">
           <h1 className="font-display text-3xl tracking-tight text-ink">
             Start your 14-day trial. Get paid <em className="italic">without the cringe.</em>
           </h1>

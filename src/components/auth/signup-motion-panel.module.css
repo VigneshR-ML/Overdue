@@ -19,9 +19,8 @@
   height: 100%;
   max-height: 100%;
   flex-direction: column;
-  justify-content: center;
-  gap: 14px;
-  padding: clamp(22px, 4vw, 58px);
+  justify-content: flex-start;
+  padding: clamp(28px, 4vh, 52px) clamp(24px, 3.2vw, 48px);
 }
 
 .copy {
@@ -57,6 +56,7 @@
   width: 100%;
   max-height: min(54vh, 520px);
   height: auto;
+  margin-top: clamp(24px, 4vh, 44px);
   overflow: visible;
 }
 
@@ -102,10 +102,10 @@
 }
 
 @media (max-height: 760px) and (min-width: 1024px) {
-  .content { padding-block: 18px; gap: 8px; }
+  .content { padding-block: 18px; }
   .heading { margin-top: 10px; font-size: clamp(28px, 3vw, 38px); }
   .description { margin-top: 8px; font-size: 15px; line-height: 1.35; }
-  .scene { max-height: calc(100svh - 14rem); }
+  .scene { max-height: calc(100svh - 14rem); margin-top: 24px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
