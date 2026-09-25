@@ -1,10 +1,21 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
-import { ArrowRight, Check, CheckCircle2, Clock3, Download, FileCheck2, LockKeyhole, Mail, Pause, Play, Upload } from "lucide-react"
+import Link from "next/link"
+import { useMemo, useState } from "react"
+import { ArrowRight, Check, CheckCircle2, Clock3, Download, FileCheck2, LockKeyhole, Mail, Pause, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function ProductDemoSection() {
+  const steps = [
+    ["01", "CSV preview", "12 sample invoices", "bg-moss-soft text-moss"],
+    ["02", "Ladder selected", "first draft reviewed", "bg-brass/15 text-ember"],
+    ["03", "Reply recorded", "chasing paused", "bg-brass/15 text-ember"],
+    ["04", "Payment saved", "invoice recovered", "bg-moss text-white"],
+  ] as const
+  const [step, setStep] = useState(0)
+  const complete = step === steps.length
+  const current = steps[Math.min(step, steps.length - 1)]
+
   return (
     <section aria-labelledby="demo-heading" className="border-y border-hairline bg-surface/65 py-20">
       <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-[0.85fr_1.15fr]">
@@ -14,37 +25,31 @@ export function ProductDemoSection() {
             See the whole recovery loop before you sign in.
           </h2>
           <p className="mt-4 max-w-measure text-[15px] leading-relaxed text-muted">
-            Import, choose a ladder, listen for a reply, and close the loop when money arrives. This animated walkthrough is the short version of the product.
+            Click through a sample recovery run. It uses dummy information only—no email is created or sent from this page.
           </p>
-          <a className="mt-7 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-moss hover:text-moss-bright" href="/signup">
-            Try this workflow free <ArrowRight className="h-4 w-4" />
-          </a>
+          {!complete ? <Button type="button" variant="outline" className="mt-7" onClick={() => setStep((value) => value + 1)}>
+            <Play className="mr-2 h-4 w-4" /> {step === 0 ? "Start demo" : "Next sample step"}
+          </Button> : <Link href="/login" className="mt-7 inline-flex"><Button>Log in to recover your overdues <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>}
         </div>
         <div className="relative overflow-hidden rounded-2xl border border-hairline bg-paper p-5 shadow-ledger sm:p-7">
           <div className="flex items-center justify-between border-b border-hairline pb-4">
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Overdue / recovery run</span>
-            <span className="rounded-full bg-moss-soft px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-moss">live preview</span>
+            <span className="rounded-full bg-moss-soft px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-moss">sample demo</span>
           </div>
-          <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
-            {[
-              ["01", "CSV imported", "12 invoices ready", "bg-moss-soft text-moss"],
-              ["02", "Reply detected", "ladder paused", "bg-brass/15 text-ember"],
-              ["03", "Payment recorded", "invoice recovered", "bg-moss text-white"],
-            ].map(([number, title, detail, tone], index) => (
-              <div key={number} className="demo-step rounded-xl border border-hairline bg-surface p-4" style={{ animationDelay: `${index * 1.4}s` }}>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {steps.map(([number, title, detail, tone], index) => (
+              <div key={number} className={`rounded-xl border p-4 transition-colors ${index <= step ? "border-moss/30 bg-surface" : "border-hairline bg-surface/50 opacity-55"}`}>
                 <div className={`inline-flex h-7 w-7 items-center justify-center rounded-full font-mono text-[10px] ${tone}`}>{number}</div>
                 <div className="mt-3 text-sm font-medium text-ink">{title}</div>
                 <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-faint">{detail}</div>
               </div>
             ))}
-            <ArrowRight className="mx-auto hidden h-4 w-4 text-faint sm:block" aria-hidden="true" />
-            <ArrowRight className="mx-auto hidden h-4 w-4 text-faint sm:block" aria-hidden="true" />
           </div>
-          <div className="mt-6 rounded-lg border border-dashed border-hairline bg-surface/70 p-4">
+          <div className="mt-6 rounded-lg border border-dashed border-hairline bg-surface/70 p-4" aria-live="polite">
             <div className="flex items-center gap-3">
-              <Mail className="h-4 w-4 text-moss" />
-              <div className="flex-1 text-[13px] text-ink-soft">“I can pay this on Friday.”</div>
-              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-moss">promise saved</span>
+              <CheckCircle2 className="h-4 w-4 text-moss" />
+              <div className="flex-1 text-[13px] text-ink-soft">{complete ? "Demo complete. Set up your own recovery run after you log in." : current[1]}</div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-moss">{complete ? "ready" : current[2]}</span>
             </div>
           </div>
           <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-moss/10 blur-3xl" />
@@ -52,11 +57,6 @@ export function ProductDemoSection() {
       </div>
     </section>
   )
-}
-
-export function SocialVideoSection() {
-  const storyboard = "Hook: The invoice is late.\nProblem: Another reminder feels awkward.\nPayoff: A reply pauses the ladder and saves the promise date.\nCTA: Try the recovery loop free at getoverdue.online"
-  return <section aria-labelledby="social-video-heading" className="border-y border-hairline bg-moss py-20 text-paper"><div className="mx-auto grid max-w-6xl gap-12 px-5 lg:grid-cols-[1fr_auto] lg:items-center"><div><div className="font-mono text-[11px] uppercase tracking-[0.16em] text-paper/60">Social clip storyboard</div><h2 id="social-video-heading" className="mt-3 max-w-xl font-display text-4xl tracking-tight sm:text-5xl">A short story people understand before they know the product.</h2><p className="mt-4 max-w-measure text-[15px] leading-relaxed text-paper/75">Use this vertical motion graphic as a LinkedIn or X clip: late invoice, reply detected, ladder paused, promise saved.</p><button type="button" onClick={() => navigator.clipboard?.writeText(storyboard)} className="mt-7 inline-flex items-center gap-2 rounded-md border border-paper/30 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-paper transition-colors hover:bg-paper/10"><Download className="h-4 w-4" /> Copy storyboard</button></div><div className="mx-auto w-[220px] rounded-[2rem] border-4 border-paper/20 bg-ink p-2 shadow-2xl"><div className="social-video-screen relative flex aspect-[9/16] flex-col justify-between overflow-hidden rounded-[1.4rem] bg-paper p-5 text-ink"><div className="font-mono text-[9px] uppercase tracking-[0.14em] text-moss">Overdue · 0:15</div><div className="social-video-pulse"><div className="font-display text-3xl leading-none">Invoice<br /><em className="text-moss">overdue.</em></div><div className="mt-5 rounded-lg border border-hairline bg-surface p-3 text-[11px] text-muted">“I can pay on Friday.”</div></div><div><div className="h-1.5 rounded-full bg-hairline"><div className="social-video-progress h-full rounded-full bg-ember" /></div><div className="mt-3 flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.1em] text-faint"><span>reply detected</span><span>ladder paused</span></div></div></div></div></div></section>
 }
 
 export function BeforeAfterSection() {
@@ -127,6 +127,7 @@ export function RecoveryScoreTool() {
   const [amount, setAmount] = useState("12000")
   const [invoices, setInvoices] = useState("8")
   const [days, setDays] = useState("24")
+  const [shareStatus, setShareStatus] = useState<"idle" | "shared" | "copied" | "error">("idle")
   const score = useMemo(() => {
     const total = Math.max(0, Number(amount.replace(/,/g, "")) || 0)
     const count = Math.max(0, Number(invoices) || 0)
@@ -136,8 +137,35 @@ export function RecoveryScoreTool() {
   }, [amount, invoices, days])
   const report = `Overdue recovery score: ${score}/100 · $${amount || "0"} outstanding across ${invoices || "0"} invoices · average ${days || "0"} days overdue.`
   async function share() {
-    if (typeof navigator !== "undefined" && navigator.share) await navigator.share({ title: "Overdue recovery score", text: report, url: `${window.location.origin}/recovery-score` })
-    else await navigator.clipboard?.writeText(report)
+    setShareStatus("idle")
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Overdue recovery score", text: report, url: `${window.location.origin}/recovery-score` })
+        setShareStatus("shared")
+        return
+      }
+    } catch {
+      // A closed share sheet should still leave the user with a useful copy action.
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(report)
+      } else {
+        const textarea = document.createElement("textarea")
+        textarea.value = report
+        textarea.style.position = "fixed"
+        textarea.style.opacity = "0"
+        document.body.appendChild(textarea)
+        textarea.select()
+        const copied = document.execCommand("copy")
+        textarea.remove()
+        if (!copied) throw new Error("Copy command was unavailable")
+      }
+      setShareStatus("copied")
+    } catch {
+      setShareStatus("error")
+    }
   }
   return (
     <section aria-labelledby="recovery-score-heading" className="mx-auto max-w-6xl px-5 py-20">
@@ -155,37 +183,7 @@ export function RecoveryScoreTool() {
             <div><div className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Recovery score</div><div className="mt-1 font-display text-5xl text-moss">{score}<span className="text-2xl text-faint">/100</span></div></div>
             <div className="max-w-xs text-sm leading-relaxed text-muted">{score >= 70 ? "Good moment to start a calm ladder before the balance gets older." : "Prioritise the oldest, highest-value invoices and ask for a date."}</div>
           </div>
-          <div className="mt-5 flex items-center justify-between gap-3"><span className="font-mono text-[10px] text-faint">Nothing leaves your browser.</span><Button type="button" variant="outline" onClick={share}>Share report</Button></div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-export function CsvHealthCheck() {
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  const [result, setResult] = useState<{ headers: string[]; rows: number; message: string } | null>(null)
-  function readFile(file?: File) {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const text = String(reader.result ?? "")
-      const lines = text.split(/\r?\n/).filter(Boolean)
-      const headers = (lines[0] ?? "").split(",").map((cell) => cell.trim().replace(/^"|"$/g, "")).filter(Boolean)
-      const required = headers.some((header) => /amount|total|balance/i.test(header)) && headers.some((header) => /email|client|customer/i.test(header))
-      setResult({ headers, rows: Math.max(0, lines.length - 1), message: required ? "Looks ready for Smart CSV mapping." : "Add an amount and client/email column before importing." })
-    }
-    reader.readAsText(file)
-  }
-  return (
-    <section aria-labelledby="csv-check-heading" className="border-y border-hairline bg-surface/65 py-20">
-      <div className="mx-auto grid max-w-6xl gap-10 px-5 lg:grid-cols-[1fr_1fr] lg:items-center">
-        <div><div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Free CSV health check</div><h2 id="csv-check-heading" className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">Know if your export is ready before you import it.</h2><p className="mt-4 max-w-measure text-[15px] leading-relaxed text-muted">Drop in a CSV locally. We check the headers and row count in your browser and show a safe preview—no upload, no account required.</p></div>
-        <div className="rounded-2xl border border-dashed border-moss/40 bg-moss-soft/40 p-6 text-center shadow-ledger sm:p-9">
-          <Upload className="mx-auto h-7 w-7 text-moss" /><h3 className="mt-3 font-display text-2xl text-ink">Check an invoice export</h3><p className="mt-2 text-sm text-muted">PayPal, Stripe, QuickBooks, Xero or any spreadsheet.</p>
-          <input ref={inputRef} type="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => readFile(e.target.files?.[0])} />
-          <Button type="button" className="mt-5" onClick={() => inputRef.current?.click()}>Choose CSV</Button>
-          {result ? <div className="mt-6 rounded-xl border border-hairline bg-surface p-4 text-left"><div className="flex items-center gap-2 text-sm font-medium text-ink"><FileCheck2 className="h-4 w-4 text-moss" /> {result.rows} data rows found</div><p className="mt-2 text-sm text-muted">{result.message}</p><div className="mt-3 flex flex-wrap gap-1.5">{result.headers.slice(0, 8).map((header) => <span key={header} className="rounded-full bg-paper px-2 py-1 font-mono text-[10px] text-muted">{header}</span>)}</div></div> : null}
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><span className="font-mono text-[10px] text-faint">Nothing leaves your browser.</span><div className="flex items-center gap-3"><span aria-live="polite" className={`font-mono text-[10px] ${shareStatus === "error" ? "text-rust" : "text-moss"}`}>{shareStatus === "shared" ? "Share sheet opened" : shareStatus === "copied" ? "Report copied" : shareStatus === "error" ? "Couldn’t copy—try again" : ""}</span><Button type="button" variant="outline" onClick={share}>Share report</Button></div></div>
         </div>
       </div>
     </section>
@@ -201,7 +199,6 @@ export function SetupAndTrustSections() {
   return <>
     <section aria-labelledby="setup-heading" className="border-y border-hairline bg-paper py-20"><div className="mx-auto max-w-6xl px-5"><div className="max-w-xl"><div className="font-mono text-[11px] uppercase tracking-[0.16em] text-ember">15-minute setup</div><h2 id="setup-heading" className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">From spreadsheet to first reviewed follow-up.</h2></div><div className="mt-10 grid gap-4 md:grid-cols-4">{[["01", "Drop in CSV", "No connector project required."], ["02", "Check the preview", "Amounts, dates and recipients stay visible."], ["03", "Pick your tone", "Gentle, nudge, firm or final."], ["04", "Review and send", "You stay in control of the first touch."]].map(([number, title, detail]) => <div key={number} className="rounded-xl border border-hairline bg-surface p-5 shadow-ledger"><div className="font-mono text-[11px] text-moss">{number}</div><h3 className="mt-4 font-display text-xl text-ink">{title}</h3><p className="mt-2 text-sm leading-relaxed text-muted">{detail}</p></div>)}</div></div></section>
     <section aria-labelledby="founder-heading" className="mx-auto max-w-6xl px-5 py-20"><div className="grid gap-10 lg:grid-cols-[0.7fr_1.3fr] lg:items-center"><div className="rounded-2xl bg-moss p-7 text-paper shadow-ledger"><div className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/60">A note from the founder</div><div className="mt-5 font-display text-3xl leading-tight">The work is done. Asking to be paid shouldn&apos;t become another job.</div></div><div><h2 id="founder-heading" className="font-display text-3xl text-ink sm:text-4xl">Built for the moment after “due.”</h2><p className="mt-4 max-w-measure text-[15px] leading-relaxed text-muted">Overdue started with a simple observation: good businesses do not need more invoice software. They need a calm, consistent way to handle the uncomfortable follow-up after a client misses a date.</p><p className="mt-4 max-w-measure text-[15px] leading-relaxed text-muted">The product is intentionally owner-controlled. It drafts the words, remembers the promise and shows the next action. You decide what leaves your name.</p><div className="mt-6 font-mono text-[11px] uppercase tracking-[0.14em] text-moss">Vignesh · building Overdue</div></div></div></section>
-    <section aria-labelledby="concierge-heading" className="border-y border-hairline bg-surface/65 py-20"><div className="mx-auto grid max-w-6xl gap-10 px-5 lg:grid-cols-[1fr_auto] lg:items-center"><div><div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Concierge setup</div><h2 id="concierge-heading" className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">Want your first ladder configured for you?</h2><p className="mt-4 max-w-measure text-[15px] leading-relaxed text-muted">Send your overdue invoice export. We will clean the columns, configure the recovery steps and prepare your first 10 messages for review.</p></div><a href="mailto:hello@getoverdue.online?subject=Concierge%20setup"><Button size="lg">Ask about setup <ArrowRight className="ml-2 h-4 w-4" /></Button></a></div></section>
     <section aria-labelledby="trust-heading" className="mx-auto max-w-6xl px-5 py-20"><div className="max-w-xl"><div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Trust, in plain language</div><h2 id="trust-heading" className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">Your ledger stays yours.</h2></div><div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[[LockKeyhole, "Security", "Encrypted connections and row-level access controls."], [FileCheck2, "Privacy", "We do not sell your invoice data or train on it."], [Download, "Export", "Download your account data when you need it."], [CheckCircle2, "Deletion", "Delete your account or request help from support."]].map(([Icon, title, detail]) => { const SafeIcon = Icon as typeof LockKeyhole; return <div key={title as string} className="rounded-xl border border-hairline bg-surface p-5 shadow-ledger"><SafeIcon className="h-5 w-5 text-moss" /><h3 className="mt-4 font-display text-xl text-ink">{title as string}</h3><p className="mt-2 text-sm leading-relaxed text-muted">{detail as string}</p></div> })}</div></section>
   </>
 }

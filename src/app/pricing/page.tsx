@@ -8,7 +8,7 @@ import { ProPrice } from "@/components/billing/pro-price"
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Overdue pricing: Free plan to start, Pro at $19/month after a 7-day free trial. 30-day refund, cancel in two clicks.",
+    "Overdue pricing: try Pro for 14 days, then continue for $19/month for automated recovery ladders, AI drafting, and unlimited invoice follow-up.",
   alternates: { canonical: "/pricing" },
 }
 
@@ -23,53 +23,35 @@ export default function PricingPage() {
             A follow-up autopilot, for the money people owe you.
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-[15px] text-muted">
-            Free while you're getting set up. Pro when there's real money on the line.
-            30-day refund, cancel in two clicks.
+            Try every Pro feature for 14 days, free. Continue for <ProPrice />/month only if it helps
+            you recover more calmly. Smart CSV works today; direct invoice connections are coming soon.
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
-          <div className="rounded-lg border border-hairline bg-surface p-7 shadow-ledger">
-            <div className="font-display text-xl text-ink">Free</div>
-            <div className="mt-3 font-mono text-[15px] text-muted">
-              <span className="font-display text-3xl text-ink">$0</span> / forever
-            </div>
-            <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["3 clients", "10 invoices", "CSV import", "1 ladder, 1 message per step", "5 AI drafts / month"].map((f) => (
-                <li key={f} className="flex items-center gap-2.5">
-                  <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
-                </li>
-              ))}
-            </ul>
-            <a href="/signup" className="mt-6 block">
-              <Button variant="paper" className="w-full">Start free</Button>
-            </a>
-          </div>
-
+        <div className="mx-auto mt-12 max-w-xl">
           <div className="relative rounded-lg border border-moss/40 bg-surface p-7 shadow-ledger">
             <span className="absolute -top-3 right-5 rounded-full bg-moss px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white">
-              The one that pays you back
+              14 days free
             </span>
             <div className="font-display text-xl text-ink">Pro</div>
             <div className="mt-3 font-mono text-[15px] text-muted">
-              <ProPrice className="font-display text-3xl text-ink" /> / month <span className="text-moss">· 7-day free trial</span>
+              <span className="font-display text-3xl text-ink">$0</span> for 14 days · then <ProPrice className="font-display text-3xl text-ink" /> / month
             </div>
             <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["Unlimited clients, invoices & ladders", "Smart CSV imports from billing platforms", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
+              {["Unlimited clients, invoices & ladders", "Smart CSV import from any invoice system", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
                 </li>
               ))}
             </ul>
             <a href="/signup" className="mt-6 block">
-              <Button variant="moss" className="w-full">Start 7-day free trial</Button>
+              <Button variant="moss" className="w-full">Start 14-day free trial</Button>
             </a>
           </div>
         </div>
 
         <p className="mt-8 text-center text-sm text-muted">
-          Pro billing is handled by Paddle (with Dodo Payments as fallback on some deploys), our merchant of record. 30-day full refund;
-          after that, refunds follow the billing provider's terms. See our{" "}
+          No card is needed for your trial. Paid Pro billing is handled by Paddle (with Dodo Payments as fallback on some deploys), our merchant of record. See our{" "}
           <Link href="/refund" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Refund policy</Link> and{" "}
           <Link href="/terms" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Terms</Link>.
         </p>

@@ -20,7 +20,7 @@ export async function getPlan(userId: string): Promise<ReturnType<typeof planFor
   if (!supabase || !userId) return "free"
   const { data } = await supabase
     .from("subscriptions")
-    .select("plan, status, current_period_end")
+    .select("plan, status, current_period_end, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)

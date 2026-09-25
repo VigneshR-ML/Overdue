@@ -13,12 +13,10 @@ import { LandingToolTeaser } from "@/components/marketing/landing-tool-teaser"
 import { TestimonialMarquee } from "@/components/marketing/testimonial-marquee"
 import {
   BeforeAfterSection,
-  CsvHealthCheck,
   IntegrationStatusBlock,
   ProductDemoSection,
   RecoveryScoreTool,
   ReplyDemo,
-  SocialVideoSection,
   SetupAndTrustSections,
   VerifiedFeedbackPlaceholder,
 } from "@/components/marketing/growth-sections"
@@ -50,7 +48,7 @@ const LADDER_STEPS = [
 const FAQS = [
   {
     q: "Does this send emails automatically on day one?",
-    a: "On Pro, yes — once you import a CSV and pick a ladder, each rung goes out on schedule and nothing sends until you've reviewed the draft. On Free, you send each step yourself with one tap from the ledger; every message is drafted first and editable before it ever goes out.",
+    a: "During your 14-day Pro trial, yes — once you import a CSV and pick a ladder, each rung goes out on schedule. Nothing sends until you have reviewed the first draft, and every later message remains editable.",
   },
   {
     q: "Will clients be annoyed?",
@@ -66,7 +64,7 @@ const FAQS = [
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. Plans are monthly, cancellable in two clicks from the billing page, and covered by our 30-day refund policy on Pro.",
+    a: "Yes. Start with 14 days of Pro at no cost. After that, choose whether to continue at $19/month. Paid plans are monthly and cancellable in two clicks from the billing page.",
   },
 ]
 
@@ -89,8 +87,8 @@ export default function LandingPage() {
       </Suspense>
 
       {/* HERO — asymmetric editorial */}
-      <section className="mx-auto max-w-6xl px-5 pt-16 pb-20 lg:pt-24">
-        <div className="grid items-start gap-12 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="mx-auto max-w-6xl px-5 pb-14 pt-10 lg:pb-16 lg:pt-14">
+        <div className="grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-moss" />
@@ -108,7 +106,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/signup">
-                <Button size="lg">Recover your first invoice free</Button>
+                <Button size="lg">Start 14-day free trial</Button>
               </Link>
               <Link href="/#how">
                 <Button size="lg" variant="outline">How it works</Button>
@@ -151,12 +149,10 @@ export default function LandingPage() {
       </section>
 
       <ProductDemoSection />
-      <SocialVideoSection />
       <TestimonialMarquee />
       <BeforeAfterSection />
       <ReplyDemo />
       <RecoveryScoreTool />
-      <CsvHealthCheck />
 
       {/* HOW IT WORKS */}
       <section id="how" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20">
@@ -273,54 +269,26 @@ export default function LandingPage() {
             A follow-up autopilot, for the money people owe you.
           </h2>
           <p className="mt-4 text-[15px] text-muted">
-            Free while you're getting set up. Pro when there's real money on the line.
-            30-day refund, cancel in two clicks. Direct invoice connections are on the roadmap;
-            Smart CSV works today.
+            Try every Pro feature for 14 days, free. Then continue for <ProPrice />/month only if
+            Overdue earns its place in your workflow. Smart CSV works today; direct invoice
+            connections are coming soon.
           </p>
         </div>
 
-        <div className="mx-auto mt-12 grid max-w-3xl gap-6 md:grid-cols-2">
-          <div className="rounded-lg border border-hairline bg-surface p-7 shadow-ledger">
-            <div className="font-display text-xl text-ink">Free</div>
-            <div className="mt-3 font-mono text-[15px] text-muted"><span className="font-display text-3xl text-ink">$0</span> / forever</div>
-            <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["3 clients", "10 invoices", "CSV import", "1 ladder, 1 message per step", "5 AI drafts / month"].map((f) => (
-                <li key={f} className="flex items-center gap-2.5">
-                  <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
-                </li>
-              ))}
-            </ul>
-            <a href="/signup" className="mt-6 block"><Button variant="paper" className="w-full">Start free</Button></a>
-          </div>
-
-          <div className="relative rounded-lg border border-moss/40 bg-surface p-7 shadow-ledger">
-            <span className="absolute -top-3 right-5 rounded-full bg-moss px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white">
-              The one that pays you back
-            </span>
-            <div className="font-display text-xl text-ink">Pro</div>
-            <div className="mt-3 font-mono text-[15px] text-muted"><ProPrice className="font-display text-3xl text-ink" /> / month</div>
-            <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
-              {["Unlimited clients, invoices & ladders", "Smart CSV import from any invoice system", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
-                <li key={f} className="flex items-center gap-2.5">
-                  <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
-                </li>
-              ))}
-            </ul>
-            <a href="/signup" className="mt-6 block"><Button variant="moss" className="w-full">Go Pro</Button></a>
-          </div>
-        </div>
-        <div className="mx-auto mt-8 max-w-3xl overflow-hidden rounded-xl border border-hairline bg-paper shadow-ledger">
-          <div className="flex items-center justify-between border-b border-hairline px-5 py-3">
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Inside Pro · a calmer Monday</span>
-            <span className="font-mono text-[10px] text-moss">live ledger preview</span>
-          </div>
-          <div className="grid gap-4 p-5 sm:grid-cols-[1.3fr_0.7fr]">
-            <div className="rounded-lg border border-hairline bg-surface p-4">
-              <div className="flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">Needs attention</span><span className="rounded-full bg-ember/10 px-2 py-1 font-mono text-[10px] text-ember">3 today</span></div>
-              <div className="mt-4 space-y-2">{[["Northwind Creative", "$2,400", "firm"], ["Arbor Studio", "$850", "reply paused"], ["Fieldnotes LLC", "$360", "gentle"]].map(([name, amount, status]) => <div key={name} className="flex items-center justify-between gap-3 rounded-md border border-hairline px-3 py-2 text-xs"><span className="text-ink-soft">{name}</span><span className="font-mono text-[10px] text-muted">{amount} · {status}</span></div>)}</div>
-            </div>
-            <div className="rounded-lg bg-moss p-4 text-paper"><div className="font-mono text-[10px] uppercase tracking-[0.12em] text-paper/60">This month</div><div className="mt-3 font-display text-3xl">$8,740</div><div className="mt-1 text-xs text-paper/70">recovered or promised</div><div className="mt-6 h-1.5 rounded-full bg-paper/20"><div className="h-full w-4/5 rounded-full bg-brass" /></div><div className="mt-2 font-mono text-[10px] text-paper/60">80% of active book reviewed</div></div>
-          </div>
+        <div className="relative mx-auto mt-12 max-w-xl rounded-lg border border-moss/40 bg-surface p-7 shadow-ledger">
+          <span className="absolute -top-3 right-5 rounded-full bg-moss px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white">
+            14 days free
+          </span>
+          <div className="font-display text-xl text-ink">Pro</div>
+          <div className="mt-3 font-mono text-[15px] text-muted"><span className="font-display text-3xl text-ink">$0</span> for 14 days · then <ProPrice className="font-display text-3xl text-ink" /> / month</div>
+          <ul className="mt-5 space-y-2.5 text-sm text-ink-soft">
+            {["Unlimited clients, invoices & ladders", "Smart CSV import from any invoice system", "Autopilot: follow-ups fire on schedule", "AI drafting, human-voiced", "Reply-detection & auto-pause", "Payment-history scoring"].map((f) => (
+              <li key={f} className="flex items-center gap-2.5">
+                <Check className="h-4 w-4 text-moss" strokeWidth={2.5} /> {f}
+              </li>
+            ))}
+          </ul>
+          <a href="/signup" className="mt-6 block"><Button variant="moss" className="w-full">Start 14-day free trial</Button></a>
         </div>
       </section>
 
@@ -356,7 +324,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-8">
             <a href="/signup">
-              <Button size="lg" variant="paper" className="border-moss">Start free</Button>
+              <Button size="lg" variant="paper" className="border-moss">Start 14-day free trial</Button>
             </a>
           </div>
         </div>

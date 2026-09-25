@@ -8,6 +8,7 @@ import { getPaddlePortalUrl } from "@/lib/paddle/server"
 import { PlanManager } from "@/components/billing/plan-manager"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { ArrowLeft } from "lucide-react"
+import { isFreeTrialActive, planForSubscription, trialEndsAt } from "@/lib/billing/entitlement"
 
 export const metadata = { title: "Billing" }
 
@@ -37,8 +38,10 @@ export default async function BillingPage(
       ? await getCustomerPortalUrl(sub.dodo_customer_id).catch(() => null)
       : null
 
-  const isPro = sub?.plan === "pro" && sub?.status === "active"
-  const justUpgraded = searchParams?.upgraded === "1" && isPro
+  const effectivePlan = planForSubscription(sub)
+  const isPaidPro = sub?.plan === "pro" && sub?.status === "active"
+  const trialActive = isFreeTrialActive(sub)
+  const justUpgraded = searchParams?.upgraded === "1" && isPaidPro
 
   return (
     <div className="space-y-6">
@@ -51,17 +54,17 @@ export default async function BillingPage(
       />
 
       <PlanManager
-        plan={sub?.plan === "pro" ? "pro" : "free"}
-        status={sub?.status ?? "active"}
+        plan={effectivePlan}
+        status={trialActive ? "trialing" : sub?.status ?? "active"}
         email={session.email}
         userId={session.id}
         portalUrl={portalUrl}
-        renewalDate={sub?.current_period_end ?? null}
+        renewalDate={trialActive ? new Date(trialEndsAt(sub)).toISOString() : sub?.current_period_end ?? null}
         justUpgraded={justUpgraded}
       />
 
       <p className="font-mono text-[11px] leading-relaxed text-faint">
-        7-day free trial · 30-day refund on Pro · cancel anytime from the billing portal · subscriptions renew monthly.
+        Your 14-day trial needs no card. Continue with Pro for $19/month when it ends; paid subscriptions renew monthly and can be cancelled anytime. Smart CSV import is available today; direct invoice connections are coming soon.
       </p>
     </div>
   )

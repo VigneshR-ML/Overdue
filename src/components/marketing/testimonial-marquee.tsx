@@ -85,9 +85,7 @@ export function TestimonialMarquee() {
         </div>
       </div>
 
-      <div className="relative mt-10 space-y-4">
-        <div className="testimonial-edge testimonial-edge-left" aria-hidden="true" />
-        <div className="testimonial-edge testimonial-edge-right" aria-hidden="true" />
+      <div className="testimonial-marquee relative mt-10 space-y-4">
         <div className="testimonial-track testimonial-track-left">
           {[...firstRow, ...firstRow].map((item, index) => (
             <FeedbackCard key={`first-${index}`} item={item} index={index % firstRow.length} />

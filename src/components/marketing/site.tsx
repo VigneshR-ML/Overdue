@@ -47,7 +47,7 @@ export function MarketingNav() {
             <Button variant="ghost" size="sm">Sign in</Button>
           </Link>
           <Link href="/signup">
-            <Button variant="ink" size="sm">Start free</Button>
+            <Button variant="ink" size="sm">Start 14-day trial</Button>
           </Link>
           <button
             type="button"
@@ -124,7 +124,7 @@ export function MarketingFooter() {
             <ul className="mt-3 space-y-2 text-sm text-muted">
               <li><Link href="/#tools" className="hover:text-ink">Calculators overview</Link></li>
               <li><Link href="/login" className="hover:text-ink">Log in to use tools</Link></li>
-              <li><Link href="/signup" className="hover:text-ink">Start free</Link></li>
+              <li><Link href="/signup" className="hover:text-ink">Start 14-day trial</Link></li>
             </ul>
           </div>
           <div>

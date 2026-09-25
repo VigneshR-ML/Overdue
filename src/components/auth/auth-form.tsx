@@ -332,7 +332,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       </Button>
 
       <p className="text-center font-mono text-[11px] uppercase tracking-[0.14em] text-faint">
-        Free plan · no card · cancel anytime
+        14-day free trial · no card · cancel anytime
       </p>
 
       {mode === "login" && (

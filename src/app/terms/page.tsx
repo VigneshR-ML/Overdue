@@ -26,7 +26,7 @@ const SECTIONS = [
   },
   {
     h: "5. Fair use",
-    b: "The free plan is limited as described on the pricing page. We may throttle or suspend accounts that materially abuse the service (bulk spamming, reselling access, scraping). We will always email you first.",
+    b: "The 14-day trial is for evaluating the service. We may throttle or suspend accounts that materially abuse the service (bulk spamming, reselling access, scraping). We will always email you first.",
   },
   {
     h: "6. Uptime & availability",

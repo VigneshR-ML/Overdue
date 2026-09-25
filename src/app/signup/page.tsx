@@ -25,7 +25,7 @@ export default function SignupPage() {
       <main className="mx-auto grid w-full max-w-7xl flex-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <section className="mx-auto w-full max-w-sm px-5 py-16 lg:mx-0 lg:max-w-xl lg:px-16 lg:py-24">
         <h1 className="font-display text-3xl tracking-tight text-ink">
-          Start free. Get paid <em className="italic">without the cringe.</em>
+          Start your 14-day trial. Get paid <em className="italic">without the cringe.</em>
         </h1>
         <p className="mt-2 text-sm text-muted">
           One account, your invoice sources, a ladder that runs itself.

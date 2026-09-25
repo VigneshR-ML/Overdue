@@ -22,7 +22,7 @@ const SECTIONS = [
   },
   {
     h: "4. Chargebacks & disputes",
-    b: "If you open a dispute with your bank, we receive it via Paddle. We will always try to resolve it with you directly first — email us before opening a chargeback and we'll work it out. Free plan users never pay anything, so refunds don't apply there.",
+    b: "If you open a dispute with your bank, we receive it via Paddle. We will always try to resolve it with you directly first — email us before opening a chargeback and we'll work it out. Trial users never pay anything, so refunds do not apply during the trial.",
   },
   {
     h: "5. Contact",

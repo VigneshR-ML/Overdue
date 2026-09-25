@@ -7,7 +7,7 @@ import { Badge, StatusDot } from "@/components/ui/badge"
 
 const PRO_FEATURES = [
   "Unlimited clients, invoices & ladders",
-  "Smart CSV imports from billing platforms",
+  "Smart CSV import from any invoice system",
   "Autopilot: follow-ups fire on schedule",
   "AI drafts, human-voiced",
   "Reply-detection & auto-pause",
@@ -50,7 +50,8 @@ export function PlanManager({
   const paddle = usePaddleCheckout()
   const error = paddle.error
   const [checkingOut, setCheckingOut] = useState(false)
-  const isPro = plan === "pro" && status === "active"
+  const isTrial = plan === "pro" && status === "trialing"
+  const isPro = plan === "pro" && (status === "active" || status === "trialing")
 
   // If a checkout completed but the attach hasn't run yet (redirect landed
   // before any customer id was known), reconcile via the billing page's
@@ -112,15 +113,21 @@ export function PlanManager({
 
         {/* Upgrade / manage */}
         <div className="rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
-          <div className="font-display text-lg text-ink">{isPro ? "Manage Pro" : "Go Pro"}</div>
+          <div className="font-display text-lg text-ink">{isTrial ? "Your 14-day trial" : isPro ? "Manage Pro" : "Continue with Pro"}</div>
           <p className="mt-1 text-sm text-muted">
-            {isPro
+            {isTrial
+              ? "Every Pro feature is available now. No card is needed during your trial."
+              : isPro
               ? "Manage payments and cancellation through the Paddle customer portal."
-              : "7-day free trial, then $19/month. Cancel in two clicks; refunds within 30 days of payment."}
+              : "$19/month after your trial. Smart CSV import works today; direct invoice connections are coming soon."}
           </p>
           {error ? (
             <p role="alert" className="mt-4 rounded-md border border-ember/40 bg-ember/10 p-3 text-[13px] text-ink-soft">
               {error}
+            </p>
+          ) : isTrial ? (
+            <p className="mt-5 text-[13px] text-muted">
+              Your trial ends {renewalLabel ?? "after 14 days"}. Choose Pro then to keep autopilot and unlimited use.
             </p>
           ) : isPro ? (
             portalUrl ? (
@@ -135,7 +142,7 @@ export function PlanManager({
           ) : (
             <div className="mt-5 space-y-3">
               <Button className="w-full" variant="moss" onClick={handleCheckout}>
-                {checkingOut ? "Opening checkout…" : "Start 7-day free trial — $19/mo after"}
+                {checkingOut ? "Opening checkout…" : "Continue with Pro — $19/month"}
               </Button>
               <p className="font-mono text-[11px] text-faint">
                 Card payments are processed by Paddle, with Dodo Payments as fallback on some deploys — merchant-of-record, sales tax handled. Price shown in your local currency at checkout.

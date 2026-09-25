@@ -5,13 +5,32 @@ export interface SubscriptionLike {
   plan?: string | null
   status?: string | null
   current_period_end?: string | null
+  created_at?: string | null
 }
+
+export const FREE_TRIAL_DAYS = 14
+const FREE_TRIAL_MS = FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000
 
 /** End of the verified paid-through window (ms), or 0 if missing/invalid. */
 export function graceUntil(sub: SubscriptionLike | null | undefined, _now: number = Date.now()): number {
   if (!sub?.current_period_end) return 0
   const time = new Date(sub.current_period_end).getTime()
   return Number.isFinite(time) ? time : 0
+}
+
+/**
+ * The free trial is tied to the server-created subscription row. That row is
+ * written only by the signup trigger / billing webhooks, never by the browser,
+ * so a client cannot reset its start time.
+ */
+export function trialEndsAt(sub: SubscriptionLike | null | undefined): number {
+  if (!sub || sub.plan !== "free" || (sub.status ?? "").toLowerCase() !== "active" || !sub.created_at) return 0
+  const startedAt = new Date(sub.created_at).getTime()
+  return Number.isFinite(startedAt) ? startedAt + FREE_TRIAL_MS : 0
+}
+
+export function isFreeTrialActive(sub: SubscriptionLike | null | undefined, now: number = Date.now()): boolean {
+  return trialEndsAt(sub) > now
 }
 
 /**
@@ -24,6 +43,7 @@ export function planForSubscription(
   sub: SubscriptionLike | null | undefined,
   now: number = Date.now(),
 ): Plan {
+  if (isFreeTrialActive(sub, now)) return "pro"
   if (!sub || sub.plan !== "pro") return "free"
   const status = (sub.status ?? "").toLowerCase()
   if (status === "active" || status === "trialing") return "pro"

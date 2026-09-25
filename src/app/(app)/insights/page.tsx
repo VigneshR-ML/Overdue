@@ -6,7 +6,7 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { PageHeader } from "@/components/app-shell/page-header"
 import { cn } from "@/lib/utils/format"
-import type { AgingBucket, MonthlyForecast } from "@/lib/analysis/forecast"
+import { RecoveryReportActions } from "@/components/insights/recovery-report-actions"
 
 export const metadata = { title: "Insights" }
 
@@ -44,11 +44,8 @@ export default async function InsightsPage() {
   const healthy = scores.filter((c) => c.avgDays !== null && c.avgDays <= 7)
 
   const maxOutstanding = Math.max(1, ...queue.map((q) => q.invoice.amount_cents - q.invoice.paid_cents))
-  const hasForecast = snap.byCurrency.some((group) => group.forecast.some((month) => month.items.length > 0))
-  const fastCash = snap.byCurrency
-    .flatMap((group) => (group.forecast[1]?.items ?? []).map((item) => ({ ...item, currency: group.currency })))
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 6)
+  const maxBucket = Math.max(1, snap.aging.current, snap.aging.b0_30, snap.aging.b31_60, snap.aging.b61_90, snap.aging.b90)
+  const totalOutstanding = snap.aging.current + snap.aging.b0_30 + snap.aging.b31_60 + snap.aging.b61_90 + snap.aging.b90
 
   const riskCounts = { low: 0, medium: 0, high: 0, critical: 0 }
   for (const r of recovery) riskCounts[r.risk.band] += 1
@@ -61,6 +58,18 @@ export default async function InsightsPage() {
         title="Insights"
         description="Who pays on time, who doesn't, what that costs you — and what the ledger says is coming next."
       />
+
+      <div className="flex flex-col justify-between gap-4 rounded-lg border border-hairline bg-surface p-4 shadow-ledger sm:flex-row sm:items-center">
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Shareable recovery report</div>
+          <p className="mt-1 text-sm text-ink-soft">Copy or share a live summary from your own ledger.</p>
+        </div>
+        <RecoveryReportActions
+          outstanding={formatMoney(totalOutstanding)}
+          overduePercent={snap.aging.pctOverdue}
+          dsoDays={snap.dso.days}
+        />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
@@ -80,18 +89,79 @@ export default async function InsightsPage() {
         </Card>
       </div>
 
-      <div className="space-y-5">
-        {snap.byCurrency.length === 0 ? (
-          <Card><CardBody><EmptyState title="No financial history yet" description="Add an invoice to see aging, DSO and cash forecasts." className="border-0" /></CardBody></Card>
-        ) : snap.byCurrency.map((group) => (
-          <section key={group.currency} aria-label={`${group.currency} insights`}>
-            {snap.byCurrency.length > 1 ? <h2 className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">{group.currency} ledger</h2> : null}
-            <div className="grid gap-4 lg:grid-cols-2">
-              <AgingInsightCard currency={group.currency} aging={group.aging} dso={group.dso} />
-              <ForecastInsightCard currency={group.currency} forecast={group.forecast} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Days sales outstanding</span>
+            <span className="font-mono text-[11px] text-faint">last 90 days of collections</span>
+          </CardHeader>
+          <CardBody>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="font-display text-4xl text-ink">{snap.dso.days > 0 ? snap.dso.days.toFixed(0) : "—"}</div>
+                <div className="mt-1 text-[12px] text-muted">
+                  {snap.dso.days <= 30 ? "Tight book — money in quickly." : snap.dso.days <= 60 ? "Normal for a small ledger — worth watching." : "Slow book — invoicing converts slowly."}
+                </div>
+              </div>
+              {snap.aging.count > 0 && (
+                <div className="text-right">
+                  <div className={cn("font-mono text-[22px]", snap.aging.pctOverdue > 50 ? "text-crimson" : "text-ink")}>{snap.aging.pctOverdue}%</div>
+                  <div className="text-[12px] text-muted">of outstanding is past due</div>
+                </div>
+              )}
             </div>
-          </section>
-        ))}
+            <div className="mt-4 space-y-2">
+              {(["current", "b0_30", "b31_60", "b61_90", "b90"] as const).map((k) => (
+                <div key={k}>
+                  <div className="flex items-baseline justify-between font-mono text-[12px]">
+                    <span className="text-muted">{BUCKET_LABEL[k]}</span>
+                    <span className="text-ink-soft">{formatMoney(snap.aging[k])}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hairline">
+                    <div className="h-full rounded-full" style={{ width: `${(snap.aging[k] / maxBucket) * 100}%`, background: BUCKET_COLOR[k] }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Cash forecast</span>
+            <span className="font-mono text-[11px] text-faint">expected payments, next 3 months</span>
+          </CardHeader>
+          <CardBody className="space-y-4">
+            {snap.forecast.every((m) => m.items.length === 0) ? (
+              <EmptyState title="No expected payments" description="Open invoices with a due date or promise will appear here as a predicted month." className="border-0" />
+            ) : (
+              snap.forecast.map((m) => {
+                const total = m.bucket.high + m.bucket.medium + m.bucket.atRisk
+                if (total === 0) return null
+                return (
+                  <div key={m.month}>
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
+                        {formatDate(`${m.month}-01`)}
+                      </span>
+                      <span className="money text-[15px] font-medium tabular-nums text-ink">{formatMoney(total)}</span>
+                    </div>
+                    <div className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-hairline">
+                      <div className="h-full bg-moss" style={{ width: `${(m.bucket.high / total) * 100}%` }} />
+                      <div className="h-full bg-brass" style={{ width: `${(m.bucket.medium / total) * 100}%` }} />
+                      <div className="h-full bg-rust" style={{ width: `${(m.bucket.atRisk / total) * 100}%` }} />
+                    </div>
+                    <div className="mt-1 flex gap-4 font-mono text-[11px] text-muted">
+                      <span><span className="text-moss">{formatMoney(m.bucket.high)}</span> promised/steady</span>
+                      <span><span className="text-ember">{formatMoney(m.bucket.medium)}</span> likely</span>
+                      <span><span className="text-rust">{formatMoney(m.bucket.atRisk)}</span> at risk</span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </CardBody>
+        </Card>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -166,7 +236,7 @@ export default async function InsightsPage() {
           </CardHeader>
           <CardBody>
             {scores.length === 0 ? (
-              <EmptyState title="Connect invoices to see behavior" description="Your clients' payment history shows up here once invoices sync." className="border-0" />
+              <EmptyState title="Import invoices to see behavior" description="Your clients' payment history shows up here once invoices are added or imported." className="border-0" />
             ) : (
               <ul className="divide-y divide-hairline">
                 {scores.slice(0, 10).map((c) => (
@@ -191,11 +261,11 @@ export default async function InsightsPage() {
             <span className="font-mono text-[11px] text-faint">the next 90 days, best case</span>
           </CardHeader>
           <CardBody>
-            {!hasForecast || fastCash.length === 0 ? (
+            {snap.forecast.every((m) => m.items.length === 0) ? (
               <EmptyState title="Nothing to speed up yet" description="Once invoices are open with due dates, this shows what a tight collections push would realistically pull in." className="border-0" />
             ) : (
               <ul className="divide-y divide-hairline">
-                {fastCash.map((i) => {
+                {snap.forecast[1]?.items.slice(0, 6).map((i) => {
                   const bg = i.bucket === "high" ? "text-moss" : i.bucket === "medium" ? "text-ember" : "text-rust"
                   return (
                     <li key={i.invoiceId} className="flex items-center justify-between py-2.5">
@@ -203,7 +273,7 @@ export default async function InsightsPage() {
                         <div className="truncate text-[14px] font-medium text-ink">{i.date ? `expected ${formatDate(i.date)}` : "next month"}</div>
                         <div className="font-mono text-[11px] text-faint">{i.reason}</div>
                       </div>
-                      <span className={cn("font-mono text-[13px]", bg)}>{formatMoney(i.amountCents, i.currency)}</span>
+                      <span className={cn("font-mono text-[13px]", bg)}>{formatMoney(i.amountCents)}</span>
                     </li>
                   )
                 })}
@@ -217,86 +287,9 @@ export default async function InsightsPage() {
         Tighter circles = fewer emails. The ladder auto-pauses the moment a client replies.
       </p>
       <p className="font-mono text-[11px] text-faint">
-        Aging buckets, DSO and cash forecasts are calculated and displayed separately for every invoice currency.
+        Aging buckets, DSO and the cash forecast sum amounts in each invoice's own currency (shown as USD by default) —
+        review a mixed-currency ledger invoice by invoice.
       </p>
     </div>
-  )
-}
-
-function AgingInsightCard({ currency, aging, dso }: { currency: string; aging: AgingBucket; dso: { days: number; revenuePerDay: number } }) {
-  const maxBucket = Math.max(1, aging.current, aging.b0_30, aging.b31_60, aging.b61_90, aging.b90)
-  return (
-    <Card>
-      <CardHeader>
-        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Days sales outstanding</span>
-        <span className="font-mono text-[11px] text-faint">last 90 days · {currency}</span>
-      </CardHeader>
-      <CardBody>
-        <div className="flex items-end justify-between">
-          <div>
-            <div className="font-display text-4xl text-ink">{dso.days > 0 ? dso.days.toFixed(0) : "—"}</div>
-            <div className="mt-1 text-[12px] text-muted">
-              {dso.days <= 30 ? "Tight book — money in quickly." : dso.days <= 60 ? "Normal for a small ledger — worth watching." : "Slow book — invoicing converts slowly."}
-            </div>
-          </div>
-          {aging.count > 0 ? (
-            <div className="text-right">
-              <div className={cn("font-mono text-[22px]", aging.pctOverdue > 50 ? "text-crimson" : "text-ink")}>{aging.pctOverdue}%</div>
-              <div className="text-[12px] text-muted">of outstanding is past due</div>
-            </div>
-          ) : null}
-        </div>
-        <div className="mt-4 space-y-2">
-          {(["current", "b0_30", "b31_60", "b61_90", "b90"] as const).map((key) => (
-            <div key={key}>
-              <div className="flex items-baseline justify-between font-mono text-[12px]">
-                <span className="text-muted">{BUCKET_LABEL[key]}</span>
-                <span className="text-ink-soft">{formatMoney(aging[key], currency)}</span>
-              </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-hairline">
-                <div className="h-full rounded-full" style={{ width: `${(aging[key] / maxBucket) * 100}%`, background: BUCKET_COLOR[key] }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardBody>
-    </Card>
-  )
-}
-
-function ForecastInsightCard({ currency, forecast }: { currency: string; forecast: MonthlyForecast[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Cash forecast</span>
-        <span className="font-mono text-[11px] text-faint">next 3 months · {currency}</span>
-      </CardHeader>
-      <CardBody className="space-y-4">
-        {forecast.every((month) => month.items.length === 0) ? (
-          <EmptyState title="No expected payments" description="Open invoices with a due date or promise will appear here as a predicted month." className="border-0" />
-        ) : forecast.map((month) => {
-          const total = month.bucket.high + month.bucket.medium + month.bucket.atRisk
-          if (total === 0) return null
-          return (
-            <div key={month.month}>
-              <div className="flex items-baseline justify-between">
-                <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">{formatDate(`${month.month}-01`)}</span>
-                <span className="money text-[15px] font-medium tabular-nums text-ink">{formatMoney(total, currency)}</span>
-              </div>
-              <div className="mt-1.5 flex h-2 overflow-hidden rounded-full bg-hairline">
-                <div className="h-full bg-moss" style={{ width: `${(month.bucket.high / total) * 100}%` }} />
-                <div className="h-full bg-brass" style={{ width: `${(month.bucket.medium / total) * 100}%` }} />
-                <div className="h-full bg-rust" style={{ width: `${(month.bucket.atRisk / total) * 100}%` }} />
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-muted">
-                <span><span className="text-moss">{formatMoney(month.bucket.high, currency)}</span> promised/steady</span>
-                <span><span className="text-ember">{formatMoney(month.bucket.medium, currency)}</span> likely</span>
-                <span><span className="text-rust">{formatMoney(month.bucket.atRisk, currency)}</span> at risk</span>
-              </div>
-            </div>
-          )
-        })}
-      </CardBody>
-    </Card>
   )
 }
