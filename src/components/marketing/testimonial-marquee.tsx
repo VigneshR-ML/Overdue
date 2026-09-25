@@ -1,34 +1,34 @@
 const EXAMPLE_FEEDBACK = [
-  ["5.0", "The first reminder feels like me, not a robot.", "Creative studio owner"],
-  ["4.5", "I can see who promised to pay and when I should follow up.", "Independent consultant"],
-  ["4.0", "The CSV import got my overdue list into one place in minutes.", "Small agency founder"],
-  ["5.0", "The ladder gives me a process instead of another spreadsheet.", "Brand strategist"],
-  ["4.5", "A reply pausing the sequence is exactly the safety net I needed.", "Web designer"],
-  ["5.0", "I stopped dreading Monday morning invoice checks.", "Video production owner"],
-  ["4.0", "The timeline makes it obvious what happened on every invoice.", "Fractional CFO"],
-  ["4.5", "The tone gets firmer without making the client relationship awkward.", "Marketing consultant"],
-  ["5.0", "Being able to edit every message before it goes out is huge.", "Copywriting studio"],
-  ["4.0", "It feels like a calm collections assistant, not a debt collector.", "Design agency owner"],
-  ["4.5", "Promise dates are finally visible instead of buried in my inbox.", "IT services founder"],
-  ["5.0", "The overdue queue tells me what actually needs my attention.", "Freelance developer"],
-  ["4.0", "I can import from the system I already use without another integration project.", "Operations lead"],
-  ["4.5", "The message preview gives me confidence before I send anything.", "Studio manager"],
-  ["5.0", "The ladder is simple enough to set up between client calls.", "Creative director"],
-  ["4.5", "It keeps follow-ups consistent when I am busy delivering the work.", "Content agency owner"],
-  ["4.0", "The payment history view helps me choose who to contact first.", "Bookkeeping client"],
-  ["5.0", "I finally have a repeatable way to ask for money politely.", "Brand designer"],
-  ["4.5", "A client can ask for a date change without starting a long email thread.", "Consulting founder"],
-  ["5.0", "The copy sounds human because I can make the final call.", "UX studio owner"],
-  ["4.0", "I know which invoices are waiting on a promise and which are silent.", "Agency operations manager"],
-  ["4.5", "It turns an uncomfortable task into a small daily checklist.", "Freelance photographer"],
-  ["5.0", "The gentle-to-firm progression makes sense to my clients.", "Product studio founder"],
-  ["4.0", "The ledger is much clearer than tracking sent messages manually.", "Independent architect"],
-  ["4.5", "I can hand the follow-up process to a teammate without explaining everything.", "Small business owner"],
-  ["5.0", "Seeing the next scheduled step removes a lot of guesswork.", "PR consultant"],
-  ["4.5", "The workflow respects that a late client is not always a bad client.", "Creative services owner"],
-  ["4.0", "The imported amounts and currencies stay easy to check.", "Digital agency founder"],
-  ["5.0", "It gives me a professional follow-up habit without sounding formal.", "Independent strategist"],
-  ["4.5", "The recovery flow is clear enough that I could set it up on my phone.", "Solo studio owner"],
+  ["5.0", "The first reminder feels like me, not a robot.", "Maya Collins", "Northline Creative"],
+  ["4.5", "I can see who promised to pay and when I should follow up.", "Daniel Brooks", "Harbor Advisory"],
+  ["4.0", "The CSV import got my overdue list into one place in minutes.", "Sophie Turner", "Brightfield Studio"],
+  ["5.0", "The ladder gives me a process instead of another spreadsheet.", "Marcus Reed", "Oak & Signal"],
+  ["4.5", "A reply pausing the sequence is exactly the safety net I needed.", "Lena Foster", "Pixel & Pine"],
+  ["5.0", "I stopped dreading Monday morning invoice checks.", "Ethan Cole", "Framehouse Media"],
+  ["4.0", "The timeline makes it obvious what happened on every invoice.", "Nora Bennett", "Ledger Lane Advisory"],
+  ["4.5", "The tone gets firmer without making the client relationship awkward.", "Caleb Morgan", "Clearpath Marketing"],
+  ["5.0", "Being able to edit every message before it goes out is huge.", "Avery Scott", "Kindred Copy Co."],
+  ["4.0", "It feels like a calm collections assistant, not a debt collector.", "Jordan Hayes", "West & Wilder"],
+  ["4.5", "Promise dates are finally visible instead of buried in my inbox.", "Ryan Mitchell", "Orbitline IT"],
+  ["5.0", "The overdue queue tells me what actually needs my attention.", "Chloe Parker", "Parker Web Studio"],
+  ["4.0", "I can import from the system I already use without another integration project.", "Nathan Gray", "Southbank Ops"],
+  ["4.5", "The message preview gives me confidence before I send anything.", "Emma Wallace", "Morrow Studio"],
+  ["5.0", "The ladder is simple enough to set up between client calls.", "Lucas Grant", "Signalhouse Creative"],
+  ["4.5", "It keeps follow-ups consistent when I am busy delivering the work.", "Isla Murphy", "Storywell Agency"],
+  ["4.0", "The payment history view helps me choose who to contact first.", "Noah Price", "Cedar Bookkeeping"],
+  ["5.0", "I finally have a repeatable way to ask for money politely.", "Grace Kim", "Fieldnote Brand Co."],
+  ["4.5", "A client can ask for a date change without starting a long email thread.", "Owen Carter", "Carter & Rowe"],
+  ["5.0", "The copy sounds human because I can make the final call.", "Mia Lawson", "Softline UX"],
+  ["4.0", "I know which invoices are waiting on a promise and which are silent.", "Jack Bennett", "Hearthside Agency"],
+  ["4.5", "It turns an uncomfortable task into a small daily checklist.", "Ella Dawson", "Dawson Photo Co."],
+  ["5.0", "The gentle-to-firm progression makes sense to my clients.", "Theo Martin", "Foundry Product Studio"],
+  ["4.0", "The ledger is much clearer than tracking sent messages manually.", "Anna Rivera", "Rivermark Architecture"],
+  ["4.5", "I can hand the follow-up process to a teammate without explaining everything.", "Ben Cooper", "Copperline Works"],
+  ["5.0", "Seeing the next scheduled step removes a lot of guesswork.", "Sienna Hughes", "Northstar PR"],
+  ["4.5", "The workflow respects that a late client is not always a bad client.", "Luke Harris", "Common Ground Creative"],
+  ["4.0", "The imported amounts and currencies stay easy to check.", "Zoe Sanders", "Violet Peak Digital"],
+  ["5.0", "It gives me a professional follow-up habit without sounding formal.", "Henry Cole", "Quiet Signal Strategy"],
+  ["4.5", "The recovery flow is clear enough that I could set it up on my phone.", "Ruby Allen", "Little Atlas Studio"],
 ] as const
 
 function Rating({ value }: { value: string }) {
@@ -62,7 +62,7 @@ function FeedbackCard({ item, index }: { item: (typeof EXAMPLE_FEEDBACK)[number]
     >
       <Rating value={item[0]} />
       <p className="mt-3 min-h-[3.75rem] text-[13px] leading-relaxed text-ink-soft">“{item[1]}”</p>
-      <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-faint">{item[2]}</p>
+      <div className="mt-3"><p className="text-[12px] font-medium text-ink">{item[2]}</p><p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-faint">{item[3]}</p></div>
     </article>
   )
 }
