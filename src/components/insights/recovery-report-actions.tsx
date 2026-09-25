@@ -7,20 +7,14 @@ import { Button } from "@/components/ui/button"
 type ShareStatus = "idle" | "shared" | "copied" | "error"
 
 export function RecoveryReportActions({
-  outstanding,
-  overduePercent,
-  dsoDays,
+  reportLines,
 }: {
-  outstanding: string
-  overduePercent: number
-  dsoDays: number
+  reportLines: string[]
 }) {
   const [status, setStatus] = useState<ShareStatus>("idle")
   const report = [
     "Overdue recovery report",
-    `Outstanding balance: ${outstanding}`,
-    `Past due: ${overduePercent}% of the open balance`,
-    `Days sales outstanding: ${dsoDays > 0 ? `${Math.round(dsoDays)} days` : "not enough paid invoices yet"}`,
+    ...reportLines,
     "Generated in Overdue.",
   ].join("\n")
 
