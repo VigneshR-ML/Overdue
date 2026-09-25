@@ -22,18 +22,22 @@ import {
 } from "@/components/marketing/growth-sections"
 
 export const metadata: Metadata = {
-  title: "Overdue — Recover overdue invoices without awkward chasing",
+  title: "Accounts Receivable Automation & Invoice Reminder Software",
   description:
-    "Recover overdue invoices with human payment reminder emails, a clear recovery ladder, reply detection, and a payment ledger for freelancers and small agencies.",
+    "Automate accounts receivable follow-up with invoice reminders, overdue invoice tracking, payment chasing, collections workflows, reply detection, and payment promise tracking.",
   keywords: [
-    "overdue invoice follow-up",
-    "unpaid invoice reminders",
-    "late invoice payment",
-    "invoice payment tracking",
-    "payment ledger",
-    "invoice email",
-    "send invoices and get paid",
-    "AI invoice follow-up",
+    "accounts receivable automation",
+    "invoice reminder software",
+    "invoice follow up software",
+    "accounts receivable software",
+    "accounts receivable collections",
+    "invoice collection software",
+    "overdue invoice software",
+    "payment reminder software",
+    "invoice chasing software",
+    "collections automation software",
+    "invoice collections automation",
+    "accounts receivable follow up",
   ],
   alternates: { canonical: "/" },
 }
@@ -190,6 +194,41 @@ export default function LandingPage() {
       </section>
 
       <IntegrationStatusBlock />
+
+      {/* SEO INTENT — visible, useful category explanation */}
+      <section aria-labelledby="ar-automation-heading" className="border-y border-hairline bg-surface/55 py-20">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="max-w-3xl">
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">Accounts receivable automation</div>
+            <h2 id="ar-automation-heading" className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">
+              Invoice reminder software built for the work after an invoice is due.
+            </h2>
+            <p className="mt-5 max-w-3xl text-[15px] leading-relaxed text-muted">
+              Overdue combines accounts receivable software, invoice follow-up software, and payment reminder automation in one focused workflow. Track overdue invoices, automate client payment reminders, manage invoice collections, and keep every payment follow-up visible without replacing your accounting system.
+            </p>
+          </div>
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            <article className="rounded-xl border border-hairline bg-paper p-6 shadow-ledger">
+              <h3 className="font-display text-xl text-ink">Automated invoice reminders</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted">
+                Use invoice reminder automation for late payment reminders, unpaid invoice follow-up, overdue payment reminders, and professional payment reminders that stay editable before send.
+              </p>
+            </article>
+            <article className="rounded-xl border border-hairline bg-paper p-6 shadow-ledger">
+              <h3 className="font-display text-xl text-ink">Accounts receivable collections</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted">
+                Replace scattered invoice chasing with an accounts receivable collections workflow that helps manage overdue invoices, track payment status, and organize small business or agency invoice collections.
+              </p>
+            </article>
+            <article className="rounded-xl border border-hairline bg-paper p-6 shadow-ledger">
+              <h3 className="font-display text-xl text-ink">Payment follow-up automation</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted">
+                Run automated invoice follow-up, automated payment reminders, invoice collections automation, and client invoice follow-up while replies and payment promises pause the sequence when a human should step in.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
 
       {/* THE LADDER */}
       <section id="ladder" className="scroll-mt-24 border-y border-hairline bg-surface/70 py-20">
