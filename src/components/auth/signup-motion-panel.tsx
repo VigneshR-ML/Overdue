@@ -2,104 +2,85 @@ import styles from "./signup-motion-panel.module.css"
 
 export function SignupMotionPanel() {
   return (
-    <aside className={styles.panel} aria-label="How Overdue helps invoices get paid">
-      <div className={styles.glow} aria-hidden="true" />
-      <div className={styles.content}>
-        <div className={styles.eyebrow}>
-          <span className={styles.brandMark} aria-hidden="true">O</span>
-          A clearer way to get paid
-        </div>
-        <h2 className={styles.heading}>
-          From <em>overdue</em> to paid.
-          <span>Without the awkward follow-up.</span>
-        </h2>
+    <aside className={styles.panel} aria-label="Overdue invoice recovery illustration">
+      <svg
+        className={styles.scene}
+        viewBox="0 0 960 620"
+        role="img"
+        aria-labelledby="signup-scene-title signup-scene-description"
+      >
+        <title id="signup-scene-title">From overdue invoice to payment received</title>
+        <desc id="signup-scene-description">
+          An invoice is followed by a friendly reminder, then marked paid when the payment arrives.
+        </desc>
 
-        <svg
-          className={styles.scene}
-          viewBox="0 0 760 500"
-          role="img"
-          aria-labelledby="signup-scene-title signup-scene-description"
-        >
-          <title id="signup-scene-title">An invoice moves through a calm recovery workflow</title>
-          <desc id="signup-scene-description">
-            Overdue keeps reminders organized, pauses when a customer replies, and marks the invoice paid.
-          </desc>
-          <defs>
-            <linearGradient id="orbit-stroke" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#a7c4b2" stopOpacity=".08" />
-              <stop offset=".52" stopColor="#a7c4b2" stopOpacity=".48" />
-              <stop offset="1" stopColor="#d6b66c" stopOpacity=".14" />
-            </linearGradient>
-            <linearGradient id="invoice-glow" x1="0" y1="0" x2="1" y2="1">
-              <stop stopColor="#fffdf7" />
-              <stop offset="1" stopColor="#e9eee8" />
-            </linearGradient>
-            <filter id="card-shadow" x="-30%" y="-30%" width="160%" height="180%">
-              <feDropShadow dx="0" dy="16" stdDeviation="17" floodColor="#06140f" floodOpacity=".28" />
-            </filter>
-          </defs>
+        <defs>
+          <filter id="signup-card-shadow" x="-20%" y="-20%" width="140%" height="150%">
+            <feDropShadow dx="0" dy="8" stdDeviation="10" floodColor="#294337" floodOpacity=".08" />
+          </filter>
+        </defs>
 
-          <ellipse cx="383" cy="257" rx="282" ry="192" fill="none" stroke="url(#orbit-stroke)" strokeDasharray="3 9" />
-          <ellipse cx="383" cy="257" rx="214" ry="145" fill="none" stroke="#b8cfc2" strokeOpacity=".09" />
+        <g className={styles.invoice} filter="url(#signup-card-shadow)">
+          <rect x="44" y="74" width="350" height="472" rx="13" fill="#ffffff" stroke="#dce4df" strokeWidth="2" />
+          <path d="M347 74v40a13 13 0 0 0 13 13h34" fill="#f0f3f1" stroke="#dce4df" strokeWidth="2" />
+          <text x="84" y="133" fill="#25342c" fontSize="34" fontFamily="Arial, sans-serif" fontWeight="700">Invoice</text>
+          <text x="84" y="173" fill="#4d5c53" fontSize="18" fontFamily="Arial, sans-serif" fontWeight="600">Acme Co</text>
+          <text x="354" y="171" textAnchor="end" fill="#78857d" fontSize="14" fontFamily="monospace">INV-1042</text>
+          <text x="354" y="194" textAnchor="end" fill="#78857d" fontSize="14" fontFamily="monospace">Aug 12, 2026</text>
 
-          <path className={styles.pathGlow} d="M157 294 C218 294 233 226 288 226" fill="none" stroke="#8eb2a0" strokeOpacity=".48" strokeWidth="2" />
-          <path className={styles.pathGlow} d="M466 226 C528 226 522 294 591 294" fill="none" stroke="#d8bd79" strokeOpacity=".6" strokeWidth="2" />
-          <circle className={styles.flowDotOne} cx="0" cy="0" r="5" fill="#b6d3c3" />
-          <circle className={styles.flowDotTwo} cx="0" cy="0" r="5" fill="#e5cc8b" />
+          <rect x="84" y="218" width="135" height="12" rx="6" fill="#e7ebe8" />
+          <rect x="84" y="246" width="204" height="12" rx="6" fill="#e7ebe8" />
+          <rect x="84" y="274" width="168" height="12" rx="6" fill="#e7ebe8" />
 
-          <g className={styles.messageCard} filter="url(#card-shadow)">
-            <rect x="48" y="240" width="180" height="108" rx="15" fill="#f8f7f1" />
-            <circle cx="70" cy="265" r="9" fill="#dce9df" />
-            <path d="M66 265h8m-4-4v8" stroke="#2f5d50" strokeWidth="1.6" strokeLinecap="round" />
-            <text x="88" y="269" fill="#77786f" fontSize="10" fontFamily="monospace" letterSpacing="1.1">GENTLE REMINDER</text>
-            <rect x="67" y="287" width="135" height="5" rx="2.5" fill="#deded5" />
-            <rect x="67" y="300" width="117" height="5" rx="2.5" fill="#e7e6de" />
-            <rect x="67" y="319" width="70" height="15" rx="7.5" fill="#e6eee7" />
-            <text x="77" y="329.5" fill="#2f5d50" fontSize="8" fontFamily="monospace">SENT · DAY 3</text>
-          </g>
+          <line x1="84" y1="326" x2="354" y2="326" stroke="#e1e6e2" strokeWidth="2" />
+          <text x="84" y="360" fill="#58675e" fontSize="15" fontFamily="Arial, sans-serif">Design work</text>
+          <text x="354" y="360" textAnchor="end" fill="#3d4d43" fontSize="15" fontFamily="Arial, sans-serif">$2,400</text>
+          <line x1="84" y1="378" x2="354" y2="378" stroke="#e8ece9" />
+          <text x="84" y="412" fill="#58675e" fontSize="15" fontFamily="Arial, sans-serif">Development</text>
+          <text x="354" y="412" textAnchor="end" fill="#3d4d43" fontSize="15" fontFamily="Arial, sans-serif">$1,600</text>
+          <line x1="84" y1="430" x2="354" y2="430" stroke="#e1e6e2" strokeWidth="2" />
+          <text x="84" y="466" fill="#25342c" fontSize="17" fontFamily="Arial, sans-serif" fontWeight="700">Total</text>
+          <text x="354" y="466" textAnchor="end" fill="#25342c" fontSize="20" fontFamily="Arial, sans-serif" fontWeight="700">$4,000</text>
 
-          <g className={styles.invoiceCard} filter="url(#card-shadow)">
-            <rect x="274" y="133" width="220" height="244" rx="20" fill="url(#invoice-glow)" />
-            <rect x="296" y="156" width="34" height="34" rx="10" fill="#e2ebe3" />
-            <path d="M306 165h14v17l-7-4-7 4z" fill="none" stroke="#2f5d50" strokeWidth="1.5" strokeLinejoin="round" />
-            <text x="342" y="169" fill="#7a7b71" fontSize="9" fontFamily="monospace" letterSpacing="1.2">INVOICE · #2148</text>
-            <text x="342" y="184" fill="#31352f" fontSize="11" fontFamily="sans-serif" fontWeight="600">Northwind Studio</text>
-            <line x1="296" y1="207" x2="472" y2="207" stroke="#dedfd7" />
-            <text x="296" y="234" fill="#85867c" fontSize="9" fontFamily="monospace" letterSpacing="1.2">AMOUNT DUE</text>
-            <text x="295" y="271" fill="#202920" fontSize="32" fontFamily="sans-serif" fontWeight="600">$2,400</text>
-            <text x="296" y="291" fill="#85867c" fontSize="10" fontFamily="sans-serif">Due 16 days ago</text>
-            <rect x="296" y="319" width="176" height="34" rx="9" fill="#e9eee8" />
-            <circle cx="311" cy="336" r="4" fill="#3e765d" />
-            <text x="322" y="340" fill="#315c49" fontSize="10" fontFamily="sans-serif" fontWeight="600">Follow-up is on track</text>
-          </g>
+          <rect x="84" y="490" width="174" height="34" rx="8" fill="#edf2ee" />
+          <circle cx="101" cy="507" r="5" fill="#df8358" />
+          <text x="116" y="512" fill="#43624f" fontSize="13" fontFamily="Arial, sans-serif" fontWeight="600">Payment overdue</text>
+        </g>
 
-          <g className={styles.paidCard} filter="url(#card-shadow)">
-            <rect x="530" y="240" width="183" height="108" rx="15" fill="#fbfaf5" />
-            <circle cx="555" cy="271" r="12" fill="#e2eee4" />
-            <path d="m550 271 3.5 3.5 7-7" fill="none" stroke="#2f6a4d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <text x="576" y="269" fill="#397051" fontSize="9" fontFamily="monospace" letterSpacing="1.1">PAYMENT RECEIVED</text>
-            <text x="551" y="305" fill="#242b25" fontSize="19" fontFamily="sans-serif" fontWeight="600">$2,400.00</text>
-            <text x="551" y="327" fill="#85867c" fontSize="10" fontFamily="sans-serif">Invoice settled · today</text>
-          </g>
+        <path d="M416 303h42m-13-13 13 13-13 13" fill="none" stroke="#557663" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <circle className={styles.flowDotOne} cx="419" cy="303" r="5" fill="#2e6b5a" />
 
-          <g className={styles.replyChip}>
-            <rect x="503" y="97" width="152" height="34" rx="17" fill="#29483c" stroke="#8bb19b" strokeOpacity=".36" />
-            <circle cx="521" cy="114" r="4" fill="#b3d0bd" />
-            <text x="533" y="118" fill="#dce9df" fontSize="10" fontFamily="sans-serif">Reply received · paused</text>
-          </g>
+        <g className={styles.reminder} filter="url(#signup-card-shadow)">
+          <rect x="474" y="127" width="238" height="354" rx="15" fill="#ffffff" stroke="#dce4df" strokeWidth="2" />
+          <circle cx="516" cy="171" r="22" fill="#edf2ee" />
+          <rect x="505" y="164" width="22" height="15" rx="2" fill="none" stroke="#28513f" strokeWidth="2" />
+          <path d="m506 165 10 8 10-8" fill="none" stroke="#28513f" strokeWidth="2" strokeLinejoin="round" />
+          <text x="502" y="222" fill="#25342c" fontSize="19" fontFamily="Arial, sans-serif" fontWeight="700">A friendly reminder</text>
+          <rect x="502" y="242" width="174" height="9" rx="4.5" fill="#e6ebe7" />
+          <rect x="502" y="260" width="145" height="9" rx="4.5" fill="#e6ebe7" />
+          <text x="502" y="306" fill="#607067" fontSize="14" fontFamily="Arial, sans-serif">Hi there,</text>
+          <text x="502" y="331" fill="#46574d" fontSize="14" fontFamily="Arial, sans-serif">Just checking in on</text>
+          <text x="502" y="352" fill="#46574d" fontSize="14" fontFamily="Arial, sans-serif">invoice INV-1042.</text>
+          <text x="502" y="383" fill="#46574d" fontSize="14" fontFamily="Arial, sans-serif">Let us know if you</text>
+          <text x="502" y="404" fill="#46574d" fontSize="14" fontFamily="Arial, sans-serif">need anything!</text>
+          <rect x="502" y="429" width="182" height="36" rx="8" fill="#28513f" />
+          <text x="593" y="452" textAnchor="middle" fill="#ffffff" fontSize="14" fontFamily="Arial, sans-serif" fontWeight="600">Send reminder</text>
+        </g>
 
-          <g className={styles.sparkle} fill="#dcc37e">
-            <path d="M222 124v12m-6-6h12" stroke="#dcc37e" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M641 183v9m-4.5-4.5h9" stroke="#dcc37e" strokeWidth="1.2" strokeLinecap="round" />
-            <circle cx="135" cy="174" r="2" />
-            <circle cx="595" cy="389" r="2" />
-          </g>
-        </svg>
+        <path d="M731 303h42m-13-13 13 13-13 13" fill="none" stroke="#557663" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <circle className={styles.flowDotTwo} cx="734" cy="303" r="5" fill="#2e6b5a" />
 
-        <div className={styles.footer} aria-hidden="true">
-          <span>Remind</span><i /><span>Listen</span><i /><span className={styles.footerActive}>Get paid</span>
-        </div>
-      </div>
+        <g className={styles.paid} filter="url(#signup-card-shadow)">
+          <rect x="789" y="165" width="139" height="276" rx="15" fill="#ffffff" stroke="#dce4df" strokeWidth="2" />
+          <circle cx="858" cy="231" r="31" fill="#e8f0ea" />
+          <path d="m843 231 10 10 20-22" fill="none" stroke="#2e6b5a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M858 188v-9m-34 52h-9m84 0h-9" stroke="#7da08a" strokeWidth="2" strokeLinecap="round" />
+          <text x="858" y="294" textAnchor="middle" fill="#25342c" fontSize="17" fontFamily="Arial, sans-serif" fontWeight="700">Invoice paid</text>
+          <rect x="815" y="313" width="86" height="8" rx="4" fill="#e6ebe7" />
+          <text x="858" y="367" textAnchor="middle" fill="#2e6b5a" fontSize="23" fontFamily="Arial, sans-serif" fontWeight="700">$4,000</text>
+          <rect x="824" y="386" width="68" height="8" rx="4" fill="#e6ebe7" />
+        </g>
+      </svg>
     </aside>
   )
 }

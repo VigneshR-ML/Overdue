@@ -1,213 +1,72 @@
 .panel {
-  --panel-ink: #f4f2e9;
-  position: relative;
   display: none;
   min-width: 0;
   min-height: 0;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: #142d25;
-  color: var(--panel-ink);
+  border-left: 1px solid #e6ebe7;
+  background: #f3f6f4;
 }
 
 @media (min-width: 1024px) {
   .panel { display: flex; }
 }
 
-.panel::before,
-.panel::after {
-  position: absolute;
-  inset: 0;
-  content: "";
-  pointer-events: none;
-}
-
-.panel::before {
-  opacity: .15;
-  background-image: radial-gradient(rgba(228, 235, 220, .6) .6px, transparent .6px);
-  background-size: 18px 18px;
-  mask-image: linear-gradient(110deg, #000 0%, transparent 65%);
-}
-
-.panel::after {
-  border: 1px solid rgba(229, 235, 224, .08);
-  inset: 18px;
-  border-radius: 22px;
-}
-
-.glow {
-  position: absolute;
-  width: min(76vw, 760px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(80, 123, 94, .28), rgba(80, 123, 94, .07) 43%, transparent 69%);
-  animation: breathe 8s ease-in-out infinite;
-}
-
-.content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: min(100%, 790px);
-  max-height: 100%;
-  flex-direction: column;
-  justify-content: center;
-  padding: clamp(32px, 5vw, 66px) clamp(26px, 5.4vw, 74px);
-}
-
-.eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #c1d1c5;
-  font: 500 11px/1.2 var(--mono), ui-monospace, monospace;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-
-.brandMark {
-  display: inline-grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border: 1px solid rgba(207, 220, 206, .42);
-  border-radius: 8px;
-  color: #e1d19d;
-  font: 600 14px/1 var(--font-display, Georgia), Georgia, serif;
-  letter-spacing: 0;
-}
-
-.heading {
-  margin: 18px 0 0;
-  color: #f7f5ed;
-  font: 500 clamp(30px, 3vw, 43px)/1.08 var(--font-fraunces), Georgia, serif;
-  letter-spacing: -.045em;
-}
-
-.heading em {
-  color: #d9c787;
-  font-weight: 400;
-}
-
-.heading span {
-  display: block;
-  margin-top: 5px;
-  color: #b5c3b7;
-  font: 400 clamp(14px, 1.3vw, 17px)/1.4 var(--font-figtree), Arial, sans-serif;
-  letter-spacing: -.01em;
-}
-
 .scene {
   display: block;
-  width: 100%;
-  max-height: min(55vh, 500px);
-  margin: clamp(2px, 1vh, 14px) auto -10px;
+  width: min(100%, 960px);
+  max-height: calc(100svh - 7rem);
+  height: auto;
   overflow: visible;
 }
 
-.invoiceCard {
+.invoice,
+.reminder,
+.paid {
   transform-box: fill-box;
   transform-origin: center;
-  animation: invoice-float 6s ease-in-out infinite;
 }
 
-.messageCard {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: message-float 7s ease-in-out infinite;
-}
+.invoice { animation: invoice-settle 7s ease-in-out infinite; }
+.reminder { animation: reminder-send 7s ease-in-out infinite; }
+.paid { animation: payment-confirm 7s ease-in-out infinite; }
 
-.paidCard {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: paid-float 5.5s ease-in-out infinite;
-}
+.flowDotOne { animation: flow-one 7s ease-in-out infinite; }
+.flowDotTwo { animation: flow-two 7s ease-in-out infinite; }
 
-.replyChip { animation: reply-in 5.5s ease-in-out infinite; }
-.sparkle { animation: sparkle 4s ease-in-out infinite; transform-origin: center; }
-
-.pathGlow {
-  stroke-dasharray: 8 8;
-  animation: dash-flow 2.3s linear infinite;
-}
-
-.flowDotOne { animation: dot-one 4s ease-in-out infinite; }
-.flowDotTwo { animation: dot-two 4s ease-in-out infinite; }
-
-.footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(10px, 2vw, 22px);
-  color: #9eafa1;
-  font: 500 10px/1.2 var(--mono), ui-monospace, monospace;
-  letter-spacing: .11em;
-  text-transform: uppercase;
-}
-
-.footer i {
-  width: 22px;
-  height: 1px;
-  background: linear-gradient(90deg, #758c7c, #d8c57f);
-}
-
-.footerActive { color: #e2d298; }
-
-@keyframes breathe {
-  0%, 100% { transform: scale(.92); opacity: .65; }
-  50% { transform: scale(1.08); opacity: 1; }
-}
-
-@keyframes invoice-float {
+@keyframes invoice-settle {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  50% { transform: translateY(-3px); }
 }
 
-@keyframes message-float {
-  0%, 100% { transform: translateY(2px); }
-  50% { transform: translateY(-6px); }
+@keyframes reminder-send {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
-@keyframes paid-float {
-  0%, 100% { transform: translateY(0) scale(1); }
-  48% { transform: translateY(-7px) scale(1.015); }
-  65% { transform: translateY(-7px) scale(1.015); }
+@keyframes payment-confirm {
+  0%, 42%, 100% { transform: scale(1); }
+  52%, 65% { transform: scale(1.025); }
 }
 
-@keyframes reply-in {
-  0%, 12%, 100% { opacity: .55; transform: translateY(5px); }
-  24%, 72% { opacity: 1; transform: translateY(0); }
-  86% { opacity: .72; transform: translateY(-2px); }
+@keyframes flow-one {
+  0%, 17%, 34%, 100% { transform: translateX(0); opacity: 0; }
+  22% { opacity: 1; }
+  33% { transform: translateX(30px); opacity: 0; }
 }
 
-@keyframes sparkle {
-  0%, 100% { opacity: .4; }
-  50% { opacity: 1; }
-}
-
-@keyframes dash-flow { to { stroke-dashoffset: -32; } }
-
-@keyframes dot-one {
-  0% { transform: translate(157px, 294px); opacity: 0; }
-  14%, 82% { opacity: 1; }
-  100% { transform: translate(288px, 226px); opacity: 0; }
-}
-
-@keyframes dot-two {
-  0% { transform: translate(466px, 226px); opacity: 0; }
-  18%, 85% { opacity: 1; }
-  100% { transform: translate(591px, 294px); opacity: 0; }
+@keyframes flow-two {
+  0%, 50%, 67%, 100% { transform: translateX(0); opacity: 0; }
+  55% { opacity: 1; }
+  66% { transform: translateX(30px); opacity: 0; }
 }
 
 @media (max-height: 760px) and (min-width: 1024px) {
-  .content { padding-top: 20px; padding-bottom: 20px; }
-  .heading { margin-top: 12px; font-size: clamp(27px, 2.7vw, 36px); }
-  .scene { max-height: 48vh; margin-top: 0; margin-bottom: -12px; }
+  .scene { width: min(100%, 850px); max-height: calc(100svh - 5.5rem); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .glow, .invoiceCard, .messageCard, .paidCard, .replyChip, .sparkle,
-  .pathGlow, .flowDotOne, .flowDotTwo { animation: none !important; }
-  .flowDotOne, .flowDotTwo { opacity: .6; }
+  .invoice, .reminder, .paid, .flowDotOne, .flowDotTwo { animation: none !important; }
+  .flowDotOne, .flowDotTwo { opacity: .7; }
 }
