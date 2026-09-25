@@ -16,6 +16,15 @@ jobs:
           DISPATCH_URL: ${{ secrets.DISPATCH_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          if [ -z "${DISPATCH_URL}" ]; then
+            echo "::error::DISPATCH_URL repository secret is missing"
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET repository secret is missing"
+            exit 1
+          fi
+          DISPATCH_URL="${DISPATCH_URL%/}"
           RESPONSE_FILE="$(mktemp)"
           HTTP_CODE="$(curl -sS -o "$RESPONSE_FILE" -w "%{http_code}" \
             -X POST "${DISPATCH_URL}/api/cron/dispatch" \
