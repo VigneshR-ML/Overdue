@@ -114,7 +114,7 @@ export async function runDispatcher() {
     if (userIds.length) {
       const { data: subs } = await supabase
         .from("subscriptions")
-        .select("user_id, plan, status, current_period_end")
+        .select("user_id, plan, status, current_period_end, created_at")
         .in("user_id", userIds)
       for (const s of (subs ?? []) as any[]) {
         if (planForSubscription(s) === "pro") proUsers.add(s.user_id)
