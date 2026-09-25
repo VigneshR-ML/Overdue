@@ -11,6 +11,17 @@ import { ProPrice } from "@/components/billing/pro-price"
 import { TOOL_CALCULATORS } from "@/lib/seo/tool-calculators"
 import { LandingToolTeaser } from "@/components/marketing/landing-tool-teaser"
 import { TestimonialMarquee } from "@/components/marketing/testimonial-marquee"
+import {
+  BeforeAfterSection,
+  CsvHealthCheck,
+  IntegrationStatusBlock,
+  ProductDemoSection,
+  RecoveryScoreTool,
+  ReplyDemo,
+  SocialVideoSection,
+  SetupAndTrustSections,
+  VerifiedFeedbackPlaceholder,
+} from "@/components/marketing/growth-sections"
 
 export const metadata: Metadata = {
   title: "Overdue — Recover overdue invoices without awkward chasing",
@@ -139,7 +150,13 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <ProductDemoSection />
+      <SocialVideoSection />
       <TestimonialMarquee />
+      <BeforeAfterSection />
+      <ReplyDemo />
+      <RecoveryScoreTool />
+      <CsvHealthCheck />
 
       {/* HOW IT WORKS */}
       <section id="how" className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20">
@@ -175,6 +192,8 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      <IntegrationStatusBlock />
 
       {/* THE LADDER */}
       <section id="ladder" className="scroll-mt-24 border-y border-hairline bg-surface/70 py-20">
@@ -290,7 +309,23 @@ export default function LandingPage() {
             <a href="/signup" className="mt-6 block"><Button variant="moss" className="w-full">Go Pro</Button></a>
           </div>
         </div>
+        <div className="mx-auto mt-8 max-w-3xl overflow-hidden rounded-xl border border-hairline bg-paper shadow-ledger">
+          <div className="flex items-center justify-between border-b border-hairline px-5 py-3">
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Inside Pro · a calmer Monday</span>
+            <span className="font-mono text-[10px] text-moss">live ledger preview</span>
+          </div>
+          <div className="grid gap-4 p-5 sm:grid-cols-[1.3fr_0.7fr]">
+            <div className="rounded-lg border border-hairline bg-surface p-4">
+              <div className="flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">Needs attention</span><span className="rounded-full bg-ember/10 px-2 py-1 font-mono text-[10px] text-ember">3 today</span></div>
+              <div className="mt-4 space-y-2">{[["Northwind Creative", "$2,400", "firm"], ["Arbor Studio", "$850", "reply paused"], ["Fieldnotes LLC", "$360", "gentle"]].map(([name, amount, status]) => <div key={name} className="flex items-center justify-between gap-3 rounded-md border border-hairline px-3 py-2 text-xs"><span className="text-ink-soft">{name}</span><span className="font-mono text-[10px] text-muted">{amount} · {status}</span></div>)}</div>
+            </div>
+            <div className="rounded-lg bg-moss p-4 text-paper"><div className="font-mono text-[10px] uppercase tracking-[0.12em] text-paper/60">This month</div><div className="mt-3 font-display text-3xl">$8,740</div><div className="mt-1 text-xs text-paper/70">recovered or promised</div><div className="mt-6 h-1.5 rounded-full bg-paper/20"><div className="h-full w-4/5 rounded-full bg-brass" /></div><div className="mt-2 font-mono text-[10px] text-paper/60">80% of active book reviewed</div></div>
+          </div>
+        </div>
       </section>
+
+      <SetupAndTrustSections />
+      <VerifiedFeedbackPlaceholder />
 
       {/* FAQ */}
       <section className="border-t border-hairline bg-surface/70 py-20">

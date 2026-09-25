@@ -38,10 +38,8 @@ export function MarketingNav() {
         <nav className="hidden items-center gap-7 text-sm text-ink-soft md:flex" aria-label="Primary">
           <Link className="transition-colors hover:text-ink" href="/#how">How it works</Link>
           <Link className="transition-colors hover:text-ink" href="/#ladder">The ladder</Link>
-          <Link className="transition-colors hover:text-ink" href="/#ai">AI Copilot</Link>
           <Link className="transition-colors hover:text-ink" href="/#pricing">Pricing</Link>
           <Link className="transition-colors hover:text-ink" href="/templates">Templates</Link>
-          <Link className="transition-colors hover:text-ink" href="/for-freelancers">For freelancers</Link>
           <Link className="transition-colors hover:text-ink" href="/#tools">Tools</Link>
         </nav>
         <div className="flex items-center gap-2">
@@ -68,12 +66,11 @@ export function MarketingNav() {
             {[
               ["/#how", "How it works"],
               ["/#ladder", "The ladder"],
-              ["/#ai", "AI Copilot"],
               ["/#pricing", "Pricing"],
               ["/templates", "Templates"],
-              ["/for-freelancers", "For freelancers"],
-              ["/for-agencies", "For agencies"],
               ["/#tools", "Tools"],
+              ["/recovery-score", "Recovery score"],
+              ["/partners", "Partners"],
               ["/login", "Sign in"],
             ].map(([href, label]) => (
               <Link
@@ -108,7 +105,6 @@ export function MarketingFooter() {
             <ul className="mt-3 space-y-2 text-sm text-muted">
               <li><Link href="/#how" className="hover:text-ink">How it works</Link></li>
               <li><Link href="/#ladder" className="hover:text-ink">The ladder</Link></li>
-              <li><Link href="/#ai" className="hover:text-ink">AI Copilot</Link></li>
               <li><Link href="/pricing" className="hover:text-ink">Pricing</Link></li>
               <li><Link href="/login" className="hover:text-ink">Sign in</Link></li>
             </ul>
@@ -120,6 +116,7 @@ export function MarketingFooter() {
               <li><Link href="/templates/late-payment-reminder-email" className="hover:text-ink">Late payment reminder</Link></li>
               <li><Link href="/templates/final-invoice-email" className="hover:text-ink">Final notice</Link></li>
               <li><Link href="/templates" className="hover:text-ink">All templates</Link></li>
+              <li><Link href="/recovery-score" className="hover:text-ink">Recovery score</Link></li>
             </ul>
           </div>
           <div>
@@ -128,6 +125,16 @@ export function MarketingFooter() {
               <li><Link href="/#tools" className="hover:text-ink">Calculators overview</Link></li>
               <li><Link href="/login" className="hover:text-ink">Log in to use tools</Link></li>
               <li><Link href="/signup" className="hover:text-ink">Start free</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">For teams</div>
+            <ul className="mt-3 space-y-2 text-sm text-muted">
+              <li><Link href="/for/agencies" className="hover:text-ink">Agencies</Link></li>
+              <li><Link href="/for/consultants" className="hover:text-ink">Consultants</Link></li>
+              <li><Link href="/for/msps" className="hover:text-ink">MSPs</Link></li>
+              <li><Link href="/for/freelancers" className="hover:text-ink">Freelancers</Link></li>
+              <li><Link href="/partners" className="hover:text-ink">Partner programme</Link></li>
             </ul>
           </div>
           <div>

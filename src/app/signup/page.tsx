@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Wordmark } from "@/components/marketing/site"
 import { AuthForm } from "@/components/auth/auth-form"
+import { AuthSideIllustration } from "@/components/auth/auth-side-illustration"
 
 export const metadata: Metadata = {
   title: "Create account",
@@ -21,7 +22,8 @@ export default function SignupPage() {
           <Wordmark />
         </div>
       </header>
-      <main className="mx-auto w-full max-w-sm flex-1 px-5 py-16">
+      <main className="mx-auto grid w-full max-w-7xl flex-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <section className="mx-auto w-full max-w-sm px-5 py-16 lg:mx-0 lg:max-w-xl lg:px-16 lg:py-24">
         <h1 className="font-display text-3xl tracking-tight text-ink">
           Start free. Get paid <em className="italic">without the cringe.</em>
         </h1>
@@ -37,6 +39,8 @@ export default function SignupPage() {
             Sign in
           </Link>
         </div>
+        </section>
+        <AuthSideIllustration />
       </main>
     </div>
   )
