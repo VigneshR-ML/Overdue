@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test"
 
 const routes = [
-  { path: "/", title: /Overdue/, heading: /Get paid without/ },
+  { path: "/", title: /Accounts Receivable Automation/, heading: /Your client missed the due date/ },
   { path: "/pricing", title: /Pricing/, heading: /follow-up autopilot/ },
   { path: "/templates", title: /templates/, heading: /Invoice emails/ },
   { path: "/login", title: /Sign in/, heading: /Welcome back/ },
-  { path: "/signup", title: /Create account/, heading: /Start free/ },
+  { path: "/signup", title: /Create account/, heading: /Start your 14-day trial/ },
 ]
 
 test("public routes render cleanly and fit a tablet viewport", async ({ page }) => {
@@ -29,4 +29,18 @@ test("public routes render cleanly and fit a tablet viewport", async ({ page }) 
   }))
   expect(widths.scroll).toBeLessThanOrEqual(widths.client)
   expect(pageErrors).toEqual([])
+})
+
+test("auth pages keep account creation and sign in distinct", async ({ page }) => {
+  await page.goto("/signup")
+  await expect(page.getByLabel("Email")).toBeVisible()
+  await expect(page.getByLabel("Password")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Email me a secure link" })).toBeVisible()
+
+  await page.goto("/login")
+  await expect(page.getByLabel("Email")).toBeVisible()
+  await expect(page.getByLabel("Password")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Create a free account" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Forgot your password?" })).toBeVisible()
 })

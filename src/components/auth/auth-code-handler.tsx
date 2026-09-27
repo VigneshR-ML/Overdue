@@ -34,6 +34,14 @@ export function AuthCodeHandler() {
     const authError = searchParams.get("error")
     const isGoogle = searchParams.get("source") === "google"
       || window.sessionStorage.getItem("overdue:oauth-provider") === "google"
+    const callbackType = searchParams.get("type")
+    const requestedFlow = searchParams.get("flow")
+      ?? (callbackType === "signup" || callbackType === "recovery" ? callbackType : null)
+      ?? window.sessionStorage.getItem("overdue:email-flow")
+      ?? (pathname === "/login" && (code || tokenHash) ? "recovery" : null)
+    const emailFlow = !isGoogle && (requestedFlow === "signup" || requestedFlow === "recovery")
+      ? requestedFlow
+      : null
 
     const supabase = createClient()
 
@@ -57,9 +65,9 @@ export function AuthCodeHandler() {
     }
     // The dedicated callback page handles its own path — don't double-exchange.
     if (pathname.startsWith("/auth/callback")) return
-    // Only act when Supabase dropped the callback onto the Site URL (the root).
-    // Running on /login, /signup or app pages would yank users out mid-flow.
-    if (pathname !== "/") return
+    // Also finish legacy recovery links that were sent to /login before the
+    // dedicated flow-aware callback route was introduced.
+    if (pathname !== "/" && !(pathname === "/login" && emailFlow === "recovery")) return
 
     const base = window.location.origin
     const toError = (reason?: string) => {
@@ -67,6 +75,7 @@ export function AuthCodeHandler() {
       if (reason) params.set("reason", reason)
       if (isGoogle) params.set("source", "google")
       window.sessionStorage.removeItem("overdue:oauth-provider")
+      window.sessionStorage.removeItem("overdue:email-flow")
       window.location.replace(`${base}/?${params.toString()}`)
     }
 
@@ -112,7 +121,7 @@ export function AuthCodeHandler() {
       }
 
       const rawNext = searchParams.get("next")
-      let next = "/onboarding"
+      let next = emailFlow ? `/auth/set-password?flow=${emailFlow}` : "/onboarding"
       if (rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")) {
         next = rawNext
       }
@@ -126,6 +135,7 @@ export function AuthCodeHandler() {
       if (keepNext) clean.searchParams.set("next", keepNext)
       window.history.replaceState(null, "", clean.toString())
       window.sessionStorage.removeItem("overdue:oauth-provider")
+      window.sessionStorage.removeItem("overdue:email-flow")
       // A full navigation makes the new auth cookies visible to server components.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign(`${base}${next}`)

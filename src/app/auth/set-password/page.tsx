@@ -1,12 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Wordmark } from "@/components/marketing/site"
-import { AuthForm } from "@/components/auth/auth-form"
+import { SetPasswordForm } from "@/components/auth/set-password-form"
 import { SignupMotionPanel } from "@/components/auth/signup-motion-panel"
 
 export const metadata: Metadata = {
-  title: "Create account",
-  alternates: { canonical: "/signup" },
+  title: "Set your password",
   robots: { index: false, follow: false },
 }
 
@@ -14,7 +13,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export default function SignupPage() {
+export default function SetPasswordPage() {
   return (
     <div className="flex min-h-screen flex-col bg-[#faf9f5] lg:h-dvh lg:min-h-0 lg:overflow-hidden">
       <header className="shrink-0 border-b border-[#e8e6df] bg-[#faf9f5]">
@@ -27,18 +26,17 @@ export default function SignupPage() {
       <main className="mx-auto grid w-full max-w-7xl flex-1 lg:min-h-0 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:overflow-hidden">
         <section className="mx-auto flex w-full max-w-sm flex-col justify-center px-5 py-16 lg:mx-0 lg:max-w-xl lg:px-16 lg:py-2">
           <h1 className="font-display text-3xl tracking-tight text-ink">
-            Start your 14-day trial. Get paid <em className="italic">without the cringe.</em>
+            Choose your <em className="italic">password.</em>
           </h1>
           <p className="mt-2 text-sm text-muted">
-            Enter your email and we&apos;ll send a link to set your password.
+            Your email is confirmed. Set a password to reach your dashboard.
           </p>
           <div className="mt-8">
-            <AuthForm mode="signup" />
+            <SetPasswordForm />
           </div>
           <div className="mt-6 text-center text-sm text-muted">
-            Have an account?{" "}
             <Link href="/login" className="font-medium text-moss hover:text-moss-bright">
-              Sign in
+              Back to sign in
             </Link>
           </div>
         </section>

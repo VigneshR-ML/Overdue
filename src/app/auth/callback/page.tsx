@@ -28,11 +28,19 @@ export default function AuthCallback() {
     const base = window.location.origin
     const isGoogle = searchParams.get("source") === "google"
       || window.sessionStorage.getItem("overdue:oauth-provider") === "google"
+    const callbackType = searchParams.get("type")
+    const requestedFlow = searchParams.get("flow")
+      ?? (callbackType === "signup" || callbackType === "recovery" ? callbackType : null)
+      ?? window.sessionStorage.getItem("overdue:email-flow")
+    const emailFlow = !isGoogle && (requestedFlow === "signup" || requestedFlow === "recovery")
+      ? requestedFlow
+      : null
     const toError = (reason?: string) => {
       const params = new URLSearchParams({ auth: "error" })
       if (reason) params.set("reason", reason)
       if (isGoogle) params.set("source", "google")
       window.sessionStorage.removeItem("overdue:oauth-provider")
+      window.sessionStorage.removeItem("overdue:email-flow")
       window.location.replace(`${base}/?${params.toString()}`)
     }
 
@@ -92,12 +100,13 @@ export default function AuthCallback() {
 
         // Validate `next` is a safe internal path to prevent open redirects.
         const rawNext = searchParams.get("next")
-        let next = "/onboarding"
+        let next = emailFlow ? `/auth/set-password?flow=${emailFlow}` : "/onboarding"
         if (rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")) {
           next = rawNext
         }
 
         window.sessionStorage.removeItem("overdue:oauth-provider")
+        window.sessionStorage.removeItem("overdue:email-flow")
         window.location.replace(`${base}${next}`)
       } catch {
         toError()

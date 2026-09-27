@@ -30,6 +30,8 @@ npm run dev
 - Run every migration in filename order: `0001_init.sql` → `0027_payment_plan_runtime.sql`, then the dated workflow migrations in ascending order. Do not skip `0021`–`0027`.
 - Enable **Email (password)** auth provider → `users` + `profiles` + `subscriptions` +
   the default ladder are auto-created by `on_auth_user_created` triggers.
+- Configure production callback URLs, custom SMTP, and the confirmation/recovery email
+  templates in [`docs/supabase-auth-setup.md`](docs/supabase-auth-setup.md).
 - Env keys are documented inline in `.env.example` (Supabase, App, Paddle, Dodo,
   Resend, LLM, Stripe, PayPal, Xero, Upstash, Sentry, CRON, inbound webhook).
 

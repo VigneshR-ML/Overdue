@@ -20,14 +20,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [showReset, setShowReset] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
-  // Recovery links land on /login with a code/token_hash + type=recovery.
-  const [recovery, setRecovery] = useState(() => {
-    if (mode !== "login" || typeof window === "undefined") return false
-    const sp = new URLSearchParams(window.location.search)
-    return sp.get("type") === "recovery" && Boolean(sp.get("code") || sp.get("token_hash"))
-  })
-  const [newPassword, setNewPassword] = useState("")
-  const [newPasswordConfirm, setNewPasswordConfirm] = useState("")
 
   const handleGoogleError = useCallback((message: string) => {
     setError(message)
@@ -43,6 +35,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setLoading(true)
     try {
       const supabase = createClient()
+      // Keep the provider marker so any callback failure is explained as a
+      // Google sign-in, never as an email-confirmation link.
+      window.sessionStorage.removeItem("overdue:email-flow")
+      window.sessionStorage.setItem("overdue:oauth-provider", "google")
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "google",
         token,
@@ -74,10 +70,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     try {
       const supabase = createClient()
       if (mode === "signup") {
+        // Account creation is email-only: the user picks their password on the
+        // set-password page that the emailed link opens. Signup therefore has
+        // exactly one input, and /login stays a password-only page that can
+        // never create an account or send a sign-in link.
+        window.sessionStorage.setItem("overdue:email-flow", "signup")
+        window.sessionStorage.removeItem("overdue:oauth-provider")
         const { data, error } = await supabase.auth.signUp({
           email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          // Random high-entropy placeholder: this account can only be unlocked
+          // through the emailed confirmation link.
+          password: crypto.randomUUID() + crypto.randomUUID(),
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback?flow=signup`,
+            data: { flow: "signup" },
+          },
         })
         if (error) {
           if (/send confirmation email|smtp|email/i.test(error.message) && !/invalid/i.test(error.message)) {
@@ -95,8 +102,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           setMagicSent(true)
         }
       } else {
+        window.sessionStorage.removeItem("overdue:email-flow")
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) return setError(error.message)
+        if (error) {
+          // Never leak whether the address exists, and never suggest a
+          // "sign in link" — that behaviour belonged to the old magic-link form.
+          if (/invalid login credentials/i.test(error.message)) {
+            return setError("Email or password is incorrect. If you don't have an account yet, create one below.")
+          }
+          return setError(error.message)
+        }
         if (data.session) {
           // A full navigation makes the new auth cookies visible to server components.
           // eslint-disable-next-line @next/next/no-location-assign-relative-destination
@@ -122,53 +137,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     try {
       const supabase = createClient()
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${window.location.origin}/auth/callback?flow=recovery`,
       })
       if (error) return setError(error.message)
       setResetSent(true)
     } catch {
       setError("Couldn't send the reset link. Please try again.")
     } finally {
-      setLoading(false)
-    }
-  }
-
-  /** Recovery link → exchange token, then let the session update the password. */
-  async function submitNewPassword(e: React.FormEvent) {
-    e.preventDefault()
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.")
-      return
-    }
-    if (newPassword !== newPasswordConfirm) {
-      setError("Passwords don't match.")
-      return
-    }
-    setError(null)
-    setLoading(true)
-    try {
-      const supabase = createClient()
-      const sp = new URLSearchParams(window.location.search)
-      const code = sp.get("code")
-      const tokenHash = sp.get("token_hash")
-
-      if (tokenHash) {
-        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
-        if (error) throw new Error(error.message)
-      } else if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) throw new Error(error.message)
-      } else {
-        throw new Error("Missing reset code — request a new link and follow it in the same browser.")
-      }
-
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw new Error(error.message)
-
-      // Signed in with the fresh password now — drop the code and head in.
-      window.location.replace("/dashboard")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Password reset failed. Please try again.")
       setLoading(false)
     }
   }
@@ -190,44 +165,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           Back to sign in
         </Button>
       </div>
-    )
-  }
-
-  if (recovery) {
-    return (
-      <form onSubmit={submitNewPassword} className="space-y-4">
-        <p className="text-sm text-muted">Choose a new password for your account.</p>
-        <Field label="New password" hint="min 8 characters">
-          <Input
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="••••••••"
-          />
-        </Field>
-        <Field label="Confirm password">
-          <Input
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={newPasswordConfirm}
-            onChange={(e) => setNewPasswordConfirm(e.target.value)}
-            placeholder="••••••••"
-          />
-        </Field>
-        {error ? (
-          <div className={cn("rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson")} role="alert">
-            {error}
-          </div>
-        ) : null}
-        <Button type="submit" disabled={loading} className="w-full" size="lg">
-          {loading ? "Saving…" : "Set new password"}
-        </Button>
-      </form>
     )
   }
 
@@ -309,17 +246,20 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         />
       </Field>
 
-      <Field label="Password" hint={mode === "login" ? undefined : "min 8 characters"}>
-        <Input
-          type="password"
-          required
-          minLength={mode === "signup" ? 8 : undefined}
-          autoComplete={mode === "login" ? "current-password" : "new-password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-        />
-      </Field>
+      {/* Signup is email-only — the password is chosen on the page the emailed
+          link opens, so this page stays a single input. */}
+      {mode === "login" && (
+        <Field label="Password">
+          <Input
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+        </Field>
+      )}
 
       {error ? (
         <div className={cn("rounded-md border border-rust/40 bg-rust/10 p-3 text-[13px] text-crimson")} role="alert">
@@ -328,7 +268,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       ) : null}
 
       <Button type="submit" disabled={loading} className="w-full" size="lg">
-        {loading ? "One moment…" : mode === "login" ? "Sign in" : "Create account"}
+        {loading
+          ? "One moment…"
+          : mode === "login"
+            ? "Sign in"
+            : "Email me a secure link"}
       </Button>
 
       <p className="text-center font-mono text-[11px] uppercase tracking-[0.14em] text-faint">

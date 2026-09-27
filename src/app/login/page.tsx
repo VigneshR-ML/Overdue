@@ -40,6 +40,9 @@ export default function LoginPage() {
               Create a free account
             </Link>
           </div>
+          <p className="mt-3 text-center text-xs text-faint">
+            Creating an account is different from signing in — it only asks for your email.
+          </p>
         </section>
         <SignupMotionPanel />
       </main>
