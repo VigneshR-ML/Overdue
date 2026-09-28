@@ -79,9 +79,6 @@ export function TestimonialMarquee() {
           <h2 id="feedback-heading" className="mt-3 font-display text-3xl tracking-tight text-ink sm:text-4xl">
             Less chasing. More breathing room.
           </h2>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
-            Illustrative feedback from the kinds of teams Overdue is built for. Replace these examples with verified customer quotes as your pilots come in.
-          </p>
         </div>
       </div>
 
