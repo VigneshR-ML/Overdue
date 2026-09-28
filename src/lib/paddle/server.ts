@@ -1,6 +1,7 @@
 import "server-only"
 import { Environment, Paddle } from "@paddle/paddle-node-sdk"
 import { getPaddleApiKey, getPaddleWebhookSecret, paddleEnvironment, paddlePriceId, isPaddleBillingConfigured } from "./helpers"
+import { siteUrl } from "@/lib/site-url"
 
 export { paddlePriceId, isPaddleBillingConfigured }
 
@@ -83,7 +84,7 @@ export async function createPaddleCheckout(opts: {
   const client = getPaddleClient()
   const priceId = paddlePriceId()
   if (!client || !priceId) return null
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")
+  const appUrl = siteUrl()
   try {
     const customerId = opts.email ? await resolvePaddleCustomerId(client, opts.email, opts.name) : undefined
     const transaction = await client.transactions.create({

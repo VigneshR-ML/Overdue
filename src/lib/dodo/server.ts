@@ -1,6 +1,7 @@
 import "server-only"
 import DodoPayments from "dodopayments"
 import { getDodoApiKey, getDodoWebhookKey, dodoEnvironment, proProductId, isProProductId, isBillingConfigured } from "./helpers"
+import { siteUrl } from "@/lib/site-url"
 
 export { proProductId, isProProductId, isBillingConfigured }
 
@@ -24,7 +25,7 @@ export async function createCheckout(opts: {
   const client = getDodoClient()
   const productId = proProductId()
   if (!client || !productId) return null
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")
+  const appUrl = siteUrl()
   try {
     const session = await client.checkoutSessions.create({
       product_cart: [{ product_id: productId, quantity: 1 }],

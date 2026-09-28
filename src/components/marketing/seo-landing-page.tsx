@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { MarketingFooter, MarketingNav } from "@/components/marketing/site"
+import { siteUrl as getSiteUrl } from "@/lib/site-url"
 
 export interface SeoLandingContent {
   eyebrow: string
@@ -13,7 +14,7 @@ export interface SeoLandingContent {
 }
 
 export function SeoLandingPage({ content }: { content: SeoLandingContent }) {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"
+  const siteUrl = getSiteUrl()
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",

@@ -4,6 +4,7 @@ import { getPlan } from "@/lib/billing/plan"
 import { getOAuthConfig } from "@/lib/integrations/credentials"
 import { STRIPE_ENABLED } from "@/lib/integrations/stripe-flag"
 import { signState, appUrl } from "@/lib/integrations/oauth"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -18,6 +19,8 @@ export async function GET() {
   }
   const { user, error } = await requireUser()
   if (error) return error
+  const rl = await rateLimit(`integration-start:${user!.id}`, RATE_LIMITS.integrationWrite.limit, RATE_LIMITS.integrationWrite.windowMs)
+  if (!rl.allowed) return NextResponse.json({ ok: false, error: "Rate limit exceeded" }, { status: 429 })
 
   const plan = await getPlan(user!.id)
   if (plan === "free") {

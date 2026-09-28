@@ -1,4 +1,5 @@
 import crypto from "crypto"
+import { siteUrl } from "@/lib/site-url"
 
 const STATE_MAX_AGE_MS = 10 * 60 * 1000 // 10 minutes
 
@@ -46,7 +47,5 @@ export function verifyState(state: string): string | null {
 }
 
 export function appUrl() {
-  const url = process.env.NEXT_PUBLIC_APP_URL
-  if (!url) console.warn("[app] NEXT_PUBLIC_APP_URL is not set — using the production canonical host")
-  return url ?? "https://www.getoverdue.online"
+  return siteUrl()
 }

@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next"
+import { siteUrl } from "@/lib/site-url"
 
 export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"
+  const base = siteUrl()
   return {
     rules: {
       userAgent: "*",

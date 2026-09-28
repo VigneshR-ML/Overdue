@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { setCredentials } from "@/lib/integrations/credentials"
 import { syncUserProvider } from "@/lib/integrations/sync"
 import { getPlan } from "@/lib/billing/plan"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic"
 export async function POST(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
+  const rl = await rateLimit(`integration-save:${user!.id}`, RATE_LIMITS.integrationWrite.limit, RATE_LIMITS.integrationWrite.windowMs)
+  if (!rl.allowed) return NextResponse.json({ ok: false, error: "Rate limit exceeded" }, { status: 429 })
 
   const plan = await getPlan(user!.id)
   if (plan === "free") {

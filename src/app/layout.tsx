@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthCodeHandler } from "@/components/auth/auth-code-handler"
+import { siteUrl as getSiteUrl } from "@/lib/site-url"
 import "@fontsource-variable/figtree/wght.css"
 import "@fontsource-variable/fraunces/wght.css"
 import "@fontsource-variable/fraunces/wght-italic.css"
@@ -9,7 +10,7 @@ import "@fontsource/ibm-plex-mono/400.css"
 import "@fontsource/ibm-plex-mono/500.css"
 import "./globals.css"
 
-const configuredSiteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online").replace(/\/$/, "")
+const configuredSiteUrl = getSiteUrl()
 
 export const metadata: Metadata = {
   metadataBase: new URL(configuredSiteUrl),

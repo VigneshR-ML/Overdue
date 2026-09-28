@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOwnedRecord } from "@/lib/supabase/ownership";
 import crypto from "crypto";
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const { user, error } = await requireUser();
   if (error) return error;
+  const rl = await rateLimit(`portal-renew:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs);
+  if (!rl.allowed) return NextResponse.json({ ok: false, error: "Rate limit exceeded" }, { status: 429 });
   let body: { invoiceId?: string; planId?: string | null; email?: string; reason?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }); }
   if (!body.invoiceId) return NextResponse.json({ ok: false, error: "invoiceId required" }, { status: 400 });

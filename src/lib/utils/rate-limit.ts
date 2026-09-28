@@ -100,4 +100,10 @@ export const RATE_LIMITS = {
   api: { limit: 60, windowMs: 60_000 },
   /** Cron: 10 requests per minute (protects against leaked secret) */
   cron: { limit: 10, windowMs: 60_000 },
+  /** Manual-payment dual confirmation: 10 per minute per user. Confirmation is
+   *  a deliberate admin action, so this is generous enough never to block real
+   *  use while still throttling a scripted approval attempt. */
+  paymentApproval: { limit: 10, windowMs: 60_000 },
+  /** Integration credential save / OAuth start: 10 per minute per user */
+  integrationWrite: { limit: 10, windowMs: 60_000 },
 } as const

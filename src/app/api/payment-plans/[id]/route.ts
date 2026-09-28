@@ -4,11 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getOwnedRecord } from "@/lib/supabase/ownership"
 import { formatMoney } from "@/lib/utils/format"
 import { sendEmail } from "@/lib/resend/send"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireUser(); if (error) return error
+  const rl = await rateLimit(`payment-plans:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) return NextResponse.json({ ok: false, error: "Rate limit exceeded" }, { status: 429 })
   const { id } = await params
   let body: { status?: unknown }; try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
   const status = body.status === "accepted" || body.status === "declined" ? body.status : null

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOwnedRecord } from "@/lib/supabase/ownership";
 import { requireWorkspaceRole } from "@/lib/supabase/workspace-guard";
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   const params = await props.params;
   const { user, error } = await requireUser();
   if (error) return error;
+  const rl = await rateLimit(`plans:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs);
+  if (!rl.allowed) return NextResponse.json({ ok: false, error: "Rate limit exceeded" }, { status: 429 });
   let body: { action?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }); }
   if (body.action !== "owner_cancel") {

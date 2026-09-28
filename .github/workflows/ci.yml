@@ -1,0 +1,147 @@
+name: CI
+
+# Every command here is one of the gates in scripts/verify-gates.sh, so a green
+# run means the same thing as the reproducible launch-readiness evidence in
+# docs/audit. The credentialed specs (REST write boundary, dual-control) skip
+# themselves when secrets are absent; the "e2e" job asserts that something
+# actually ran, so a fully-skipped suite can never report success.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  quality:
+    name: Lint, types, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The build is verified with no .env file present on purpose: every
+      # module must degrade gracefully when optional integrations are unset.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test -- --reporter=dot
+
+      - name: Production build
+        run: npm run build
+
+      - name: Dependency audit
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  e2e:
+    name: Playwright
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Supplied from repository secrets. Empty when unset — the
+      # credential-gated specs skip themselves, and the guard step below turns
+      # "everything skipped" into a failure.
+      - name: Run e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          set -o pipefail
+          npx playwright test 2>&1 | tee e2e-output.log
+
+      - name: Fail if the whole suite was skipped
+        if: always()
+        run: |
+          # A green run with zero executed tests is a false green: the audit
+          # found 9 of 11 specs skipping silently without live credentials.
+          if [ ! -f e2e-output.log ]; then
+            echo "::error::no Playwright output was captured"
+            exit 1
+          fi
+          PASSED=$(grep -oE '[0-9]+ passed' e2e-output.log | tail -1 | grep -oE '[0-9]+' || true)
+          SKIPPED=$(grep -oE '[0-9]+ skipped' e2e-output.log | tail -1 | grep -oE '[0-9]+' || true)
+          echo "passed=${PASSED:-0} skipped=${SKIPPED:-0}"
+          if [ "${PASSED:-0}" -lt 2 ]; then
+            echo "::error::expected at least the 2 credential-free specs to run, got ${PASSED:-0}"
+            exit 1
+          fi
+          if [ "${SKIPPED:-0}" -gt 0 ]; then
+            echo "::warning::${SKIPPED} spec(s) skipped — configure the Supabase/E2E secrets to exercise the security boundary"
+          fi
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e-output.log
+            test-results/
+          retention-days: 7
+
+  live-boundary:
+    name: Live write boundary
+    needs: quality
+    # Only meaningful against a real database. Configure the secrets to promote
+    # this from a no-op into a hard gate; it verifies that migration 0020's
+    # assert_write_boundary() actually passes, i.e. the RLS/revoke boundary is
+    # enforced rather than merely written down.
+    if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Assert write boundary against the live database
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/assert-write-boundary.mjs

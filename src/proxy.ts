@@ -1,10 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { updateSession } from "@/lib/supabase/middleware"
+import { canonicalHost } from "@/lib/site-url"
 
-const CANONICAL_HOST = (
-  process.env.NEXT_PUBLIC_APP_URL ?? "https://www.getoverdue.online"
-).replace(/^https?:\/\//, "")
-  .replace(/\/+$/, "")
+const CANONICAL_HOST = canonicalHost()
 
 /**
  * Force a single canonical origin in production. PKCE OAuth stores the code

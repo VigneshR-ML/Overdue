@@ -3,12 +3,21 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireWorkspaceRole } from "@/lib/supabase/workspace-guard";
 import { reconcileConfirmedPayment } from "@/lib/recovery/payment-ledger";
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireUser();
   if (error) return error;
+  const rl = await rateLimit(
+    `manual-payment-confirm:${user!.id}`,
+    RATE_LIMITS.paymentApproval.limit,
+    RATE_LIMITS.paymentApproval.windowMs,
+  );
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: false, error: "too many confirmation attempts" }, { status: 429 });
+  }
   const { id } = await params;
   const supabase = createAdminClient();
   if (!supabase) return NextResponse.json({ ok: false, error: "supabase not configured" }, { status: 500 });
@@ -26,20 +35,25 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     .eq("workspace_id", payment.workspace_id).eq("user_id", user!.id).maybeSingle();
   if (!member?.id) return NextResponse.json({ ok: false, error: "workspace membership missing" }, { status: 403 });
 
-  const now = new Date().toISOString();
-  const { data: confirmed } = await supabase.from("payments").update({
-    status: "confirmed", recorded_by_member_id: member.id, paid_at: now,
-  }).eq("id", id).eq("status", "pending").select("id, invoice_id").maybeSingle();
+  // One transaction flips the payment and stamps the approver, so the audit
+  // record can no longer be lost between the two writes. Returns false when
+  // the payment is no longer pending, preserving the previous 409 behaviour.
+  const { data: confirmed, error: confirmErr } = await supabase.rpc(
+    "confirm_manual_payment_approval",
+    { p_payment_id: id, p_member_id: member.id, p_confirmer: user!.id },
+  );
+  if (confirmErr) {
+    return NextResponse.json({ ok: false, error: `confirmation failed: ${confirmErr.message}` }, { status: 409 });
+  }
   if (!confirmed) return NextResponse.json({ ok: false, error: "payment was already confirmed or changed" }, { status: 409 });
 
-  await supabase.from("manual_payment_approvals").update({ confirmed_by: user!.id }).eq("payment_id", id);
   const reconciled = await reconcileConfirmedPayment(supabase, id);
   if (!reconciled.ok) return NextResponse.json({ ok: false, error: `payment confirmed but reconciliation failed: ${reconciled.error}` }, { status: 503 });
 
   await supabase.from("workflow_events").insert({
     workspace_id: payment.workspace_id,
     user_id: user!.id,
-    invoice_id: confirmed.invoice_id,
+    invoice_id: payment.invoice_id,
     event_type: "manual_payment_recorded",
     actor_type: "owner",
     payload: { payment_id: id, confirmed_by: user!.id, dual_control: true },

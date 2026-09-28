@@ -69,12 +69,21 @@ export async function POST(request: NextRequest) {
   }).select("id").single();
   if (payErr || !payment) return NextResponse.json({ ok: false, error: payErr?.message ?? "could not record payment" }, { status: 500 });
 
-  await supabase.from("manual_payment_approvals").insert({
+  // The approval row is the dual-control audit record. A silent failure here
+  // would leave a confirmable payment with no approver trail, so it must be
+  // checked rather than ignored.
+  const { error: approvalErr } = await supabase.from("manual_payment_approvals").insert({
     payment_id: payment.id,
     created_by: user!.id,
     confirmed_by: needsSecondConfirmation ? null : user!.id,
     threshold_cents: threshold,
   });
+  if (approvalErr) {
+    return NextResponse.json(
+      { ok: false, error: `payment recorded but the approval audit row failed: ${approvalErr.message}` },
+      { status: 500 },
+    );
+  }
   await supabase.from("workflow_events").insert({
     workspace_id: owned.record.workspace_id,
     user_id: user!.id,

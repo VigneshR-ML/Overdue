@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireUser } from "@/lib/auth/require-user"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { rateLimit, RATE_LIMITS } from "@/lib/utils/rate-limit"
 
 export const dynamic = "force-dynamic"
 
 export async function PATCH(request: NextRequest) {
   const { user, error } = await requireUser()
   if (error) return error
+  const rl = await rateLimit(`payment-planner:${user!.id}`, RATE_LIMITS.api.limit, RATE_LIMITS.api.windowMs)
+  if (!rl.allowed) return NextResponse.json({ ok: false, error: "Rate limit exceeded" }, { status: 429 })
   let body: { enabled?: unknown; maxIncentiveBps?: unknown }
   try { body = await request.json() } catch { return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 }) }
   if (typeof body.enabled !== "boolean" || typeof body.maxIncentiveBps !== "number" || !Number.isFinite(body.maxIncentiveBps)) {

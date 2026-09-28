@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { siteUrl } from "@/lib/site-url"
 
 /**
  * Paddle checkout for Pro (primary merchant of record).
@@ -84,7 +85,7 @@ function beaconOverlayFailure(stage: string, message: string, transactionId?: st
 }
 
 function appBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")
+  return siteUrl()
 }
 
 let initPromise: Promise<void> | null = null
