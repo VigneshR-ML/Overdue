@@ -10,7 +10,7 @@ import { AuthNotice } from "@/components/auth/auth-notice"
 import { ProPrice } from "@/components/billing/pro-price"
 import { TOOL_CALCULATORS } from "@/lib/seo/tool-calculators"
 import { LandingToolTeaser } from "@/components/marketing/landing-tool-teaser"
-import { TestimonialMarquee } from "@/components/marketing/testimonial-marquee"
+import { AuthorBio } from "@/components/marketing/author-bio"
 import {
   BeforeAfterSection,
   IntegrationStatusBlock,
@@ -153,7 +153,6 @@ export default function LandingPage() {
       </section>
 
       <ProductDemoSection />
-      <TestimonialMarquee />
       <BeforeAfterSection />
       <ReplyDemo />
       <RecoveryScoreTool />
@@ -333,6 +332,8 @@ export default function LandingPage() {
 
       <SetupAndTrustSections />
       <VerifiedFeedbackPlaceholder />
+
+      <section className="mx-auto max-w-2xl px-5 py-16"><AuthorBio /></section>
 
       {/* FAQ */}
       <section className="border-t border-hairline bg-surface/70 py-20">

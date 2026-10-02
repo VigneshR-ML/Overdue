@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { EscalationLadder } from "@/components/ledger/escalation-ladder"
 import { CopyEmailButton } from "@/components/marketing/copy-email-button"
 import { DownloadTemplateButton } from "@/components/marketing/download-template-button"
+import { AuthorBio } from "@/components/marketing/author-bio"
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs"
 
 export const dynamicParams = true
 
@@ -45,11 +47,7 @@ export default async function TemplatePage(props: Props) {
     <div className="min-h-screen bg-paper">
       <MarketingNav />
       <main className="mx-auto max-w-4xl px-5 py-14">
-        <nav className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">
-          <Link href="/templates" className="hover:text-ink">Templates</Link>
-          <span className="mx-2">/</span>
-          <span className="text-ink-soft">{t.name}</span>
-        </nav>
+        <Breadcrumbs items={[{ label: "Templates", href: "/templates" }, { label: t.name, href: `/templates/${t.slug}` }]} />
 
         <h1 className="mt-4 font-display text-4xl tracking-tight text-ink sm:text-5xl">{t.name}</h1>
         <p className="mt-4 max-w-measure text-[15px] leading-relaxed text-ink-soft">{t.intro}</p>
@@ -94,6 +92,8 @@ export default async function TemplatePage(props: Props) {
               ))}
           </div>
         </div>
+
+        <div className="mt-8"><AuthorBio /></div>
 
         {/* Automation pitch */}
         <div className="mt-12 grid gap-6 rounded-lg border border-hairline bg-surface p-6 shadow-ledger md:grid-cols-2">

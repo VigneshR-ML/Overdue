@@ -72,7 +72,6 @@ export const metadata: Metadata = {
     "automated payment follow up",
     "invoice collections software",
   ],
-  alternates: { canonical: "/" },
   openGraph: {
     title: "Overdue — Get paid without chasing clients",
     description:
@@ -124,7 +123,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "@id": `${siteUrl}/#organization`,
     name: "Overdue",
     url: siteUrl,
-    logo: `${siteUrl}/products/overdue-icon.png`,
+    logo: `${siteUrl}/products/overdue-icon.webp`,
     email: "hello@getoverdue.online",
     description: "Accounts receivable automation, invoice reminder, invoice follow-up, and collections workflow software for small businesses, agencies, freelancers, and consultants.",
   }

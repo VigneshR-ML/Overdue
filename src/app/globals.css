@@ -180,41 +180,6 @@ textarea,
   animation: auth-chart-draw 4s ease-in-out infinite;
 }
 
-/* Two-way feedback marquee. The duplicated rows make the loop seamless. */
-@keyframes testimonial-scroll-left {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-
-@keyframes testimonial-scroll-right {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
-}
-
-.testimonial-track {
-  display: flex;
-  width: max-content;
-  gap: 1rem;
-  will-change: transform;
-}
-
-.testimonial-marquee {
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 9%, #000 91%, transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 9%, #000 91%, transparent 100%);
-}
-
-.testimonial-track-left {
-  animation: testimonial-scroll-left 80s linear infinite;
-}
-
-.testimonial-track-right {
-  animation: testimonial-scroll-right 86s linear infinite;
-}
-
-.testimonial-track:hover {
-  animation-play-state: paused;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

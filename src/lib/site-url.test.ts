@@ -79,8 +79,9 @@ describe("canonicalHost", () => {
     expect(canonicalHost()).toBe("getoverdue.online")
   })
 
-  it("strips trailing path and slash", () => {
+  it("uses only the origin when a configured URL includes a path", () => {
     setEnv({ NEXT_PUBLIC_APP_URL: "https://getoverdue.online/app/" })
-    expect(canonicalHost()).toBe("getoverdue.online/app")
+    expect(siteUrl()).toBe("https://getoverdue.online")
+    expect(canonicalHost()).toBe("getoverdue.online")
   })
 })

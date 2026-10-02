@@ -123,7 +123,7 @@ export function ReplyDemo() {
   )
 }
 
-export function RecoveryScoreTool() {
+export function RecoveryScoreTool({ pageHeading = false }: { pageHeading?: boolean }) {
   const [amount, setAmount] = useState("12000")
   const [invoices, setInvoices] = useState("8")
   const [days, setDays] = useState("24")
@@ -172,7 +172,7 @@ export function RecoveryScoreTool() {
       <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-ember">Free tool · shareable report</div>
-          <h2 id="recovery-score-heading" className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">How recoverable is your overdue book?</h2>
+          {pageHeading ? <h1 id="recovery-score-heading" className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">How recoverable is your overdue book?</h1> : <h2 id="recovery-score-heading" className="mt-3 font-display text-4xl tracking-tight text-ink sm:text-5xl">How recoverable is your overdue book?</h2>}
           <p className="mt-4 text-[15px] leading-relaxed text-muted">A directional score, not a credit decision. Use it to decide which invoices deserve a human follow-up today.</p>
         </div>
         <div className="rounded-2xl border border-hairline bg-surface p-6 shadow-ledger sm:p-8">

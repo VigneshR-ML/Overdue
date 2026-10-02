@@ -11,6 +11,8 @@ const content: SeoLandingContent = {
   eyebrow: "Payment reminder software",
   title: "Send the reminder. Keep the relationship.",
   description: "Use a clear, owner-controlled ladder to remind clients about overdue payments without repeating the same email or losing track of the conversation.",
+  path: "/payment-reminder-software",
+  breadcrumb: "Payment reminder software",
   audience: "freelancers, agencies and consultants",
   problem: "Consistent follow-up should not feel like harassment.",
   workflow: ["Start with a friendly payment check-in.", "Escalate only when there is no response.", "Pause when a client replies or requests a plan.", "Close the reminder workflow when payment is recorded."],

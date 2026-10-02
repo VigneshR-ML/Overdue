@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/marketing/site"
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
+  description: "Understand how Overdue handles account, invoice, and client data, including processors, retention, exports, and deletion requests. Read the privacy policy.",
   alternates: { canonical: "/privacy" },
 }
 

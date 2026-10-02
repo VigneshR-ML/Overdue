@@ -106,6 +106,9 @@ export function MarketingFooter() {
               <li><Link href="/#how" className="hover:text-ink">How it works</Link></li>
               <li><Link href="/#ladder" className="hover:text-ink">The ladder</Link></li>
               <li><Link href="/pricing" className="hover:text-ink">Pricing</Link></li>
+              <li><Link href="/payment-reminder-software" className="hover:text-ink">Payment reminders</Link></li>
+              <li><Link href="/invoice-follow-up-software" className="hover:text-ink">Invoice follow-up</Link></li>
+              <li><Link href="/usd-invoice-follow-up" className="hover:text-ink">USD invoice follow-up</Link></li>
               <li><Link href="/login" className="hover:text-ink">Sign in</Link></li>
             </ul>
           </div>
@@ -144,6 +147,7 @@ export function MarketingFooter() {
               <li><Link href="/terms" className="hover:text-ink">Terms</Link></li>
               <li><Link href="/refund" className="hover:text-ink">Refund policy</Link></li>
               <li><Link href="/security" className="hover:text-ink">Security</Link></li>
+              <li><Link href="/about" className="hover:text-ink">About</Link></li>
               <li><a className="break-all hover:text-ink" href="mailto:hello@getoverdue.online">hello@getoverdue.online</a></li>
             </ul>
           </div>

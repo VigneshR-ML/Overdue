@@ -3,6 +3,10 @@ import { updateSession } from "@/lib/supabase/middleware"
 import { canonicalHost } from "@/lib/site-url"
 
 const CANONICAL_HOST = canonicalHost()
+const LEGACY_PATHS: Record<string, string> = {
+  "/for-agencies": "/for/agencies",
+  "/for-freelancers": "/for/freelancers",
+}
 
 /**
  * Force a single canonical origin in production. PKCE OAuth stores the code
@@ -14,13 +18,14 @@ const CANONICAL_HOST = canonicalHost()
  */
 export async function proxy(request: NextRequest) {
   const host = request.nextUrl.host
-
-  if (
+  const canonicalPath = LEGACY_PATHS[request.nextUrl.pathname]
+  const shouldCanonicalizeHost =
     process.env.NODE_ENV !== "development" &&
     !host.startsWith("localhost") &&
     host !== "127.0.0.1" &&
     host !== CANONICAL_HOST
-  ) {
+
+  if (shouldCanonicalizeHost || canonicalPath) {
     const path = request.nextUrl.pathname
     if (path.startsWith("/api/") || path.startsWith("/auth/callback")) {
       // Don't bounce API calls, and never bounce the OAuth callback: the PKCE
@@ -29,12 +34,12 @@ export async function proxy(request: NextRequest) {
       return updateSession(request)
     }
     const url = request.nextUrl.clone()
-    url.protocol = "https:"
-    url.host = CANONICAL_HOST
-    // 307 (temporary), never 308 (permanent): browsers cache a 308 forever,
-    // so a single visit via an alternate host would pin "Sign in" to a stale
-    // redirect long after the session expired.
-    return NextResponse.redirect(url, { status: 307 })
+    if (shouldCanonicalizeHost) {
+      url.protocol = "https:"
+      url.host = CANONICAL_HOST
+    }
+    if (canonicalPath) url.pathname = canonicalPath
+    return NextResponse.redirect(url, { status: 308 })
   }
 
   return updateSession(request)

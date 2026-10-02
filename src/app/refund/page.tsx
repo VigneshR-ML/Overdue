@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/marketing/site"
 
 export const metadata: Metadata = {
   title: "Refund & Cancellation Policy",
+  description: "Learn how to cancel Overdue Pro or request a refund, including the 30-day guarantee, billing periods, and Paddle payment handling.",
   alternates: { canonical: "/refund" },
 }
 

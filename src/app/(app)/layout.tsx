@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { getPlan } from "@/lib/billing/plan"
 import { getSessionUser } from "@/lib/auth/session"
@@ -5,7 +6,10 @@ import { AppTopBar } from "@/components/app-shell/topbar"
 import { AppDock } from "@/components/app-shell/dock"
 import { getOwnerNotifications } from "@/lib/db/queries"
 
-export const metadata = { title: "App" }
+export const metadata: Metadata = {
+  title: "App",
+  robots: { index: false, follow: false },
+}
 
 // Auth-gated shell must never be statically cached — a cached shell would
 // serve one user's ledger frame (or a stale redirect) to the next visitor.

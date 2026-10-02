@@ -19,7 +19,14 @@ const CANONICAL_ORIGIN = "https://getoverdue.online"
 /** Canonical origin, no trailing slash. Never returns an empty string. */
 export function siteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim()
-  if (configured) return configured.replace(/\/+$/, "")
+  if (configured) {
+    try {
+      const url = new URL(configured)
+      if (url.protocol === "http:" || url.protocol === "https:") return url.origin
+    } catch {
+      // A malformed deployment variable must not leak into canonical tags or the sitemap.
+    }
+  }
   // Unconfigured local dev still points at the dev server; an unconfigured
   // production deploy falls back to the real domain rather than localhost.
   return process.env.NODE_ENV === "development" ? "http://localhost:3000" : CANONICAL_ORIGIN
@@ -27,5 +34,5 @@ export function siteUrl(): string {
 
 /** Canonical hostname (no protocol, no path) for host-comparison middleware. */
 export function canonicalHost(): string {
-  return siteUrl().replace(/^https?:\/\//, "").replace(/\/+$/, "")
+  return new URL(siteUrl()).host
 }

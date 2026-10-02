@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/marketing/site"
 
 export const metadata: Metadata = {
   title: "Terms of Service",
+  description: "Review Overdue's terms for invoice follow-up software, including account responsibilities, Paddle billing, cancellation, refunds, and acceptable use.",
   alternates: { canonical: "/terms" },
 }
 

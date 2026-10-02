@@ -1,5 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { AuthorBio } from "@/components/marketing/author-bio"
+import { Breadcrumbs } from "@/components/marketing/breadcrumbs"
 import { MarketingFooter, MarketingNav } from "@/components/marketing/site"
 import { siteUrl as getSiteUrl } from "@/lib/site-url"
 
@@ -7,6 +9,8 @@ export interface SeoLandingContent {
   eyebrow: string
   title: string
   description: string
+  path: string
+  breadcrumb: string
   audience: string
   problem: string
   workflow: string[]
@@ -30,7 +34,8 @@ export function SeoLandingPage({ content }: { content: SeoLandingContent }) {
       <MarketingNav />
       <main>
         <section className="mx-auto max-w-5xl px-5 py-16 sm:py-24">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-moss">{content.eyebrow}</p>
+          <Breadcrumbs items={[{ label: content.breadcrumb, href: content.path }]} />
+          <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.16em] text-moss">{content.eyebrow}</p>
           <h1 className="mt-4 max-w-4xl font-display text-4xl leading-tight tracking-tight text-ink sm:text-6xl">{content.title}</h1>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink-soft">{content.description}</p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -47,7 +52,7 @@ export function SeoLandingPage({ content }: { content: SeoLandingContent }) {
             </div>
             <div className="space-y-3 text-[15px] leading-relaxed text-muted">
               <p>Overdue keeps the invoice amount, due date, reminder history, client replies and payment outcome in one workflow.</p>
-              <p>AI helps draft clearer words. It never changes money, dates or sends an unapproved payment decision.</p>
+              <p>Drafts are reviewed in the workflow. Amounts, due dates, and payment decisions stay under the owner's control.</p>
             </div>
           </div>
         </section>
@@ -74,8 +79,9 @@ export function SeoLandingPage({ content }: { content: SeoLandingContent }) {
               </details>
             ))}
           </div>
+          <div className="mt-8"><AuthorBio /></div>
         </section>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({ ...faqJsonLd, url: siteUrl }).replace(/</g, "\\u003c") }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({ ...faqJsonLd, url: `${siteUrl}${content.path}` }).replace(/</g, "\\u003c") }} />
       </main>
       <MarketingFooter />
     </div>

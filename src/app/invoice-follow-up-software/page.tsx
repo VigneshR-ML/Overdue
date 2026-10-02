@@ -11,6 +11,8 @@ const content: SeoLandingContent = {
   eyebrow: "Invoice follow-up software",
   title: "A calmer way to recover overdue invoices.",
   description: "Overdue helps small businesses follow up consistently after the due date without turning every late invoice into an awkward conversation.",
+  path: "/invoice-follow-up-software",
+  breadcrumb: "Invoice follow-up software",
   audience: "small B2B businesses",
   problem: "Make the next action obvious for every overdue invoice.",
   workflow: ["Import or create the invoice.", "Set the reminder timing and tone.", "Review the message and resolve link.", "Track replies, promises, payment plans and payment."],
