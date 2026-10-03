@@ -40,6 +40,7 @@ export function MarketingNav() {
           <Link className="transition-colors hover:text-ink" href="/#ladder">The ladder</Link>
           <Link className="transition-colors hover:text-ink" href="/#pricing">Pricing</Link>
           <Link className="transition-colors hover:text-ink" href="/templates">Templates</Link>
+          <Link className="transition-colors hover:text-ink" href="/blog">Blog</Link>
           <Link className="transition-colors hover:text-ink" href="/#tools">Tools</Link>
         </nav>
         <div className="flex items-center gap-2">
@@ -68,6 +69,7 @@ export function MarketingNav() {
               ["/#ladder", "The ladder"],
               ["/#pricing", "Pricing"],
               ["/templates", "Templates"],
+              ["/blog", "Blog"],
               ["/#tools", "Tools"],
               ["/recovery-score", "Recovery score"],
               ["/partners", "Partners"],
@@ -125,6 +127,7 @@ export function MarketingFooter() {
           <div>
             <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">Tools</div>
             <ul className="mt-3 space-y-2 text-sm text-muted">
+              <li><Link href="/calculators" className="hover:text-ink">Free calculators</Link></li>
               <li><Link href="/#tools" className="hover:text-ink">Calculators overview</Link></li>
               <li><Link href="/login" className="hover:text-ink">Log in to use tools</Link></li>
               <li><Link href="/signup" className="hover:text-ink">Start 14-day trial</Link></li>
@@ -138,6 +141,14 @@ export function MarketingFooter() {
               <li><Link href="/for/msps" className="hover:text-ink">MSPs</Link></li>
               <li><Link href="/for/freelancers" className="hover:text-ink">Freelancers</Link></li>
               <li><Link href="/partners" className="hover:text-ink">Partner programme</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-faint">Resources</div>
+            <ul className="mt-3 space-y-2 text-sm text-muted">
+              <li><Link href="/blog" className="hover:text-ink">Blog</Link></li>
+              <li><Link href="/calculators" className="hover:text-ink">Free tools</Link></li>
+              <li><Link href="/templates" className="hover:text-ink">Templates</Link></li>
             </ul>
           </div>
           <div>

@@ -18,12 +18,33 @@ const LEGACY_PATHS: Record<string, string> = {
  */
 export async function proxy(request: NextRequest) {
   const host = request.nextUrl.host
+  // Free-tools subdomain: serve the public calculators without auth redirects.
+  // `tools.getoverdue.online/` shows the calculators hub and
+  // `tools.getoverdue.online/<calculator-slug>` serves that calculator.
+  // Requires DNS + Vercel domain config for `tools.*` (see docs); the main
+  // domain keeps serving the same pages under /calculators as canonical.
+  if (host.startsWith("tools.")) {
+    const path = request.nextUrl.pathname
+    if (
+      !path.startsWith("/api/") &&
+      !path.startsWith("/calculators") &&
+      !path.startsWith("/auth/") &&
+      path !== "/sitemap.xml" &&
+      path !== "/robots.txt"
+    ) {
+      const url = request.nextUrl.clone()
+      url.pathname = path === "/" ? "/calculators" : `/calculators${path}`
+      return NextResponse.rewrite(url)
+    }
+    return updateSession(request)
+  }
   const canonicalPath = LEGACY_PATHS[request.nextUrl.pathname]
   const shouldCanonicalizeHost =
     process.env.NODE_ENV !== "development" &&
     !host.startsWith("localhost") &&
     host !== "127.0.0.1" &&
-    host !== CANONICAL_HOST
+    host !== CANONICAL_HOST &&
+    !host.startsWith("tools.")
 
   if (shouldCanonicalizeHost || canonicalPath) {
     const path = request.nextUrl.pathname

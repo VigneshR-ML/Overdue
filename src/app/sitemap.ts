@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next"
 import { EMAIL_TEMPLATES } from "@/lib/seo/email-templates"
+import { BLOG_POSTS } from "@/lib/seo/blog-posts"
+import { TOOL_CALCULATORS } from "@/lib/seo/tool-calculators"
 import { siteUrl } from "@/lib/site-url"
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -28,5 +30,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }))
 
-  return [...staticRoutes, ...templates]
+  const blogPosts: MetadataRoute.Sitemap = [
+    { url: `${base}/blog`, changeFrequency: "weekly", priority: 0.8 },
+    ...BLOG_POSTS.map((p) => ({
+      url: `${base}/blog/${p.slug}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+  ]
+
+  const tools: MetadataRoute.Sitemap = [
+    { url: `${base}/calculators`, changeFrequency: "weekly", priority: 0.8 },
+    ...TOOL_CALCULATORS.map((t) => ({
+      url: `${base}/calculators/${t.slug}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+  ]
+
+  return [...staticRoutes, ...templates, ...blogPosts, ...tools]
 }

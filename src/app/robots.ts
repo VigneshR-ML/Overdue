@@ -8,8 +8,20 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Private HTML routes send a noindex directive so crawlers can see it.
-      // Only machine endpoints are disallowed from crawling.
-      disallow: ["/api/"],
+      // Disallow machine endpoints and auth-gated app routes so crawl budget
+      // stays on marketing content (/, /blog, /calculators, /templates).
+      disallow: [
+        "/api/",
+        "/dashboard/",
+        "/invoices/",
+        "/clients/",
+        "/sequences/",
+        "/insights/",
+        "/settings/",
+        "/tools/",
+        "/onboarding/",
+        "/auth/",
+      ],
     },
     sitemap: `${base}/sitemap.xml`,
   }

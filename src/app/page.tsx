@@ -22,10 +22,31 @@ import {
 } from "@/components/marketing/growth-sections"
 
 export const metadata: Metadata = {
-  title: "Accounts Receivable Automation & Invoice Reminder Software",
+  title: "Overdue Invoices | Invoice Overdue Reminder & Collections Automation",
   description:
-    "Automate accounts receivable follow-up with invoice reminders, overdue invoice tracking, payment chasing, collections workflows, reply detection, and payment promise tracking.",
+    "Track overdue invoices, send automated invoice overdue reminders, and collect late payments faster. Overdue helps you manage invoice overdue days, reminders, notices, and letters with automation.",
   keywords: [
+    "overdue invoices",
+    "invoice overdue",
+    "overdue invoice",
+    "invoice overdue days",
+    "invoice overdue calculator",
+    "invoice overdue meaning",
+    "invoice overdue email",
+    "invoice overdue reminder",
+    "invoice overdue notice",
+    "invoice overdue email template",
+    "invoice overdue template",
+    "invoice overdue letter",
+    "overdue invoice reminder email",
+    "overdue invoice meaning",
+    "overdue invoice template",
+    "overdue invoice reminder",
+    "overdue invoice letter",
+    "overdue invoices email template",
+    "overdue invoice interest calculator",
+    "overdue invoice letter template",
+    "overdue invoice email",
     "accounts receivable automation",
     "invoice reminder software",
     "invoice follow up software",
@@ -374,6 +395,52 @@ export default function LandingPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD).replace(/</g, "\\u003c") }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Overdue",
+            url: "https://getoverdue.online",
+            logo: "https://getoverdue.online/icon.svg",
+            description:
+              "Automated invoice overdue reminders and accounts receivable collections for overdue invoices.",
+            sameAs: ["https://getoverdue.online"],
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "Overdue",
+            applicationCategory: "BusinessApplication",
+            operatingSystem: "Web Browser",
+            url: "https://getoverdue.online",
+            offers: {
+              "@type": "Offer",
+              price: "19",
+              priceCurrency: "USD",
+              priceSpecification: {
+                "@type": "RecurringPaymentFrequency",
+                frequency: "Monthly",
+              },
+            },
+            description:
+              "Track overdue invoices, send automated invoice overdue reminders, and automate accounts receivable collections.",
+            featureList: [
+              "Overdue invoice tracking",
+              "Invoice overdue reminders",
+              "Automated payment chasing",
+              "Collections workflow automation",
+              "Reply detection and auto-pause",
+            ],
+          }).replace(/</g, "\\u003c"),
+        }}
       />
     </div>
   )
