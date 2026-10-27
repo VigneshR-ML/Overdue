@@ -27,7 +27,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
   {
     slug: "late-invoice-email-template",
     name: "Late invoice email template",
-    metaTitle: "Late Invoice Email Template (That Still Keeps the Client)",
+    metaTitle: "Overdue Invoice Email Template (Keeps the Client)",
     metaDescription:
       "A late invoice email template that's polite on day 1 and firm by day 14. Copy-paste it, or let Overdue run it on autopilot.",
     intro:
@@ -41,7 +41,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
   {
     slug: "late-payment-reminder-email",
     name: "Late payment reminder email",
-    metaTitle: "Late Payment Reminder Email — Polite, Specific, Effective",
+    metaTitle: "Late Payment Reminder Email — Polite & Effective",
     metaDescription:
       "A late payment reminder email that asks for the money without asking for trouble. Free template plus the automation behind it.",
     intro:
@@ -55,7 +55,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
   {
     slug: "final-invoice-email",
     name: "Final invoice email / final notice",
-    metaTitle: "Final Invoice Email: The Last Rung Before You Escalate",
+    metaTitle: "Final Invoice Email: Your Last Notice",
     metaDescription:
       "The final invoice notice template that sets a clear deadline and a clear consequence — without reading like a legal threat.",
     intro:
@@ -69,7 +69,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
   {
     slug: "friendly-invoice-follow-up",
     name: "Friendly invoice follow-up email",
-    metaTitle: "Friendly Invoice Follow-up Email Template (Zero Cringe)",
+    metaTitle: "Friendly Invoice Follow-up Email Template",
     metaDescription:
       "A friendly invoice follow-up email that reads like a colleague, not a creditor. Free template and a ladder that automates it.",
     intro:
@@ -83,7 +83,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
   {
     slug: "invoice-chaser-email",
     name: "Invoice chaser email template",
-    metaTitle: "Invoice Chaser Email Template That Doesn't Chase People Away",
+    metaTitle: "Invoice Chaser Email That Doesn't Chase People Off",
     metaDescription:
       "The invoice chaser email, done properly: escalating tone, human phrasing, and a schedule that respects both of you.",
     intro:
@@ -97,7 +97,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
   {
     slug: "how-to-ask-for-payment-email",
     name: "How to ask for payment by email",
-    metaTitle: "How to Ask for Payment by Email (Without Being Awkward)",
+    metaTitle: "How to Ask for Payment by Email",
     metaDescription:
       "A practical guide to asking for payment by email: tone, timing, templates, and what to do when clients go quiet.",
     intro:
@@ -139,7 +139,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDoc[] = [
   {
     slug: "second-payment-reminder-email",
     name: "Second payment reminder email template",
-    metaTitle: "Second Payment Reminder Email Template (The Nudge)",
+    metaTitle: "Second Payment Reminder Email Template",
     metaDescription:
       "The second payment reminder email is where freelancers lose most money. Use this template to stay on their list without losing the plot.",
     intro:

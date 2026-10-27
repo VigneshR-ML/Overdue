@@ -55,6 +55,125 @@ export default function PricingPage() {
           <Link href="/refund" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Refund policy</Link> and{" "}
           <Link href="/terms" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">Terms</Link>.
         </p>
+
+        <section className="mt-20">
+          <h2 className="font-display text-2xl tracking-tight text-ink">What the price includes</h2>
+          <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-ink-soft">
+            <p>
+              There is one plan. Overdue does not gate recovery ladders, client seats, or invoice volume behind
+              tiers, because a follow-up tool that charges more as you chase more money is priced against your
+              incentives. The monthly price covers the whole workflow described below.
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>Unlimited clients, invoices, and recovery ladders, with no per-seat charge for the owner.</li>
+              <li>Smart CSV import from any invoice system, so you can start from overdue balances you already have.</li>
+              <li>Autopilot scheduling, where approved follow-ups fire on the ladder you configured without manual re-sending.</li>
+              <li>AI drafting in your own voice, reviewed and approved by you before anything is sent.</li>
+              <li>Reply detection and auto-pause, so an open conversation is never chased over the top of.</li>
+              <li>Payment-history scoring, which prioritises which balances to work on next.</li>
+            </ul>
+            <p>
+              Direct invoice connections are coming soon. Today, CSV is the import path, and it works with any
+              system that can export a list of invoices.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-16">
+          <h2 className="font-display text-2xl tracking-tight text-ink">How billing works</h2>
+          <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-ink-soft">
+            <p>
+              The 14-day trial requires no card. If you continue, billing runs monthly at the Pro price shown above
+              through Paddle, our merchant of record, with Dodo Payments as a fallback on some deploys. Being the
+              merchant of record means Paddle handles the invoice, the tax calculation, and the receipt, rather than
+              us billing you directly.
+            </p>
+            <p>
+              You can cancel at any time and keep access until the end of the period you have already paid for.
+              There is no annual contract and no cancellation fee. If Overdue does not help you recover more, the
+              honest move is to stop paying for it, and the{" "}
+              <Link href="/refund" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">
+                refund policy
+              </Link>{" "}
+              covers the 30-day guarantee.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-16">
+          <h2 className="font-display text-2xl tracking-tight text-ink">Pricing questions</h2>
+          <dl className="mt-4 space-y-5 text-[15px] leading-relaxed">
+            <div>
+              <dt className="font-medium text-ink">Is the trial really free?</dt>
+              <dd className="mt-1 text-ink-soft">
+                Yes. The 14-day trial needs no card and does not convert automatically. You start paying only if
+                you choose to continue after the trial ends.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">What happens to my data if I cancel?</dt>
+              <dd className="mt-1 text-ink-soft">
+                Your account stays available until the end of the paid period, and you can export your invoice and
+                follow-up history before it closes. Details are in the{" "}
+                <Link href="/terms" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">
+                  Terms
+                </Link>
+                .
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">Is the price per client or per invoice?</dt>
+              <dd className="mt-1 text-ink-soft">
+                Neither. One monthly price covers unlimited clients and unlimited invoices. If you chase payment for
+                a living, a per-invoice price would penalise you for doing more business.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">Do you handle tax on the subscription?</dt>
+              <dd className="mt-1 text-ink-soft">
+                Paddle is our merchant of record, so it calculates and collects any applicable tax on your
+                subscription and issues your receipt. You do not need to handle that with us directly.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">Are there discounts for annual billing?</dt>
+              <dd className="mt-1 text-ink-soft">
+                Not at the moment. Overdue is monthly-only today. If annual billing is something you want, tell us
+                at{" "}
+                <a href="mailto:hello@getoverdue.online" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">
+                  hello@getoverdue.online
+                </a>
+                .
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">I am an accountant referring clients — is there a separate rate?</dt>
+              <dd className="mt-1 text-ink-soft">
+                Partners earn a referral reward rather than a discounted rate. See the{" "}
+                <Link href="/partners" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">
+                  partner programme
+                </Link>{" "}
+                page for how that works.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section className="mt-16 rounded-lg border border-hairline bg-surface p-6 shadow-ledger">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">Still deciding</p>
+          <h2 className="mt-2 font-display text-2xl text-ink">Start the trial, or ask a question first</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            The fastest way to judge Overdue is to load your own overdue balances and watch what the ladder does
+            with them. If you would rather ask something first, email us at{" "}
+            <a href="mailto:hello@getoverdue.online" className="text-ink underline decoration-hairline underline-offset-2 hover:decoration-moss">
+              hello@getoverdue.online
+            </a>
+            .
+          </p>
+          <a href="/signup" className="mt-4 block">
+            <Button variant="moss">Start 14-day free trial</Button>
+          </a>
+        </section>
       </main>
       <MarketingFooter />
     </div>

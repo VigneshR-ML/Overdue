@@ -29,12 +29,12 @@ describe("renderEscalationEmail resolution button", () => {
 
 describe("formatFromAddress", () => {
   it("uses the workspace sender name with the verified delivery address", () => {
-    expect(formatFromAddress("Overdue <reminders@getoverdue.online>", "Vignesh Studio"))
-      .toBe("Vignesh Studio via Overdue <reminders@getoverdue.online>")
+    expect(formatFromAddress("Overdue <reminders@getoverdue.online>", "Acme Studio"))
+      .toBe("Acme Studio via Overdue <reminders@getoverdue.online>")
   })
 
   it("strips header-breaking characters from sender names", () => {
-    expect(formatFromAddress("reminders@getoverdue.online", "Vignesh\r\nBcc: bad@example.com"))
-      .toBe("Vignesh Bcc bad example.com via Overdue <reminders@getoverdue.online>")
+    expect(formatFromAddress("reminders@getoverdue.online", "Acme\r\nBcc: bad@example.com"))
+      .toBe("Acme Bcc bad example.com via Overdue <reminders@getoverdue.online>")
   })
 })

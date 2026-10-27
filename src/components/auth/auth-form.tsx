@@ -20,6 +20,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [showReset, setShowReset] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [resetEmail, setResetEmail] = useState("")
+  const [resending, setResending] = useState(false)
 
   const handleGoogleError = useCallback((message: string) => {
     setError(message)
@@ -79,14 +80,23 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         const { data, error } = await supabase.auth.signUp({
           email,
           // Random high-entropy placeholder: this account can only be unlocked
-          // through the emailed confirmation link.
-          password: crypto.randomUUID() + crypto.randomUUID(),
+          // through the emailed confirmation link. The "Aa1!" prefix satisfies
+          // Supabase's password policy (lowercase, uppercase, digit); a bare
+          // UUID is lowercase hex only and gets rejected with 422 weak_password.
+          // One UUID keeps the total under Supabase's 72-character limit.
+          password: "Aa1!" + crypto.randomUUID(),
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback?flow=signup`,
             data: { flow: "signup" },
           },
         })
         if (error) {
+          if (error.code === "weak_password" || /weak.?password/i.test(error.message)) {
+            return setError("We couldn't create your account because the generated password was rejected. Please try again — if it keeps happening, contact support.")
+          }
+          if (error.code === "over_email_send_rate_limit" || /rate limit/i.test(error.message)) {
+            return setError("Too many sign-up emails were sent from this network in the last hour. Please try again shortly, or continue with Google.")
+          }
           if (/send confirmation email|smtp|email/i.test(error.message) && !/invalid/i.test(error.message)) {
             return setError("We couldn't send the confirmation email — your Supabase project's email provider isn't configured yet. Please ask support to enable email sending (or turn off email confirmation).")
           }
@@ -124,6 +134,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       setError("Couldn't reach the sign-in service. Please try again.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function resendConfirmation() {
+    setResending(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resend({ type: "signup", email })
+      if (error) return setError(error.message)
+      setResending(false)
+    } catch {
+      setError("Couldn't resend the confirmation email. Please try again.")
+    } finally {
+      setResending(false)
     }
   }
 
@@ -200,9 +225,17 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       {magicSent ? (
-        <div className="rounded-md border border-moss/40 bg-moss-soft p-4 text-sm text-moss">
-          Check your inbox — we sent a confirmation link to <strong>{email}</strong>.
-          It can take a minute; if it&apos;s not there, check spam or promotions.
+        <div className="space-y-4">
+          <div className="rounded-md border border-moss/40 bg-moss-soft p-4 text-sm text-moss">
+            Check your inbox — we sent a confirmation link to <strong>{email}</strong>.
+            It can take a minute; if it&apos;s not there, check spam or promotions.
+          </div>
+          <Button type="button" variant="outline" className="w-full" size="lg" onClick={resendConfirmation} disabled={loading}>
+            {resending ? "Resending…" : "Resend confirmation link"}
+          </Button>
+          <Button type="button" variant="ghost" className="w-full" size="lg" onClick={() => setMagicSent(false)}>
+            Try another email
+          </Button>
         </div>
       ) : null}
 

@@ -18,10 +18,10 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cdn.paddle.com https://public.profitwell.com",
-              "connect-src 'self' https://accounts.google.com https://*.supabase.co https://*.dodopayments.com https://va.vercel-scripts.com https://vercel-scripts.com https://vitals.vercel-insights.com https://vercel-insights.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://cdn.paddle.com https://api.paddle.com https://buy.paddle.com https://create-checkout.paddle.com https://*.ingest.sentry.io",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://www.googletagmanager.com https://va.vercel-scripts.com https://static.cloudflareinsights.com https://cdn.paddle.com https://public.profitwell.com",
+              "connect-src 'self' https://accounts.google.com https://*.supabase.co https://*.dodopayments.com https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://va.vercel-scripts.com https://vercel-scripts.com https://vitals.vercel-insights.com https://vercel-insights.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://cdn.paddle.com https://api.paddle.com https://buy.paddle.com https://create-checkout.paddle.com https://*.ingest.sentry.io",
               "img-src 'self' data: https:",
-              "style-src 'self' 'unsafe-inline' https://cdn.paddle.com",
+              "style-src 'self' 'unsafe-inline' https://accounts.google.com https://cdn.paddle.com",
               "frame-src 'self' https://accounts.google.com https://*.dodopayments.com https://buy.paddle.com https://create-checkout.paddle.com",
               "frame-ancestors 'none'",
             ].join("; "),

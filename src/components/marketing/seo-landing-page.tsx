@@ -15,6 +15,8 @@ export interface SeoLandingContent {
   problem: string
   workflow: string[]
   faq: { question: string; answer: string }[]
+  sections?: { heading: string; paragraphs: string[] }[]
+  related?: { href: string; label: string; description: string }[]
 }
 
 export function SeoLandingPage({ content }: { content: SeoLandingContent }) {
@@ -68,6 +70,36 @@ export function SeoLandingPage({ content }: { content: SeoLandingContent }) {
             ))}
           </div>
         </section>
+
+        {content.sections?.length ? (
+          <section className="mx-auto max-w-5xl px-5 pb-16">
+            <div className="space-y-10">
+              {content.sections.map((section) => (
+                <div key={section.heading} className="grid gap-4 md:grid-cols-[0.8fr_1.2fr] md:gap-10">
+                  <h2 className="font-display text-2xl tracking-tight text-ink">{section.heading}</h2>
+                  <div className="space-y-3 text-[15px] leading-relaxed text-muted">
+                    {section.paragraphs.map((paragraph) => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {content.related?.length ? (
+              <div className="mt-12 border-t border-hairline pt-8">
+                <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">Related</div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  {content.related.map((item) => (
+                    <Link key={item.href} href={item.href} className="rounded-lg border border-hairline bg-surface p-4 shadow-ledger transition-colors hover:border-ink-soft">
+                      <div className="text-[14px] font-medium text-ink">{item.label}</div>
+                      <p className="mt-1 text-[13px] leading-relaxed text-muted">{item.description}</p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="mx-auto max-w-5xl px-5 pb-16">
           <h2 className="font-display text-3xl tracking-tight text-ink">Questions</h2>

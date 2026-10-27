@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthCodeHandler } from "@/components/auth/auth-code-handler"
+import { GoogleAnalytics } from "@/components/analytics/google-analytics"
 import { siteUrl as getSiteUrl } from "@/lib/site-url"
 import "@fontsource-variable/figtree/wght.css"
 import "@fontsource-variable/fraunces/wght.css"
@@ -138,6 +139,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <GoogleAnalytics />
         {children}
         <AuthCodeHandler />
         <script

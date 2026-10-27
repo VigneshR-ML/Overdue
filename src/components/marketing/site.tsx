@@ -48,7 +48,7 @@ export function MarketingNav() {
             <Button variant="ghost" size="sm">Sign in</Button>
           </Link>
           <Link href="/signup">
-            <Button variant="ink" size="sm">Start 14-day trial</Button>
+            <Button variant="ink" size="md" className="h-10">Start 14-day trial</Button>
           </Link>
           <button
             type="button"
